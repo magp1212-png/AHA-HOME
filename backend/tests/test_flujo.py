@@ -554,3 +554,34 @@ def test_presupuesto_rechazado_permite_uno_nuevo(client):
     client.post(f"/ordenes/{o['id']}/presupuesto/pago", json={"metodo": "efectivo_usd", "referencia": "en caja"}, headers=agente)
     r = client.post(f"/supervisor/presupuestos/{p2['id']}/confirmar-pago", headers=login(client, "supervisor@ahahome.test")).json()
     assert r["estado"] == "materiales_pagados"
+    assert client.get(f"/ordenes/{o['id']}", headers=agente).json()["pausa"]["activa"] is False
+
+
+def test_pausa_por_inspeccion_vence_y_se_puede_quitar(client):
+    from app.models import Orden
+    from app.routers.presupuestos import revisar_pausas
+    agente = login(client, "agente@ahahome.test")
+    sin = nueva(client, agente, pago=None, articulos=[{"tipo": "otro", "descripcion": "Mesa", "instalar": True}])
+    assert sin["pausa"]["activa"] is False  # sin inspección: va directo a la confirmación de retiro
+    o = nueva(client, agente, requiere_inspeccion=True, pago=None, articulos=[{"tipo": "otro", "descripcion": "Closet", "instalar": True}])
+    assert o["pausa"]["activa"] and not o["pausa"]["vencida"]
+    # pasa el límite: avisa una sola vez al control y al cliente
+    with SessionLocal() as db:
+        db.get(Orden, o["id"]).pausa_desde -= dt.timedelta(hours=49)
+        db.commit()
+        assert revisar_pausas(db) == 1
+        assert revisar_pausas(db) == 0
+    sup = login(client, "supervisor@ahahome.test")
+    assert "Pausa por inspección vencida" in titulos(client, sup)
+    assert client.get(f"/ordenes/{o['id']}", headers=sup).json()["pausa"]["vencida"]
+    assert client.get("/supervisor/resumen", params={"fecha": LUNES}, headers=sup).json()["indicadores"]["en_pausa_inspeccion"] >= 1
+    r = client.post(f"/supervisor/ordenes/{o['id']}/pausa", json={"accion": "extender"}, headers=sup).json()
+    assert r["pausa"]["activa"] and not r["pausa"]["vencida"]
+    # el control quita la inspección: se salta el paso y sigue a la confirmación de retiro
+    r = client.post(f"/supervisor/ordenes/{o['id']}/pausa", json={"accion": "quitar_inspeccion"}, headers=sup).json()
+    assert not r["pausa"]["activa"] and not r["inspeccion"]["requerida"] and r["listo_para_instalar"]
+    assert client.post(f"/supervisor/ordenes/{o['id']}/pausa", json={"accion": "extender"}, headers=sup).status_code == 409
+    # el técnico también puede pausar por inspección al revisar la orden
+    tecnico = login_pin(client, tel_de(r["tecnico"]["id"]))
+    r = client.post(f"/ordenes/{o['id']}/inspeccion", json={}, headers=tecnico).json()
+    assert r["pausa"]["activa"]

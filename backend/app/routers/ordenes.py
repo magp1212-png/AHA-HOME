@@ -159,6 +159,8 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
               monto_instalacion_centavos=total, requiere_inspeccion=body.requiere_inspeccion,
               inspeccion_fecha=body.fecha.isoformat() if body.requiere_inspeccion else "", inspeccion_franja=body.franja if body.requiere_inspeccion else "", fecha=body.fecha.isoformat(), franja=body.franja, tienda_id=tienda.id,
               agente_id=user.id if user.rol == "agente" else None, qr_token=new_qr_token(), checklist={}, fotos={})
+    if body.requiere_inspeccion:
+        o.pausa_desde = ahora()
     if total:
         o.pago_metodo, o.pago_referencia, o.pagado_en, o.cobrado_por = body.pago.metodo, body.pago.referencia.strip(), ahora(), user.id
     o.articulos = [Articulo(tipo=a.tipo, descripcion=a.descripcion.strip(), marca=a.marca.strip(), modelo=a.modelo.strip(),

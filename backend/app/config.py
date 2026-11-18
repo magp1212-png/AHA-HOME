@@ -31,3 +31,6 @@ WEB_DIR = pathlib.Path(os.environ.get("AHAHOME_WEB_DIR", BASE_DIR.parent / "mobi
 
 # Hora de Caracas (UTC-4, sin horario de verano) para saber qué grupo está de guardia hoy.
 UTC_OFFSET_HOURS = -4
+
+# Una orden en pausa por inspección avisa al control si pasa este tiempo sin quedar lista para retirar.
+PAUSA_INSPECCION_HORAS = int(os.environ.get("AHAHOME_PAUSA_INSPECCION_HORAS", "48"))

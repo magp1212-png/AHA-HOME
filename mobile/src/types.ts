@@ -28,6 +28,7 @@ export type Orden = {
   calificacion: number | null; qr?: string;
   inspeccion: { requerida: boolean; fecha: string; franja: string };
   presupuesto: Presupuesto | null; listo_para_instalar: boolean;
+  pausa: { activa: boolean; desde: string | null; horas: number; limite_horas: number; vencida: boolean };
   propina: { monto: string; metodo: string | null; dada: boolean; entregada_al_tecnico: boolean };
 };
 

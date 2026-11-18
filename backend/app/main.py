@@ -53,6 +53,9 @@ def _purga_periodica() -> None:
                 n = purgar_no_verificados(db)
                 if n:
                     log.info("registros sin verificar eliminados: %s", n)
+                from .routers.presupuestos import revisar_pausas
+                if revisar_pausas(db):
+                    log.info("avisos de pausa por inspección vencida enviados")
         except Exception:
             log.exception("falló la purga de registros sin verificar")
         time.sleep(3600)

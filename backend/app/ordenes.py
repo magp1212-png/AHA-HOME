@@ -195,10 +195,11 @@ def vista(orden: Orden, rol: str) -> dict:
                     "entregada_al_tecnico": orden.propina_entregada_en is not None},
         "creado": _iso(orden.creado),
     }
-    from .routers.presupuestos import listo_para_instalar, vigente, vista_presupuesto
+    from .routers.presupuestos import info_pausa, listo_para_instalar, vigente, vista_presupuesto
     p = vigente(orden)
     d["presupuesto"] = vista_presupuesto(p, rol) if p else None
     d["listo_para_instalar"] = listo_para_instalar(orden)
+    d["pausa"] = info_pausa(orden)
     en_camino = orden.estado in ("en_ruta", "en_progreso", "completado")
     if rol == "cliente":
         d["tecnico"] = ficha_cliente(orden.tecnico) if en_camino else None

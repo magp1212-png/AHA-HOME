@@ -23,7 +23,7 @@ function Luz({ color }: { color: "verde" | "roja" | "gris" }) {
 
 type Resumen = {
   fecha: string; grupo_de_guardia: string;
-  indicadores: { ordenes: number; sin_tecnico: number; en_ruta_o_en_servicio: number; completadas: number; incidencias_abiertas: number };
+  indicadores: { ordenes: number; sin_tecnico: number; en_ruta_o_en_servicio: number; completadas: number; incidencias_abiertas: number; en_pausa_inspeccion: number };
   ordenes: Orden[]; incidencias: { id: number; texto: string; tecnico: string | null }[]; reten: Tec[]; pendientes_de_alta: Tec[];
 };
 
@@ -62,7 +62,7 @@ export default function Control() {
           <Boton titulo="Presupuestos y pagos" icono="cash-outline" tipo="lima" onPress={() => nav.push("pagos")} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
             {[["Órdenes", k!.ordenes, C.texto], ["En curso", k!.en_ruta_o_en_servicio, C.texto], ["Completadas", k!.completadas, C.ok],
-              ["Sin técnico", k!.sin_tecnico, C.error], ["Incidencias", k!.incidencias_abiertas, C.alerta]].map(([t, v, col]) => (
+              ["Sin técnico", k!.sin_tecnico, C.error], ["Incidencias", k!.incidencias_abiertas, C.alerta], ["En pausa (inspección)", k!.en_pausa_inspeccion ?? 0, C.alerta]].map(([t, v, col]) => (
               <View key={t as string} style={{ flexBasis: "30%", flexGrow: 1, backgroundColor: C.blanco, borderRadius: 14, borderWidth: 1, borderColor: C.linea, padding: 12 }}>
                 <Text style={{ fontSize: 12, color: C.gris }}>{t}</Text>
                 <Text style={{ fontSize: 26, fontWeight: "900", color: col as string }}>{v as number}</Text>
@@ -145,6 +145,18 @@ export default function Control() {
               </View>
               <Texto gris size={13}>{o.franja} · {o.cliente.nombre} · {o.cliente.direccion}</Texto>
               <Texto size={14}>{o.tecnico ? `${o.tecnico.nombre}${o.ayudantes.length ? " + " + o.ayudantes.map((a) => a.nombre).join(", ") : ""}` : "SIN TÉCNICO"}</Texto>
+              {o.pausa?.activa ? (
+                <View style={{ gap: 8, backgroundColor: o.pausa.vencida ? "#FDECEC" : C.limaSuave, borderRadius: 12, padding: 10 }}>
+                  <Text style={{ fontWeight: "800", color: o.pausa.vencida ? C.error : C.marino }}>
+                    En pausa por inspección · {o.pausa.horas} h de {o.pausa.limite_horas} h{o.pausa.vencida ? " · VENCIDA" : ""}
+                  </Text>
+                  <Texto gris size={13}>{o.presupuesto ? `Presupuesto: ${o.presupuesto.estado_texto}` : "Falta que el técnico inspeccione y envíe el presupuesto."}</Texto>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    <View style={{ flex: 1 }}><Boton titulo="Extender" tipo="secundario" onPress={() => hacer(`/supervisor/ordenes/${o.id}/pausa`, { accion: "extender" })} /></View>
+                    <View style={{ flex: 1 }}><Boton titulo="Quitar inspección" tipo="peligro" onPress={() => hacer(`/supervisor/ordenes/${o.id}/pausa`, { accion: "quitar_inspeccion" })} /></View>
+                  </View>
+                </View>
+              ) : null}
               {["solicitud_enviada", "tecnico_asignado", "cita_confirmada"].includes(o.estado) ? (
                 <Boton titulo={o.tecnico ? "Reasignar automáticamente" : "Buscar técnico"} tipo="secundario" icono="shuffle" onPress={() => hacer(`/supervisor/ordenes/${o.id}/reasignar`)} />
               ) : null}

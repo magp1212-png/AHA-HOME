@@ -13,17 +13,21 @@ const ICONO: Record<string, React.ComponentProps<typeof Ionicons>["name"]> = {
   cocina: "flame-outline", televisor: "tv-outline", otro: "cube-outline",
 };
 
-/** Las 4 fases que ve el cliente, según el tipo de servicio. */
-function fases(o: Orden): { texto: string; hecha: boolean; actual: boolean }[] {
+/** Las fases que ve el cliente según el tipo de servicio. Si pidió inspección, va primero
+ *  «Inspección» (el servicio queda en pausa hasta aprobar y pagar el presupuesto); si no, se salta directo a «Confirmado». */
+function fases(o: Orden): { texto: string; hecha: boolean; actual: boolean; pausa?: boolean }[] {
   const e = o.estado;
   const orden = ["solicitud_enviada", "tecnico_asignado", "cita_confirmada", "en_ruta", "en_progreso", "completado"];
   const i = orden.indexOf(e);
-  const nombres = o.tipo_servicio === "traslado" ? ["Confirmado", "En camino", "Entregado"]
+  const base = o.tipo_servicio === "traslado" ? ["Confirmado", "En camino", "Entregado"]
     : o.tipo_servicio === "instalacion" ? ["Confirmado", "En camino", "Instalación"]
     : ["Confirmado", "En camino", "Entregado", "Instalación"];
+  const conInspeccion = o.inspeccion.requerida;
+  const nombres = conInspeccion ? ["Inspección", ...base] : base;
   // cuántas fases van hechas según el estado del servidor
-  const hechas = i >= 5 ? nombres.length : i === 4 ? nombres.length - 1 : i === 3 ? 1 : i === 2 ? 1 : 0;
-  return nombres.map((texto, k) => ({ texto, hecha: k < hechas, actual: k === hechas }));
+  let hechas = i >= 5 ? base.length : i === 4 ? base.length - 1 : i === 3 ? 1 : i === 2 ? 1 : 0;
+  if (conInspeccion) hechas = o.pausa?.activa ? 0 : hechas + 1;
+  return nombres.map((texto, k) => ({ texto, hecha: k < hechas, actual: k === hechas, pausa: conInspeccion && k === 0 && !!o.pausa?.activa }));
 }
 
 export default function Rastreo({ id }: { id: number }) {
@@ -62,18 +66,21 @@ export default function Rastreo({ id }: { id: number }) {
       <Tarjeta>
         <View style={{ flexDirection: "row" }}>
           {f.map((x, k) => (
-            <View key={x.texto} style={{ flex: 1, alignItems: "center", gap: 8 }}>
+            <View key={x.texto} style={{ flex: 1, alignItems: "center", gap: 8, zIndex: f.length - k }}>
               {k > 0 ? <View style={{ position: "absolute", top: 15, right: "50%", width: "100%", height: 4, backgroundColor: x.hecha || x.actual ? C.marino : C.linea }} /> : null}
-              <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center",
+              <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", zIndex: 1,
                 backgroundColor: x.hecha ? C.ok : x.actual ? C.marino : C.blanco, borderWidth: x.hecha ? 0 : x.actual ? 4 : 3, borderColor: x.actual ? C.lima : C.borde }}>
-                {x.hecha ? <Ionicons name="checkmark" size={18} color={C.blanco} /> : null}
+                {x.hecha ? <Ionicons name="checkmark" size={18} color={C.blanco} /> : x.pausa ? <Ionicons name="pause" size={16} color={C.lima} /> : null}
               </View>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: x.hecha || x.actual ? C.texto : "#6B7789", textAlign: "center" }}>{x.texto}</Text>
+              <Text style={{ fontSize: f.length > 4 ? 10.5 : 12, fontWeight: "700", color: x.hecha || x.actual ? C.texto : "#6B7789", textAlign: "center", paddingHorizontal: 2 }}>{x.texto}</Text>
             </View>
           ))}
         </View>
       </Tarjeta>
 
+      {o.pausa?.activa ? (
+        <Aviso tono="info" texto={`Tu servicio está en pausa por la inspección. Cuando apruebes y pagues el presupuesto, seguimos con la confirmación del retiro.${o.pausa.vencida ? " Ya pasó el tiempo previsto: AHA HOME te contactará." : ""}`} />
+      ) : null}
       <InspeccionCliente o={o} recargar={cargar} />
 
       <Titulo>Tus artículos</Titulo>

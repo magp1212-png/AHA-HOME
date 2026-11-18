@@ -10,6 +10,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from .. import ordenes as svc
+from .. import config
 from ..db import get_db
 from ..deps import require
 from ..models import ESTADO_PRESUPUESTO_TEXTO, METODOS_PAGO, Orden, Presupuesto, Tecnico, User, ahora
@@ -37,6 +38,61 @@ def listo_para_instalar(o: Orden) -> bool:
         return True
     p = vigente(o)
     return bool(p and p.estado == "materiales_pagados")
+
+
+def info_pausa(o: Orden) -> dict:
+    """Pausa ("time out") del servicio mientras la inspección y el presupuesto no estén listos."""
+    activa = bool(o.requiere_inspeccion and o.estado in ANTES_DE_SALIR and not listo_para_instalar(o))
+    desde = o.pausa_desde or o.creado
+    horas = round((ahora() - desde).total_seconds() / 3600, 1) if activa and desde else 0
+    return {"activa": activa, "desde": _iso(desde) if activa else None, "horas": horas,
+            "limite_horas": config.PAUSA_INSPECCION_HORAS, "vencida": activa and horas >= config.PAUSA_INSPECCION_HORAS}
+
+
+def revisar_pausas(db: Session) -> int:
+    """Avisa una vez al control y al cliente cuando una pausa por inspección pasa del límite."""
+    n = 0
+    for o in db.scalars(select(Orden).where(Orden.requiere_inspeccion.is_(True), Orden.pausa_aviso_en.is_(None),
+                                            Orden.estado.in_(ANTES_DE_SALIR))):
+        if not info_pausa(o)["vencida"]:
+            continue
+        o.pausa_aviso_en = ahora()
+        texto = f"{o.codigo}: lleva más de {config.PAUSA_INSPECCION_HORAS} h en pausa por inspección. Revisa el presupuesto o quita la pausa."
+        _avisar(db, _control(db, o), "Pausa por inspección vencida", texto, o.id)
+        if o.cliente_id:
+            notificar(db, o.cliente_id, "Tu servicio sigue en pausa", f"{o.codigo}: falta completar la inspección y el presupuesto para retirar tu compra.", o.id)
+        n += 1
+    db.commit()
+    return n
+
+
+class AccionPausa(BaseModel):
+    accion: str  # extender | quitar_inspeccion
+    motivo: str = Field(default="", max_length=200)
+
+
+@router.post("/supervisor/ordenes/{orden_id}/pausa")
+def manejar_pausa(orden_id: int, body: AccionPausa, user: User = Depends(require("tecnico_supervisor", "supervisor")), db: Session = Depends(get_db)):
+    o = obtener(db, orden_id, user)
+    svc.exigir_estado(o, *ANTES_DE_SALIR)
+    if not info_pausa(o)["activa"]:
+        raise HTTPException(409, "Esta orden no está en pausa por inspección")
+    if body.accion == "extender":
+        o.pausa_desde, o.pausa_aviso_en = ahora(), None
+        svc.registrar(db, o, o.estado, user, f"Pausa por inspección extendida {config.PAUSA_INSPECCION_HORAS} h {body.motivo}".strip())
+    elif body.accion == "quitar_inspeccion":
+        if vigente(o) and vigente(o).estado in ("pago_registrado", "pagado"):
+            raise HTTPException(409, "El cliente ya pagó el presupuesto: termina el pago de materiales en vez de quitar la inspección")
+        o.requiere_inspeccion, o.pausa_desde, o.pausa_aviso_en = False, None, None
+        svc.registrar(db, o, o.estado, user, f"Inspección quitada: sigue a confirmación de retiro {body.motivo}".strip())
+        if o.tecnico:
+            notificar(db, o.tecnico.user_id, "Orden sin inspección", f"{o.codigo}: ya no requiere inspección, sigue con el retiro.", o.id)
+        if o.cliente_id:
+            notificar(db, o.cliente_id, "Servicio reanudado", f"{o.codigo}: seguimos con la confirmación del retiro de tu compra.", o.id)
+    else:
+        raise HTTPException(422, "accion debe ser extender o quitar_inspeccion")
+    db.commit()
+    return svc.vista(o, user.rol)
 
 
 def exigir_listo(o: Orden) -> None:
@@ -91,16 +147,21 @@ class PedirInspeccion(BaseModel):
 
 
 @router.post("/ordenes/{orden_id}/inspeccion")
-def pedir_inspeccion(orden_id: int, body: PedirInspeccion, user: User = Depends(require("cliente", "agente", "tecnico_supervisor", "supervisor")),
+def pedir_inspeccion(orden_id: int, body: PedirInspeccion, user: User = Depends(require("cliente", "agente", "tecnico", "tecnico_supervisor", "supervisor")),
                      db: Session = Depends(get_db)):
     o = obtener(db, orden_id, user)
     svc.exigir_estado(o, *ANTES_DE_SALIR)
     o.requiere_inspeccion = True
     o.inspeccion_fecha = body.fecha or o.fecha
     o.inspeccion_franja = normalizar_franja(body.franja) if body.franja else o.franja
-    svc.registrar(db, o, o.estado, user, f"Inspección solicitada para {o.inspeccion_fecha} {o.inspeccion_franja}")
-    texto = f"{o.codigo}: el cliente pidió inspección antes del retiro · {o.inspeccion_fecha} {o.inspeccion_franja} · {o.direccion}"
-    if o.tecnico:
+    o.pausa_desde, o.pausa_aviso_en = ahora(), None
+    svc.registrar(db, o, o.estado, user, f"Servicio en pausa por inspección ({o.inspeccion_fecha} {o.inspeccion_franja})")
+    quien = {"cliente": "el cliente", "tecnico": "el técnico"}.get(user.rol, "AHA HOME")
+    texto = f"{o.codigo}: {quien} pidió inspección antes del retiro · {o.inspeccion_fecha} {o.inspeccion_franja} · {o.direccion}"
+    if o.cliente_id and user.rol != "cliente":
+        notificar(db, o.cliente_id, "Servicio en pausa por inspección",
+                  f"{o.codigo}: antes de retirar tu compra, el técnico te visitará para revisar y darte un presupuesto.", o.id)
+    if o.tecnico and user.rol != "tecnico":
         notificar(db, o.tecnico.user_id, "Inspección solicitada", texto, o.id)
     _avisar(db, _control(db, o), "Inspección solicitada", texto, o.id)
     db.commit()
@@ -265,6 +326,7 @@ class PagoMateriales(BaseModel):
 
 
 def _listo(db: Session, p: Presupuesto, actor: User) -> None:
+    p.orden.pausa_desde = None  # termina la pausa por inspección: pasa a confirmación de retiro
     svc.registrar(db, p.orden, p.orden.estado, actor, f"Materiales pagados al técnico ({p.materiales_referencia}): listo para instalar")
     notificar(db, p.tecnico.user_id, "¡Listo para instalar!", f"{p.orden.codigo}: ya puedes retirar e instalar.", p.orden_id)
     for a in p.orden.ayudantes:

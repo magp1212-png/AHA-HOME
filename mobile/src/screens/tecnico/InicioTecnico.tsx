@@ -122,11 +122,14 @@ export default function InicioTecnico() {
                   {o.estado === "tecnico_asignado" ? <Boton titulo="Confirmar cita" tipo="secundario" onPress={() => accion(`/tecnico/ordenes/${o.id}/confirmar`)} cargando={cargando} /> : null}
                   {o.inspeccion.requerida && ["tecnico_asignado", "cita_confirmada"].includes(o.estado) ? (
                     <View style={{ gap: 8, backgroundColor: C.limaSuave, borderRadius: 12, padding: 12 }}>
-                      <Texto negrita>Inspección antes del retiro · {o.inspeccion.fecha} {o.inspeccion.franja}</Texto>
+                      <Texto negrita>Servicio en pausa: inspección antes del retiro · {o.inspeccion.fecha} {o.inspeccion.franja}</Texto>
                       <Texto gris size={14}>{o.presupuesto ? `Presupuesto USD ${o.presupuesto.total}: ${o.presupuesto.estado_texto}` : "Visita al cliente, revisa y envía el presupuesto."}</Texto>
                       <Boton titulo={o.presupuesto ? "Ver presupuesto" : "Hacer presupuesto"} icono="calculator" tipo={o.presupuesto ? "secundario" : "principal"}
                         onPress={() => nav.push("presupuesto", { id: o.id })} />
                     </View>
+                  ) : null}
+                  {!o.inspeccion.requerida && o.articulos.some((a) => a.instalar) && ["tecnico_asignado", "cita_confirmada"].includes(o.estado) ? (
+                    <Boton titulo="Pausar: hace falta inspección" tipo="secundario" icono="pause-circle-outline" onPress={() => accion(`/ordenes/${o.id}/inspeccion`)} cargando={cargando} />
                   ) : null}
                   {["tecnico_asignado", "cita_confirmada"].includes(o.estado) && o.con_retiro_en_tienda && o.listo_para_instalar ? (
                     <>

@@ -206,6 +206,9 @@ class Orden(Base):
     requiere_inspeccion: Mapped[bool] = mapped_column(Boolean, default=False)
     inspeccion_fecha: Mapped[str] = mapped_column(String(10), default="")
     inspeccion_franja: Mapped[str] = mapped_column(String(20), default="")
+    # Servicio en pausa ("time out") mientras se hace la inspección y se aprueba/paga el presupuesto
+    pausa_desde: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    pausa_aviso_en: Mapped[dt.datetime | None] = mapped_column(DateTime)  # aviso de pausa vencida ya enviado
     calificacion: Mapped[int | None] = mapped_column(Integer)
     # Propina del cliente al cerrar el servicio (va al técnico y su cuadrilla)
     propina_centavos: Mapped[int] = mapped_column(Integer, default=0)
