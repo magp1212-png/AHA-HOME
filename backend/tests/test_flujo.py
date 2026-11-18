@@ -1,4 +1,4 @@
-"""Piloto Damasco Santa Mónica: caja → asignación de cuadrilla → avisos de seguimiento → retiro o salida →
+"""Piloto Damasco San Martín: caja → asignación de cuadrilla → avisos de seguimiento → retiro o salida →
 servicio según tipo (traslado, instalación, traslado e instalación) → cierre → calificación → bitácora del superadmin."""
 import datetime as dt
 
@@ -13,7 +13,7 @@ LUNES = "2026-11-23"  # guardia del Grupo A
 
 ORDEN = {
     "cliente_nombre": "María González", "cliente_telefono": "0414-123-4567",
-    "direccion": "Calle Santa Mónica, Res. Los Pinos, piso 4", "lat": 10.481, "lng": -66.885, "zona": "Central",
+    "direccion": "Av. San Martín, Res. Los Pinos, piso 4", "lat": 10.497, "lng": -66.928, "zona": "Central",
     "articulos": [
         {"tipo": "nevera", "marca": "Samsung", "modelo": "RT38K5932SL", "instalar": True},
         {"tipo": "otro", "descripcion": "Juego de comedor 6 puestos", "marca": "Muebles Caracas"},
@@ -53,7 +53,7 @@ def test_traslado_e_instalacion_completo(client):
     agente = login(client, "agente@ahahome.test")
     o = nueva(client, agente)
     assert o["estado"] == "tecnico_asignado" and o["tipo_servicio_texto"] == "Traslado e instalación"
-    assert o["tecnico"]["grupo"] == "A" and o["tecnico"]["tienda"] == "Damasco Santa Mónica"
+    assert o["tecnico"]["grupo"] == "A" and o["tecnico"]["tienda"] == "Damasco San Martín"
     assert len(o["ayudantes"]) == 1 and o["ayudantes"][0]["rol"] == "ayudante"
 
     # Cada orden nueva llega al técnico supervisor, al equipo supervisor y al superadmin con la cuadrilla
@@ -206,7 +206,7 @@ def test_permisos(client):
     client.post("/supervisor/usuarios", json={"nombre": "Agente Catia", "telefono": "04145550000", "password": "clave123",
                                               "rol": "agente", "tienda_id": t2["id"]}, headers=supervisor)
     agente2 = login(client, "04145550000", "clave123")
-    # Cada tienda ve solo lo suyo; el técnico supervisor de Santa Mónica no ve otras tiendas
+    # Cada tienda ve solo lo suyo; el técnico supervisor de San Martín no ve otras tiendas
     assert client.get(f"/ordenes/{o['id']}", headers=agente2).status_code == 404
     tecsup = login(client, "tecsup@ahahome.test")
     assert client.get("/supervisor/resumen", params={"tienda_id": t2["id"]}, headers=tecsup).status_code == 403

@@ -1,7 +1,7 @@
-"""Datos de demostración para el PILOTO: una sola tienda, Damasco Santa Mónica (Caracas).
+"""Datos de demostración para el PILOTO: una sola tienda, Damasco San Martín (Caracas).
 
 Crea:
-- La tienda Damasco Santa Mónica. Las coordenadas son las del sector Santa Mónica; falta confirmar la dirección exacta.
+- La tienda Damasco San Martín (Av. Sur 19 con Av. Urdaneta). Las coordenadas son aproximadas.
 - 9 técnicos en 3 escuadras (grupos A, B y C) y 1 de Guardia Retén. Cada técnico tiene 1 ayudante.
 - 1 agente en caja, 1 técnico supervisor de la tienda, 1 supervisor, 1 superadmin y 1 clienta.
 
@@ -15,7 +15,8 @@ from app.db import Base, SessionLocal, engine
 from app.models import Tarifa, Tecnico, Tienda, User, ahora
 from app.security import hash_password
 
-TIENDA = ("Damasco Santa Mónica", "Central", "Santa Mónica, Caracas (dirección exacta por confirmar)", 10.4790, -66.8870)
+# Coordenadas aproximadas de la zona de San Martín; ajústalas con el punto exacto de Google Maps (PUT /admin/tiendas/{id}).
+TIENDA = ("Damasco San Martín", "Central", "Av. Sur 19 con Av. Urdaneta, San Martín, Caracas", 10.4990, -66.9260)
 TECNICOS = ["José Hernández", "Luis Rodríguez", "Pedro Silva", "Andrea Medina", "Carlos Rivas", "Ana Torres",
             "Miguel Castillo", "Rosa Díaz", "Jorge Suárez", "Ricardo Pérez"]
 AYUDANTES = ["Daniel Pérez", "Carmen Rojas", "Rafael Mendoza", "Luisa Romero", "Andrés Guzmán", "Patricia Vargas",
@@ -39,9 +40,9 @@ def run():
     db.add_all([
         User(nombre="Superadministrador AHA HOME", telefono="04140000000", email="superadmin@ahahome.test", password_hash=h, rol="superadmin"),
         User(nombre="Equipo Supervisor", telefono="04140000001", email="supervisor@ahahome.test", password_hash=h, rol="supervisor"),
-        User(nombre="Técnico Supervisor Santa Mónica", telefono="04140000002", email="tecsup@ahahome.test", password_hash=h,
+        User(nombre="Técnico Supervisor San Martín", telefono="04140000002", email="tecsup@ahahome.test", password_hash=h,
              rol="tecnico_supervisor", tienda_id=t.id),
-        User(nombre="Agente Caja Santa Mónica", telefono="04141000001", email="agente@ahahome.test", password_hash=h, rol="agente", tienda_id=t.id),
+        User(nombre="Agente Caja San Martín", telefono="04141000001", email="agente@ahahome.test", password_hash=h, rol="agente", tienda_id=t.id),
         User(nombre="María González", telefono="04141234567", email="maria@ahahome.test", password_hash=h, rol="cliente"),
     ])
     for i, nom in enumerate(TECNICOS):
