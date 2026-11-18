@@ -6,7 +6,7 @@ import { api } from "../../api";
 import { useNav } from "../../nav";
 import { useSession } from "../../session";
 import type { Orden } from "../../types";
-import { Campana, Aviso, Boton, C, Cargando, Etiqueta, Pantalla, Texto, tonoEstado } from "../../ui";
+import { BotonCuenta, Campana, Aviso, Boton, C, Cargando, Etiqueta, Pantalla, Texto, tonoEstado } from "../../ui";
 
 export default function InicioCaja() {
   const nav = useNav();
@@ -21,7 +21,7 @@ export default function InicioCaja() {
 
   return (
     <Pantalla titulo="AHA HOME · Caja" subtitulo={perfil?.nombre} volver={false} onRefresh={cargar}
-      derecha={<><Campana /><Pressable accessibilityLabel="Salir" onPress={salir} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name="log-out-outline" size={22} color={C.blanco} /></Pressable></>}>
+      derecha={<><Campana /><BotonCuenta /></>}>
       <Boton titulo="Nueva orden de servicio" icono="add-circle" tipo="lima" onPress={() => nav.push("nuevaOrden")} />
       <Aviso texto={error} />
       <Texto negrita>Órdenes de la tienda</Texto>

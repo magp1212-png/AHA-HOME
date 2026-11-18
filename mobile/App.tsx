@@ -15,6 +15,7 @@ import InicioCliente from "./src/screens/cliente/InicioCliente";
 import Rastreo from "./src/screens/cliente/Rastreo";
 import Reprogramar from "./src/screens/cliente/Reprogramar";
 import Inicio from "./src/screens/Inicio";
+import MiCuenta from "./src/screens/MiCuenta";
 import Notificaciones from "./src/screens/Notificaciones";
 import Login from "./src/screens/Login";
 import LoginTecnico from "./src/screens/LoginTecnico";
@@ -52,6 +53,7 @@ function Router() {
           case "registroTecnico": return <RegistroTecnico />;
           case "servidor": return <Servidor />;
           case "notificaciones": return <Notificaciones />;
+          case "miCuenta": return <MiCuenta />;
           case "cliente": return <InicioCliente />;
           case "rastreo": return <Rastreo id={p.id} />;
           case "reprogramar": return <Reprogramar id={p.id} />;

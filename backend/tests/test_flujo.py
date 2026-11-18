@@ -445,3 +445,19 @@ def test_luces_y_respaldo_del_dia(client):
     assert o3["tecnico"]["id"] == resp["id"]  # el respaldo activado recibe órdenes
     eq = client.get("/supervisor/equipo-hoy", headers=sup).json()
     assert any(f["id"] == resp["id"] and f["luz"] == "verde" for f in eq["equipo"])
+
+
+def test_paginas_legales_y_eliminar_cuenta(client):
+    assert "Política de privacidad" in client.get("/legal/privacidad").text
+    assert "Términos de uso" in client.get("/legal/terminos").text
+    assert client.get("/cuenta/eliminar").status_code == 200
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente)
+    cliente = login(client, "maria@ahahome.test")
+    assert client.post("/yo/eliminar", json={}, headers=cliente).json()["ok"]
+    assert client.get("/yo", headers=cliente).status_code == 401
+    assert client.get(f"/ordenes/{o['id']}", headers=agente).status_code == 200  # la orden queda para auditoría
+    # personal: se desactiva desde la web con su clave
+    assert client.post("/cuenta/eliminar", json={"usuario": "agente@ahahome.test", "password": "mala"}).status_code == 401
+    assert client.post("/cuenta/eliminar", json={"usuario": "agente@ahahome.test", "password": "aha12345"}).json()["ok"]
+    assert client.post("/auth/login", json={"usuario": "agente@ahahome.test", "password": "aha12345"}).status_code == 401

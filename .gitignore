@@ -12,3 +12,6 @@ node_modules/
 mobile/.expo/
 mobile/dist-web/
 backend/correo.key
+mobile/ios/
+mobile/android/
+mobile/google-services.json

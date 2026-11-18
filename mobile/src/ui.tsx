@@ -260,3 +260,15 @@ export function Campana() {
     </Pressable>
   );
 }
+
+
+/** Botón «Mi cuenta» del encabezado (cerrar sesión y eliminar la cuenta están dentro). */
+export function BotonCuenta() {
+  const nav = useNav();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel="Mi cuenta" onPress={() => nav.push("miCuenta")}
+      style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+      <Ionicons name="person-circle-outline" size={26} color={C.blanco} />
+    </Pressable>
+  );
+}
