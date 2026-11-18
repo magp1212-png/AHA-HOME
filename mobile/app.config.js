@@ -8,6 +8,8 @@ module.exports = () => ({
     version: "0.1.0",
     orientation: "portrait",
     userInterfaceStyle: "light",
+    icon: "./assets/icon.png",
+    splash: { image: "./assets/splash.png", resizeMode: "cover", backgroundColor: "#21244D" },
     ios: {
       bundleIdentifier: "app.ahahome.cliente",
       buildNumber: "1",
@@ -21,9 +23,10 @@ module.exports = () => ({
     android: {
       package: "app.ahahome.cliente",
       versionCode: 1,
+      adaptiveIcon: { foregroundImage: "./assets/adaptive-icon.png", backgroundColor: "#21244D" },
       permissions: ["CAMERA", "USE_BIOMETRIC", "USE_FINGERPRINT", "ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
     },
-    web: { bundler: "metro" },
+    web: { bundler: "metro", favicon: "./assets/icon.png" },
     plugins: [
       ["expo-camera", { cameraPermission: "AHA HOME usa la cámara para leer el QR de retiro y tomar las fotos de evidencia." }],
       ["expo-image-picker", {
@@ -36,6 +39,9 @@ module.exports = () => ({
     ],
     extra: {
       apiUrl: process.env.AHAHOME_API_URL || "http://127.0.0.1:8000",
+      // Proyecto en expo.dev (necesario para compilar con EAS y para las notificaciones push).
+      // Se obtiene con «npx eas init» y se pega aquí o en la variable AHAHOME_EAS_PROJECT_ID.
+      ...(process.env.AHAHOME_EAS_PROJECT_ID ? { eas: { projectId: process.env.AHAHOME_EAS_PROJECT_ID } } : {}),
     },
   },
 });

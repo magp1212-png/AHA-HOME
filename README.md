@@ -17,7 +17,7 @@ AHA HOME es la app hermana de AHA VOY. La especificación completa está en `doc
 | 4 | Pantallas del cliente: mis equipos, seguimiento en vivo, ficha de seguridad, calificación | ✅ |
 | 5 | Pantallas del técnico: huella o PIN, alta biométrica, escáner QR, navegación GPS, checklist y fotos | ✅ (falta GPS en vivo) |
 | 6 | Panel del supervisor y superadmin: analítica, ranking de técnicos, reseñas y mapa en vivo con GPS | ✅ |
-| 7 | Notificaciones push y WhatsApp, pruebas en tienda y publicación en Google Play y App Store | ⏳ |
+| 7 | Notificaciones push y bandeja ✅ · WhatsApp ⏳ · pruebas en tienda y publicación en Google Play y App Store ⏳ (falta cuenta de expo.dev y de las tiendas) | 🟡 |
 | 8 | Tabla de precios de instalación (después de entrevistar a los técnicos) | ⏳ |
 
 ## App móvil (`mobile/`)
@@ -36,6 +36,24 @@ npx expo start            # abre en el teléfono con Expo Go o en la web (tecla 
 ```
 
 La dirección del servidor sale de `AHAHOME_API_URL` (en `app.config.js`). También se cambia dentro de la app, en la pantalla de inicio → «Servidor», por ejemplo para pasar a tu servidor físico.
+
+### Compilar y publicar la app
+
+Hace falta una cuenta gratis en **expo.dev**. Para las tiendas, además:
+- **Google Play Console:** 25 USD, pago único.
+- **Apple Developer:** 99 USD al año.
+
+```bash
+cd mobile
+npx eas login                 # tu cuenta de expo.dev
+npx eas init                  # crea el proyecto; copia el projectId en AHAHOME_EAS_PROJECT_ID
+npx eas build -p android --profile preview      # APK para instalar directo en los teléfonos del piloto
+npx eas build -p android --profile production   # para Google Play
+npx eas build -p ios --profile production       # para App Store / TestFlight
+```
+
+- **Dirección del servidor:** las compilaciones apuntan a `https://api.ahahome.app` (en `eas.json`).
+- **Notificaciones push:** funcionan en la app compilada una vez configurado el `projectId`. En la web y en Expo Go de Android, los avisos se ven en la **campana** de la app.
 
 ## Servidor (`backend/`)
 

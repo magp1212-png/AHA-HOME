@@ -52,7 +52,7 @@ export function Pantalla({ titulo, subtitulo, children, volver = true, derecha, 
           <Text style={{ color: C.blanco, fontSize: 19, fontWeight: "800", letterSpacing: 0.3 }} numberOfLines={1}>{titulo}</Text>
           {subtitulo ? <Text style={{ color: "#DCDEF0", fontSize: 13, marginTop: 2 }} numberOfLines={1}>{subtitulo}</Text> : null}
         </View>
-        <View style={{ width: 44, alignItems: "center" }}>{derecha}</View>
+        <View style={{ minWidth: 44, alignItems: "center", flexDirection: "row", justifyContent: "flex-end" }}>{derecha}</View>
       </View>
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 32 + insets.bottom, gap: 14 }}
@@ -238,4 +238,25 @@ export function tonoEstado(estado: string): "neutro" | "ok" | "alerta" | "error"
   if (estado === "en_ruta") return "alerta";
   if (estado === "en_progreso") return "lima";
   return "neutro";
+}
+
+/** Campana del encabezado con el número de avisos sin leer (se actualiza cada 30 s). */
+export function Campana() {
+  const nav = useNav();
+  const [n, setN] = React.useState(0);
+  React.useEffect(() => {
+    let vivo = true;
+    const ver = () => { require("./api").api("/notificaciones").then((l: { leida: boolean }[]) => vivo && setN(l.filter((x) => !x.leida).length)).catch(() => {}); };
+    ver();
+    const t = setInterval(ver, 30000);
+    return () => { vivo = false; clearInterval(t); };
+  }, [nav.route]);
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`Notificaciones${n ? `, ${n} sin leer` : ""}`} onPress={() => nav.push("notificaciones")}
+      style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+      <Ionicons name="notifications-outline" size={23} color={C.blanco} />
+      {n ? <View style={{ position: "absolute", top: 6, right: 4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: C.lima, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
+        <Text style={{ fontSize: 11, fontWeight: "900", color: C.marino }}>{n > 9 ? "9+" : n}</Text></View> : null}
+    </Pressable>
+  );
 }

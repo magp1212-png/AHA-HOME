@@ -6,7 +6,7 @@ import { api } from "../../api";
 import { useNav } from "../../nav";
 import { useSession } from "../../session";
 import type { Orden } from "../../types";
-import { Aviso, C, Cargando, Etiqueta, Pantalla, Texto, Titulo, tonoEstado } from "../../ui";
+import { Campana, Aviso, C, Cargando, Etiqueta, Pantalla, Texto, Titulo, tonoEstado } from "../../ui";
 
 export default function InicioCliente() {
   const nav = useNav();
@@ -36,7 +36,7 @@ export default function InicioCliente() {
 
   return (
     <Pantalla titulo="AHA HOME" subtitulo="Rastreo de pedido e instalación" volver={false} onRefresh={() => { setRefrescando(true); cargar(); }} refrescando={refrescando}
-      derecha={<Pressable accessibilityLabel="Salir" onPress={salir} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name="log-out-outline" size={22} color={C.blanco} /></Pressable>}>
+      derecha={<><Campana /><Pressable accessibilityLabel="Salir" onPress={salir} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name="log-out-outline" size={22} color={C.blanco} /></Pressable></>}>
       <View>
         <Texto gris>Hola,</Texto>
         <Titulo>{perfil?.nombre}</Titulo>

@@ -8,7 +8,7 @@ import { useGpsEnVivo } from "../../gps";
 import { useNav } from "../../nav";
 import { useSession } from "../../session";
 import type { Orden, Persona } from "../../types";
-import { Aviso, Avatar, Boton, C, Cargando, Etiqueta, Pantalla, Tarjeta, Texto, Titulo, tonoEstado } from "../../ui";
+import { Campana, Aviso, Avatar, Boton, C, Cargando, Etiqueta, Pantalla, Tarjeta, Texto, Titulo, tonoEstado } from "../../ui";
 
 type Hoy = {
   fecha: string; rol: "tecnico" | "ayudante"; grupo: string | null; grupo_de_guardia_hoy: string; de_guardia: boolean; verificado: boolean;
@@ -61,7 +61,7 @@ export default function InicioTecnico() {
   useGpsEnVivo(!!o && ["en_ruta", "en_progreso"].includes(o.estado));
   return (
     <Pantalla titulo={`Hola, ${perfil?.nombre.split(" ")[0] ?? ""}`} subtitulo={hoy?.tienda} volver={false} onRefresh={cargar}
-      derecha={<Pressable accessibilityLabel="Salir" onPress={salir} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name="log-out-outline" size={22} color={C.blanco} /></Pressable>}>
+      derecha={<><Campana /><Pressable accessibilityLabel="Salir" onPress={salir} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name="log-out-outline" size={22} color={C.blanco} /></Pressable></>}>
       {!hoy ? (error ? <Aviso texto={error} /> : <Cargando />) : (
         <>
           {!hoy.verificado ? <Aviso tono="info" texto="Tu registro está listo. Pasa por la oficina para completar tu expediente y recibir el alta con tu grupo: después empezarás a recibir órdenes." /> : null}

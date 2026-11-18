@@ -202,6 +202,15 @@ def guardar_push(body: PushToken, user: User = Depends(current_user), db: Sessio
     return {"ok": True}
 
 
+@router.post("/yo/push/quitar")
+def quitar_push(body: PushToken, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Al cerrar sesión: este teléfono deja de recibir los avisos de esta cuenta."""
+    if user.push_token == body.token:
+        user.push_token = None
+        db.commit()
+    return {"ok": True}
+
+
 @router.get("/notificaciones")
 def notificaciones(user: User = Depends(current_user), db: Session = Depends(get_db)):
     ns = db.scalars(select(Notificacion).where(Notificacion.user_id == user.id).order_by(Notificacion.id.desc()).limit(50)).all()

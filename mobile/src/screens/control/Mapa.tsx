@@ -84,7 +84,7 @@ export default function MapaVivo() {
             <Text style={{ color: C.lima, fontWeight: "800", fontSize: 12 }}>{TEXTO[tec.estado].toUpperCase()}{tec.orden ? ` · ${tec.orden.codigo}` : ""}</Text>
             <Text style={{ color: C.blanco, fontWeight: "800", fontSize: 16 }}>{tec.nombre}{tec.ayudantes.length ? ` + ${tec.ayudantes.join(", ")}` : ""}</Text>
             <Text style={{ color: "#DCDEF0" }}>{tec.orden ? `${tec.orden.direccion} · ${tec.orden.franja}` : `Grupo ${tec.grupo ?? "—"}, sin orden activa`}</Text>
-            <Text style={{ color: "#9EA3CF", fontSize: 12 }}>{tec.gps_en ? `GPS: ${new Date(tec.gps_en).toLocaleTimeString()}` : "Sin GPS todavía: se muestra su zona"}</Text>
+            <Text style={{ color: "#9EA3CF", fontSize: 12 }}>{tec.gps_en ? `GPS: ${new Date(tec.gps_en).toLocaleTimeString("es-VE")}` : "Sin GPS todavía: se muestra su zona"}</Text>
           </>
         ) : tienda ? (
           <>

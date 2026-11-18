@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import { api, loadServer, setToken } from "./api";
+import { quitarPush, registrarPush } from "./notifications";
 import type { Perfil } from "./types";
 
 type Session = {
@@ -30,6 +31,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           setToken(t);
           const yo = await api<Perfil>("/yo");
           setTok(t); setPerfil(yo);
+          registrarPush();
         }
       } catch {
         setToken(null);
@@ -41,9 +43,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const entrar = useCallback(async (t: string, p: Perfil) => {
     setToken(t); setTok(t); setPerfil(p);
     try { await AsyncStorage.setItem("ahahome.token", t); } catch {}
+    registrarPush();
   }, []);
 
   const salir = useCallback(async () => {
+    await quitarPush();
     setToken(null); setTok(null); setPerfil(null);
     try { await AsyncStorage.removeItem("ahahome.token"); } catch {}
   }, []);

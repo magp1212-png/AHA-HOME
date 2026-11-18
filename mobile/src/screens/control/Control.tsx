@@ -6,7 +6,7 @@ import { api } from "../../api";
 import { useNav } from "../../nav";
 import { useSession } from "../../session";
 import type { Orden } from "../../types";
-import { Aviso, Boton, C, Cargando, Etiqueta, Pantalla, Seccion, Tarjeta, Texto, tonoEstado } from "../../ui";
+import { Campana, Aviso, Boton, C, Cargando, Etiqueta, Pantalla, Seccion, Tarjeta, Texto, tonoEstado } from "../../ui";
 
 type Tec = { id: number; nombre: string; rol: string; grupo: string | null; reten_activo: boolean; verificado: boolean; registro_app_completo: boolean;
              documentos_faltantes: string[]; ayudantes: { nombre: string }[]; jefe: string | null };
@@ -50,7 +50,7 @@ export default function Control() {
   const k = r?.indicadores;
   return (
     <Pantalla titulo="Centro de control" subtitulo={perfil?.nombre} volver={false} onRefresh={cargar}
-      derecha={<Pressable accessibilityLabel="Salir" onPress={salir} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name="log-out-outline" size={22} color={C.blanco} /></Pressable>}>
+      derecha={<><Campana /><Pressable accessibilityLabel="Salir" onPress={salir} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name="log-out-outline" size={22} color={C.blanco} /></Pressable></>}>
       <Aviso texto={error} />
       {!r ? <Cargando /> : (
         <>

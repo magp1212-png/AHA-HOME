@@ -1,0 +1,15 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "local" },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "AHAHOME_API_URL": "https://api.ahahome.app" }
+    },
+    "production": {
+      "android": { "buildType": "app-bundle" },
+      "env": { "AHAHOME_API_URL": "https://api.ahahome.app" }
+    }
+  },
+  "submit": { "production": {} }
+}
