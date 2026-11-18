@@ -317,6 +317,22 @@ def completar(orden_id: int, user: User = Depends(solo_tecnico), db: Session = D
     return svc.vista(o, "tecnico")
 
 
+class Ubicacion(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+
+
+@router.post("/ubicacion")
+def ubicacion(body: Ubicacion, user: User = Depends(campo), db: Session = Depends(get_db)):
+    """La app del técnico envía su posición mientras va en ruta o está en servicio (mapa en vivo)."""
+    t = mi_tecnico(user)
+    if t.es_ayudante and t.jefe:  # el ayudante va con su técnico: se actualiza la cuadrilla
+        t = t.jefe
+    t.lat_actual, t.lng_actual, t.ubicacion_en = body.lat, body.lng, ahora()
+    db.commit()
+    return {"ok": True}
+
+
 class NuevaIncidencia(BaseModel):
     orden_id: int | None = None
     texto: str = Field(min_length=3, max_length=500)

@@ -133,6 +133,10 @@ class Tecnico(Base):
     alta_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     reten_activo: Mapped[bool] = mapped_column(Boolean, default=False)  # retén activado hoy
     disponible: Mapped[bool] = mapped_column(Boolean, default=True)  # ausencias
+    # GPS en vivo (lo envía la app del técnico mientras trabaja)
+    lat_actual: Mapped[float | None] = mapped_column(Float)
+    lng_actual: Mapped[float | None] = mapped_column(Float)
+    ubicacion_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
     es_ayudante: Mapped[bool] = mapped_column(Boolean, default=False)
     jefe_id: Mapped[int | None] = mapped_column(ForeignKey("tecnicos.id"))  # técnico con el que sale el ayudante
 

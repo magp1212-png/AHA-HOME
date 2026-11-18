@@ -335,3 +335,44 @@ def cambiar_jefe(tec_id: int, body: CambiarJefe, user: User = Depends(control), 
     a.jefe_id, a.grupo = jefe.id, jefe.grupo
     db.commit()
     return tecnico_dict(db, a, asignacion.hoy().isoformat())
+
+
+# ---------- Analítica y mapa en vivo ----------
+
+@router.get("/analitica")
+def ver_analitica(desde: dt.date | None = None, hasta: dt.date | None = None, tienda_id: int | None = None,
+                  user: User = Depends(control), db: Session = Depends(get_db)):
+    from .. import analitica
+    h = hasta or asignacion.hoy()
+    d = desde or (h - dt.timedelta(days=29))
+    return analitica.calcular(db, d, h, tienda_permitida(user, tienda_id))
+
+
+@router.get("/mapa")
+def mapa(user: User = Depends(control), db: Session = Depends(get_db)):
+    """Tiendas, cuadrillas con su última posición GPS y destino, para el mapa en vivo."""
+    tid = tienda_permitida(user, None)
+    hoy = asignacion.hoy().isoformat()
+    tiendas = [t for t in db.scalars(select(Tienda)) if not tid or t.id == tid]
+    abiertas = db.scalars(select(Orden).where(Orden.fecha == hoy, Orden.estado.in_(("tecnico_asignado", "cita_confirmada", "en_ruta", "en_progreso")))).all()
+    por_tec = {}
+    for o in abiertas:
+        if o.tecnico_id and (o.tecnico_id not in por_tec or o.estado in ("en_ruta", "en_progreso")):
+            por_tec[o.tecnico_id] = o
+    guardia = asignacion.grupo_de_guardia(asignacion.hoy())
+    tecs = []
+    for t in db.scalars(select(Tecnico).where(Tecnico.es_ayudante.is_(False), Tecnico.verificado.is_(True))):
+        if tid and t.tienda_id != tid:
+            continue
+        o = por_tec.get(t.id)
+        de_guardia = t.grupo == guardia or (t.grupo == "RETEN" and t.reten_activo)
+        if not o and not de_guardia:
+            continue
+        estado = "en_ruta" if o and o.estado == "en_ruta" else "en_servicio" if o and o.estado == "en_progreso" else "asignado" if o else "disponible"
+        tecs.append({"id": t.id, "nombre": t.user.nombre, "ayudantes": [a.user.nombre for a in t.ayudantes], "grupo": t.grupo,
+                     "estado": estado, "lat": t.lat_actual or t.lat or t.tienda.lat, "lng": t.lng_actual or t.lng or t.tienda.lng,
+                     "gps_en": t.ubicacion_en.isoformat() + "Z" if t.ubicacion_en else None,
+                     "orden": {"codigo": o.codigo, "servicio": o.tipo_servicio, "direccion": o.direccion, "lat": o.lat, "lng": o.lng,
+                               "franja": o.franja} if o else None})
+    return {"tiendas": [{"id": t.id, "nombre": t.nombre, "zona": t.zona, "direccion": t.direccion, "lat": t.lat, "lng": t.lng} for t in tiendas],
+            "tecnicos": tecs}

@@ -4,6 +4,7 @@ import { Linking, Platform, Pressable, Text, View } from "react-native";
 
 import { api } from "../../api";
 import { confirmarIdentidad, biometriaDisponible } from "../../biometria";
+import { useGpsEnVivo } from "../../gps";
 import { useNav } from "../../nav";
 import { useSession } from "../../session";
 import type { Orden, Persona } from "../../types";
@@ -50,6 +51,7 @@ export default function InicioTecnico() {
 
   const esAyudante = perfil?.rol === "ayudante";
   const o = hoy?.orden_activa;
+  useGpsEnVivo(!!o && ["en_ruta", "en_progreso"].includes(o.estado));
   return (
     <Pantalla titulo={`Hola, ${perfil?.nombre.split(" ")[0] ?? ""}`} subtitulo={hoy?.tienda} volver={false} onRefresh={cargar}
       derecha={<Pressable accessibilityLabel="Salir" onPress={salir} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name="log-out-outline" size={22} color={C.blanco} /></Pressable>}>

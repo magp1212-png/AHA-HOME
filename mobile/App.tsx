@@ -5,7 +5,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { NavProvider, Route } from "./src/nav";
 import Expediente from "./src/screens/control/Expediente";
+import Analitica from "./src/screens/control/Analitica";
 import Control from "./src/screens/control/Control";
+import MapaVivo from "./src/screens/control/Mapa";
 import InicioCaja from "./src/screens/agente/InicioCaja";
 import NuevaOrden from "./src/screens/agente/NuevaOrden";
 import OrdenCaja from "./src/screens/agente/OrdenCaja";
@@ -61,6 +63,8 @@ function Router() {
           case "incidencia": return <Incidencia id={p.id} />;
           case "control": return <Control />;
           case "expediente": return <Expediente id={p.id} />;
+          case "analitica": return <Analitica />;
+          case "mapa": return <MapaVivo />;
           default: return <Inicio />;
         }
       }}

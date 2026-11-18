@@ -16,7 +16,7 @@ AHA HOME es la app hermana de AHA VOY. La especificación completa está en `doc
 | 3 | Pantallas del agente en caja: registrar orden y mostrar el QR | ✅ |
 | 4 | Pantallas del cliente: mis equipos, seguimiento en vivo, ficha de seguridad, calificación | ✅ |
 | 5 | Pantallas del técnico: huella o PIN, alta biométrica, escáner QR, navegación GPS, checklist y fotos | ✅ (falta GPS en vivo) |
-| 6 | Panel web del supervisor | ⏳ |
+| 6 | Panel del supervisor y superadmin: analítica, ranking de técnicos, reseñas y mapa en vivo con GPS | ✅ |
 | 7 | Notificaciones push y WhatsApp, pruebas en tienda y publicación en Google Play y App Store | ⏳ |
 | 8 | Tabla de precios de instalación (después de entrevistar a los técnicos) | ⏳ |
 

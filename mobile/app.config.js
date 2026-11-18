@@ -21,7 +21,7 @@ module.exports = () => ({
     android: {
       package: "app.ahahome.cliente",
       versionCode: 1,
-      permissions: ["CAMERA", "USE_BIOMETRIC", "USE_FINGERPRINT"],
+      permissions: ["CAMERA", "USE_BIOMETRIC", "USE_FINGERPRINT", "ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
     },
     web: { bundler: "metro" },
     plugins: [
@@ -32,6 +32,7 @@ module.exports = () => ({
       }],
       ["expo-local-authentication", { faceIDPermission: "AHA HOME usa Face ID para confirmar que eres tú antes de retirar un equipo." }],
       ["expo-notifications", { color: "#21244D" }],
+      ["expo-location", { locationWhenInUsePermission: "AHA HOME usa tu ubicación mientras vas en ruta para que el cliente y tu supervisor sigan el servicio en el mapa." }],
     ],
     extra: {
       apiUrl: process.env.AHAHOME_API_URL || "http://127.0.0.1:8000",

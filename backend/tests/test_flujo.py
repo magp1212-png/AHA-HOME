@@ -371,3 +371,35 @@ def test_registro_rapido_cliente_y_verificacion_24h(client):
         assert db.scalar(select(User).where(User.email == "sin@correo.com")) is None
     # y puede registrarse otra vez con los mismos datos
     assert client.post("/auth/registro", json=datos2).status_code == 200
+
+
+def test_analitica_ranking_y_mapa(client):
+    agente = login(client, "agente@ahahome.test")
+    hoy = __import__("app.asignacion", fromlist=["hoy"]).hoy().isoformat()
+    o = nueva(client, agente, fecha=hoy, franja="06:00-23:59", **SOLO_TRASLADO)
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico)
+    assert client.post("/tecnico/ubicacion", json={"lat": 10.50, "lng": -66.92}, headers=tecnico).json()["ok"]
+
+    sup = login(client, "supervisor@ahahome.test")
+    m = client.get("/supervisor/mapa", headers=sup).json()
+    assert m["tiendas"][0]["nombre"] == "Damasco San Martín"
+    yo = next(t for t in m["tecnicos"] if t["id"] == o["tecnico"]["id"])
+    assert yo["estado"] == "en_ruta" and yo["lat"] == 10.50 and yo["orden"]["codigo"] == o["codigo"]
+
+    client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
+    client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {"entrega_en_empaque_original": True, "ubicado_en_sitio": True}}, headers=tecnico)
+    client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {"entrega": "/archivos/e.jpg"}}, headers=tecnico)
+    client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico)
+    client.post(f"/ordenes/{o['id']}/calificar", json={"estrellas": 5, "comentario": "Rápidos y amables"}, headers=login(client, "maria@ahahome.test"))
+
+    a = client.get("/supervisor/analitica", headers=login(client, "superadmin@ahahome.test")).json()
+    assert a["indicadores"]["completadas"] == 1 and a["indicadores"]["calificacion_promedio"] == 5
+    assert a["por_tienda"][0] == {"tienda": "Damasco San Martín", "ordenes": 1}
+    assert a["articulos"][0]["total"] == 1 and a["cumplimiento"]["llegada_en_franja"] == 100
+    r = a["ranking"][0]
+    assert r["id"] == o["tecnico"]["id"] and r["calificacion"] == 5 and r["impecable"] and r["indice"] == 100
+    assert a["resenas"][0]["comentario"] == "Rápidos y amables" and a["estrellas"]["5"] == 1
+    # el técnico supervisor solo ve su tienda; el cliente no entra
+    assert client.get("/supervisor/analitica", headers=login(client, "tecsup@ahahome.test")).status_code == 200
+    assert client.get("/supervisor/analitica", headers=login(client, "maria@ahahome.test")).status_code == 403
