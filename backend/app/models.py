@@ -132,6 +132,11 @@ class Tecnico(Base):
     alta_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
     alta_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     reten_activo: Mapped[bool] = mapped_column(Boolean, default=False)  # retén activado hoy
+    # Respaldo del día: el técnico que no está de guardia se ofrece para ese día; el centro de control lo activa
+    respaldo_fecha: Mapped[str | None] = mapped_column(String(10))
+    respaldo_activo_fecha: Mapped[str | None] = mapped_column(String(10))
+    ausente_fecha: Mapped[str | None] = mapped_column(String(10))  # avisó que no puede trabajar ese día
+    ausente_motivo: Mapped[str] = mapped_column(String(200), default="")
     disponible: Mapped[bool] = mapped_column(Boolean, default=True)  # ausencias
     # GPS en vivo (lo envía la app del técnico mientras trabaja)
     lat_actual: Mapped[float | None] = mapped_column(Float)

@@ -3,7 +3,7 @@
 Orden de preferencia:
 1. Técnicos del grupo de guardia de ese día, de una tienda de la misma zona del cliente.
 2. Asignación inter-zonal: técnicos de guardia de la zona vecina que ya no tienen órdenes ese día.
-3. Guardia Retén activada por el supervisor (primero los de la misma zona).
+3. Guardia Retén o técnicos de respaldo del día, activados por el centro de control (primero los de la misma zona).
 Dentro de cada nivel gana quien tiene menos órdenes ese día y, a igualdad, quien vive más cerca.
 """
 import datetime as dt
@@ -54,7 +54,7 @@ def elegir_tecnico(db: Session, orden: Orden) -> Tecnico | None:
     guardia = grupo_de_guardia(fecha)
     lat = orden.lat if orden.lat is not None else orden.tienda.lat
     lng = orden.lng if orden.lng is not None else orden.tienda.lng
-    todos = [t for t in _candidatos(db) if t.id != orden.tecnico_id]
+    todos = [t for t in _candidatos(db) if t.id != orden.tecnico_id and t.ausente_fecha != orden.fecha]
 
     def mejor(lista):
         if not lista:
@@ -63,14 +63,16 @@ def elegir_tecnico(db: Session, orden: Orden) -> Tecnico | None:
                                          distancia_km(t.lat if t.lat is not None else t.tienda.lat,
                                                       t.lng if t.lng is not None else t.tienda.lng, lat, lng)))
 
-    misma_zona = [t for t in todos if t.grupo == guardia and t.tienda.zona == orden.zona]
+    # El respaldo del día y la Guardia Retén, una vez activados, trabajan como uno más de la guardia
+    refuerzo = lambda t: (t.grupo == "RETEN" and t.reten_activo) or t.respaldo_activo_fecha == orden.fecha
+    misma_zona = [t for t in todos if (t.grupo == guardia or refuerzo(t)) and t.tienda.zona == orden.zona]
     if (t := mejor(misma_zona)):
         return t
     vecinos = [t for t in todos if t.grupo == guardia and t.tienda.zona in VECINAS.get(orden.zona, ())
                and carga(db, t.id, orden.fecha) == 0]
     if (t := mejor(vecinos)):
         return t
-    reten = [t for t in todos if t.grupo == "RETEN" and t.reten_activo]
+    reten = [t for t in todos if (t.grupo == "RETEN" and t.reten_activo) or t.respaldo_activo_fecha == orden.fecha]
     reten.sort(key=lambda t: t.tienda.zona != orden.zona)
     same = [t for t in reten if t.tienda.zona == orden.zona]
     return mejor(same) or mejor(reten)

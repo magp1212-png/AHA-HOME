@@ -5,7 +5,7 @@ checklist según el tipo de servicio, fotos y cierre.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from .. import asignacion
@@ -178,6 +178,8 @@ def hoy(user: User = Depends(campo), db: Session = Depends(get_db)):
         "grupo": grupo, "grupo_de_guardia_hoy": guardia,
         "de_guardia": grupo == guardia or (grupo == "RETEN" and (t.jefe.reten_activo if t.es_ayudante and t.jefe else t.reten_activo)),
         "verificado": t.verificado, "tienda": t.tienda.nombre, "zona": t.tienda.zona,
+        "respaldo": t.respaldo_fecha == fecha.isoformat(), "respaldo_activo": t.respaldo_activo_fecha == fecha.isoformat(),
+        "ausente": t.ausente_fecha == fecha.isoformat(),
         "jefe": svc.ficha(t.jefe) if t.es_ayudante else None,
         "mis_ayudantes": [svc.ficha(a) for a in t.ayudantes] if not t.es_ayudante else [],
         "supervisor": {"nombre": sup.nombre, "telefono": sup.telefono, "rol": sup.rol} if sup else None,
@@ -315,6 +317,49 @@ def completar(orden_id: int, user: User = Depends(solo_tecnico), db: Session = D
     svc.marcar_completada(db, o, user)
     db.commit()
     return svc.vista(o, "tecnico")
+
+
+class Disponible(BaseModel):
+    disponible: bool
+    motivo: str = Field(default="", max_length=200)
+
+
+def _avisar_control(db: Session, t: Tecnico, titulo: str, texto: str) -> None:
+    for s in db.scalars(select(User).where(User.activo.is_(True), or_(
+            User.rol.in_(("supervisor", "superadmin")),
+            (User.rol == "tecnico_supervisor") & (User.tienda_id == t.tienda_id)))):
+        notificar(db, s.id, titulo, texto)
+
+
+@router.post("/respaldo")
+def ofrecer_respaldo(body: Disponible, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    """El técnico que no está de guardia se ofrece (o se retira) como respaldo para hoy."""
+    t = verificado(user)
+    hoy_ = asignacion.hoy().isoformat()
+    t.respaldo_fecha = hoy_ if body.disponible else None
+    if not body.disponible and t.respaldo_activo_fecha == hoy_:
+        t.respaldo_activo_fecha = None
+    if body.disponible:
+        _avisar_control(db, t, "Técnico de respaldo disponible", f"{user.nombre} (Grupo {t.grupo}) está disponible hoy como respaldo.")
+    db.commit()
+    return {"respaldo": t.respaldo_fecha == hoy_}
+
+
+@router.post("/ausencia")
+def avisar_ausencia(body: Disponible, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    """«No puedo trabajar hoy» (disponible=false) o «ya puedo» (disponible=true). Avisa al centro de control."""
+    t = verificado(user)
+    hoy_ = asignacion.hoy().isoformat()
+    t.ausente_fecha = None if body.disponible else hoy_
+    t.ausente_motivo = "" if body.disponible else body.motivo.strip()
+    pendientes = 0
+    if not body.disponible:
+        pendientes = db.scalar(select(func.count(Orden.id)).where(Orden.tecnico_id == t.id, Orden.fecha == hoy_,
+                                                               Orden.estado.in_(("tecnico_asignado", "cita_confirmada")))) or 0
+        _avisar_control(db, t, "Falta un técnico hoy",
+                        f"{user.nombre} no puede trabajar hoy ({t.ausente_motivo or 'sin motivo'}). Órdenes por reasignar: {pendientes}. Revisa el respaldo del día.")
+    db.commit()
+    return {"ausente": t.ausente_fecha == hoy_, "ordenes_por_reasignar": pendientes}
 
 
 class Ubicacion(BaseModel):

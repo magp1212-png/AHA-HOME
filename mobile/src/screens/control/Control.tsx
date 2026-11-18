@@ -10,6 +10,17 @@ import { Aviso, Boton, C, Cargando, Etiqueta, Pantalla, Seccion, Tarjeta, Texto,
 
 type Tec = { id: number; nombre: string; rol: string; grupo: string | null; reten_activo: boolean; verificado: boolean; registro_app_completo: boolean;
              documentos_faltantes: string[]; ayudantes: { nombre: string }[]; jefe: string | null };
+type Fila = { id: number; nombre: string; grupo: string | null; luz: "verde" | "roja" | "gris"; estado_texto: string; ayudantes: { nombre: string }[];
+              ausente_motivo: string; respaldo_ofrecido: boolean; respaldo_activo: boolean };
+type Equipo = { resumen: { verdes: number; rojas: number; grises: number; ordenes_sin_tecnico: number; ordenes_de_ausentes: number };
+                faltan_tecnicos: boolean; equipo: Fila[]; respaldo: Fila[] };
+const LUZ = { verde: "#1C9E62", roja: "#E5484D", gris: "#9AA8BA" };
+
+function Luz({ color }: { color: "verde" | "roja" | "gris" }) {
+  return <View accessibilityLabel={color === "verde" ? "Disponible" : color === "roja" ? "Ocupado" : "No disponible"}
+    style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: LUZ[color], borderWidth: 3, borderColor: color === "gris" ? "#E2E8F0" : color === "verde" ? "#C9F0DA" : "#FAD4D5" }} />;
+}
+
 type Resumen = {
   fecha: string; grupo_de_guardia: string;
   indicadores: { ordenes: number; sin_tecnico: number; en_ruta_o_en_servicio: number; completadas: number; incidencias_abiertas: number };
@@ -21,10 +32,14 @@ export default function Control() {
   const nav = useNav();
   const { perfil, salir } = useSession();
   const [r, setR] = useState<Resumen | null>(null);
+  const [eq, setEq] = useState<Equipo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
-    try { setR(await api<Resumen>("/supervisor/resumen")); setError(null); } catch (e: any) { setError(e.message); }
+    try {
+      const [a, b] = await Promise.all([api<Resumen>("/supervisor/resumen"), api<Equipo>("/supervisor/equipo-hoy")]);
+      setR(a); setEq(b); setError(null);
+    } catch (e: any) { setError(e.message); }
   }, []);
   useEffect(() => { cargar(); const t = setInterval(cargar, 30000); return () => clearInterval(t); }, [cargar]);
 
@@ -53,6 +68,56 @@ export default function Control() {
               </View>
             ))}
           </View>
+
+          {eq ? (
+            <Tarjeta>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Seccion>EQUIPO DE HOY</Seccion>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Luz color="verde" /><Text style={{ fontWeight: "800", color: C.texto }}>{eq.resumen.verdes}</Text></View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Luz color="roja" /><Text style={{ fontWeight: "800", color: C.texto }}>{eq.resumen.rojas}</Text></View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Luz color="gris" /><Text style={{ fontWeight: "800", color: C.texto }}>{eq.resumen.grises}</Text></View>
+                </View>
+              </View>
+              {eq.faltan_tecnicos ? (
+                <Aviso texto={"Faltan técnicos: " + [
+                  eq.resumen.grises ? `${eq.resumen.grises} no puede(n) trabajar hoy` : "",
+                  eq.resumen.ordenes_sin_tecnico ? `${eq.resumen.ordenes_sin_tecnico} orden(es) sin técnico` : "",
+                  eq.resumen.ordenes_de_ausentes ? `${eq.resumen.ordenes_de_ausentes} orden(es) de técnicos ausentes por reasignar` : "",
+                ].filter(Boolean).join(", ") + ". Activa a alguien del respaldo del día."} />
+              ) : null}
+              {eq.equipo.map((f) => (
+                <View key={f.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
+                  <Luz color={f.luz} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "700", color: C.texto }}>{f.nombre}{f.ayudantes.length ? ` + ${f.ayudantes.map((a) => a.nombre.split(" ")[0]).join(", ")}` : ""}</Text>
+                    <Text style={{ fontSize: 12, color: C.gris }}>{f.respaldo_activo ? "Respaldo · " : f.grupo === "RETEN" ? "Retén · " : `Grupo ${f.grupo} · `}{f.estado_texto}{f.ausente_motivo ? ` (${f.ausente_motivo})` : ""}</Text>
+                  </View>
+                </View>
+              ))}
+              <Text style={{ fontSize: 12, color: C.gris }}>Verde: disponible · Roja: ocupado en un servicio · Gris: no puede trabajar hoy</Text>
+            </Tarjeta>
+          ) : null}
+
+          {eq ? (
+            <Tarjeta>
+              <Seccion color={eq.faltan_tecnicos ? C.alerta : C.marino}>RESPALDO DEL DÍA ({eq.respaldo.length})</Seccion>
+              {eq.respaldo.length === 0 ? <Texto gris size={14}>Nadie se ha ofrecido todavía. Los técnicos que no están de guardia pueden ofrecerse desde su app.</Texto> : null}
+              {eq.respaldo.map((f) => (
+                <View key={f.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 48 }}>
+                  <Luz color="verde" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "700", color: C.texto }}>{f.nombre}</Text>
+                    <Text style={{ fontSize: 12, color: C.gris }}>{f.grupo === "RETEN" ? "Guardia Retén" : `Grupo ${f.grupo} · se ofreció para hoy`}</Text>
+                  </View>
+                  <Pressable onPress={() => hacer(`/supervisor/tecnicos/${f.id}/respaldo`, { activo: true })}
+                    style={{ minHeight: 40, paddingHorizontal: 14, borderRadius: 10, backgroundColor: C.marino, justifyContent: "center" }}>
+                    <Text style={{ color: C.blanco, fontWeight: "800" }}>Activar</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </Tarjeta>
+          ) : null}
 
           {r.pendientes_de_alta.length ? (
             <Tarjeta>

@@ -12,6 +12,7 @@ import { Aviso, Avatar, Boton, C, Cargando, Etiqueta, Pantalla, Tarjeta, Texto, 
 
 type Hoy = {
   fecha: string; rol: "tecnico" | "ayudante"; grupo: string | null; grupo_de_guardia_hoy: string; de_guardia: boolean; verificado: boolean;
+  respaldo: boolean; respaldo_activo: boolean; ausente: boolean;
   tienda: string; jefe: Persona | null; mis_ayudantes: Persona[]; supervisor: { nombre: string; telefono: string } | null;
   orden_activa: Orden | null; pendientes: Orden[]; completadas: number;
 };
@@ -31,6 +32,12 @@ export default function InicioTecnico() {
   async function accion(ruta: string) {
     setCargando(true); setError(null);
     try { await api(ruta, { body: {} }); await cargar(); } catch (e: any) { setError(e.message); }
+    setCargando(false);
+  }
+
+  async function accionBody(ruta: string, body: any) {
+    setCargando(true); setError(null);
+    try { await api(ruta, { body }); await cargar(); } catch (e: any) { setError(e.message); }
     setCargando(false);
   }
 
@@ -63,7 +70,7 @@ export default function InicioTecnico() {
               <View style={{ flex: 1 }}>
                 <Text style={{ color: "#C5C8E4", fontSize: 12 }}>Guardia de hoy: Grupo {hoy.grupo_de_guardia_hoy}</Text>
                 <Text style={{ color: C.blanco, fontSize: 16, fontWeight: "800" }}>
-                  {hoy.de_guardia ? "● ACTIVA" : "Descanso"} · {hoy.grupo === "RETEN" ? "Guardia Retén" : `Grupo ${hoy.grupo ?? "—"}`}
+                  {hoy.ausente ? "● NO DISPONIBLE" : hoy.respaldo_activo ? "● RESPALDO ACTIVO" : hoy.de_guardia ? "● ACTIVA" : "Descanso"} · {hoy.grupo === "RETEN" ? "Guardia Retén" : `Grupo ${hoy.grupo ?? "—"}`}
                 </Text>
               </View>
               {hoy.supervisor ? (
@@ -76,6 +83,26 @@ export default function InicioTecnico() {
             {esAyudante && hoy.jefe ? <Text style={{ color: "#DCDEF0" }}>Sales con: {hoy.jefe.nombre}</Text> : null}
           </Tarjeta>
 
+          {!esAyudante && hoy.verificado ? (
+            hoy.de_guardia || hoy.respaldo_activo ? (
+              hoy.ausente ? (
+                <Tarjeta>
+                  <Texto negrita>Avisaste que hoy no puedes trabajar.</Texto>
+                  <Boton titulo="Ya puedo trabajar" tipo="secundario" onPress={() => accionBody("/tecnico/ausencia", { disponible: true })} />
+                </Tarjeta>
+              ) : (
+                <Boton titulo="No puedo trabajar hoy" tipo="peligro" icono="close-circle" onPress={() => accionBody("/tecnico/ausencia", { disponible: false, motivo: "Avisado desde la app" })} />
+              )
+            ) : (
+              <Tarjeta>
+                <Texto negrita>Hoy estás de descanso</Texto>
+                <Texto gris size={14}>Si puedes trabajar, ofrécete como respaldo: el centro de control te activa si faltan técnicos.</Texto>
+                <Boton titulo={hoy.respaldo ? "Ya no estoy disponible hoy" : "Estoy disponible como respaldo hoy"} tipo={hoy.respaldo ? "secundario" : "lima"}
+                  icono={hoy.respaldo ? "close" : "hand-right"} onPress={() => accionBody("/tecnico/respaldo", { disponible: !hoy.respaldo })} />
+                {hoy.respaldo ? <Etiqueta texto="Ofrecido como respaldo · esperando activación" tono="ok" /> : null}
+              </Tarjeta>
+            )
+          ) : null}
           <Aviso texto={error} />
           {o ? (
             <Tarjeta>

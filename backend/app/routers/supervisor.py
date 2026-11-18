@@ -3,7 +3,7 @@ import datetime as dt
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import asignacion
@@ -365,14 +365,91 @@ def mapa(user: User = Depends(control), db: Session = Depends(get_db)):
         if tid and t.tienda_id != tid:
             continue
         o = por_tec.get(t.id)
-        de_guardia = t.grupo == guardia or (t.grupo == "RETEN" and t.reten_activo)
+        de_guardia = (t.grupo == guardia or (t.grupo == "RETEN" and t.reten_activo) or t.respaldo_activo_fecha == hoy) and t.ausente_fecha != hoy
         if not o and not de_guardia:
             continue
         estado = "en_ruta" if o and o.estado == "en_ruta" else "en_servicio" if o and o.estado == "en_progreso" else "asignado" if o else "disponible"
         tecs.append({"id": t.id, "nombre": t.user.nombre, "ayudantes": [a.user.nombre for a in t.ayudantes], "grupo": t.grupo,
-                     "estado": estado, "lat": t.lat_actual or t.lat or t.tienda.lat, "lng": t.lng_actual or t.lng or t.tienda.lng,
+                     "estado": estado, "luz": "roja" if estado in ("en_ruta", "en_servicio") else "verde", "lat": t.lat_actual or t.lat or t.tienda.lat, "lng": t.lng_actual or t.lng or t.tienda.lng,
                      "gps_en": t.ubicacion_en.isoformat() + "Z" if t.ubicacion_en else None,
                      "orden": {"codigo": o.codigo, "servicio": o.tipo_servicio, "direccion": o.direccion, "lat": o.lat, "lng": o.lng,
                                "franja": o.franja} if o else None})
     return {"tiendas": [{"id": t.id, "nombre": t.nombre, "zona": t.zona, "direccion": t.direccion, "lat": t.lat, "lng": t.lng} for t in tiendas],
             "tecnicos": tecs}
+
+
+# ---------- Equipo de hoy: luz verde/roja y respaldo del día ----------
+
+def _luz(db: Session, t: Tecnico, hoy_: str, guardia: str) -> dict:
+    activa = db.scalar(select(Orden).where(Orden.tecnico_id == t.id, Orden.fecha == hoy_, Orden.estado.in_(("en_ruta", "en_progreso"))))
+    pendientes = db.scalars(select(Orden).where(Orden.tecnico_id == t.id, Orden.fecha == hoy_,
+                                                Orden.estado.in_(("tecnico_asignado", "cita_confirmada")))).all()
+    trabaja = (t.grupo == guardia or (t.grupo == "RETEN" and t.reten_activo) or t.respaldo_activo_fecha == hoy_)
+    if t.ausente_fecha == hoy_ or not t.disponible:
+        luz, texto = "gris", "No disponible hoy"
+    elif activa:
+        luz, texto = "roja", f"Ocupado · {activa.codigo} {'en ruta' if activa.estado == 'en_ruta' else 'en servicio'}"
+    else:
+        luz, texto = "verde", "Disponible" + (f" · {len(pendientes)} orden(es) más tarde" if pendientes else "")
+    return tecnico_dict(db, t, hoy_) | {"luz": luz, "estado_texto": texto, "trabaja_hoy": trabaja,
+                                         "ausente_motivo": t.ausente_motivo if t.ausente_fecha == hoy_ else "",
+                                         "orden_activa": activa.codigo if activa else None, "pendientes_hoy": len(pendientes),
+                                         "respaldo_ofrecido": t.respaldo_fecha == hoy_, "respaldo_activo": t.respaldo_activo_fecha == hoy_}
+
+
+@router.get("/equipo-hoy")
+def equipo_hoy(user: User = Depends(control), db: Session = Depends(get_db)):
+    """Quién trabaja hoy (luz verde = disponible, roja = ocupado, gris = no disponible) y el respaldo del día."""
+    tid = tienda_permitida(user, None)
+    hoy_d = asignacion.hoy()
+    hoy_, guardia = hoy_d.isoformat(), asignacion.grupo_de_guardia(hoy_d)
+    tecs = [t for t in db.scalars(select(Tecnico).where(Tecnico.es_ayudante.is_(False), Tecnico.verificado.is_(True)).order_by(Tecnico.id))
+            if not tid or t.tienda_id == tid]
+    filas = [_luz(db, t, hoy_, guardia) for t in tecs]
+    equipo = [f for f in filas if f["trabaja_hoy"]]
+    respaldo = [f for f in filas if not f["trabaja_hoy"] and (f["grupo"] == "RETEN" or f["respaldo_ofrecido"]) and f["luz"] != "gris"]
+    sin_tecnico = db.scalar(select(func.count(Orden.id)).where(Orden.fecha == hoy_, Orden.tecnico_id.is_(None), Orden.estado == "solicitud_enviada")) or 0
+    ausentes = [f for f in equipo if f["luz"] == "gris"]
+    por_reasignar = sum(f["pendientes_hoy"] for f in ausentes)
+    return {
+        "fecha": hoy_, "grupo_de_guardia": guardia,
+        "resumen": {"verdes": sum(f["luz"] == "verde" for f in equipo), "rojas": sum(f["luz"] == "roja" for f in equipo),
+                    "grises": len(ausentes), "ordenes_sin_tecnico": sin_tecnico, "ordenes_de_ausentes": por_reasignar},
+        "faltan_tecnicos": bool(ausentes or sin_tecnico),
+        "equipo": equipo,
+        "respaldo": respaldo,
+    }
+
+
+@router.post("/tecnicos/{tec_id}/respaldo")
+def activar_respaldo(tec_id: int, body: Activo, user: User = Depends(control), db: Session = Depends(get_db)):
+    """Activa a un técnico de respaldo para hoy y le pasa las órdenes sin técnico o de técnicos ausentes."""
+    t = tecnico_controlado(db, user, tec_id)
+    if t.es_ayudante or not t.verificado:
+        raise HTTPException(422, "Elige un técnico principal con alta")
+    hoy_ = asignacion.hoy().isoformat()
+    t.respaldo_activo_fecha = hoy_ if body.activo else None
+    if t.grupo == "RETEN":
+        t.reten_activo = body.activo
+    reasignadas = []
+    if body.activo:
+        notificar(db, t.user_id, "Te activaron como respaldo", "Hoy recibirás órdenes. Revisa tu app.")
+        for a in t.ayudantes:
+            notificar(db, a.user_id, "Respaldo activado", f"Hoy sales con {t.user.nombre}.")
+        db.flush()
+        huerfanas = db.scalars(select(Orden).where(Orden.fecha == hoy_, Orden.estado.in_(("solicitud_enviada", "tecnico_asignado", "cita_confirmada")))).all()
+        for o in huerfanas:
+            ausente = o.tecnico and (o.tecnico.ausente_fecha == hoy_ or not o.tecnico.disponible)
+            if o.tecnico_id is None or ausente:
+                anteriores = ([o.tecnico] if o.tecnico else []) + list(o.ayudantes)
+                svc.poner_cuadrilla(db, o, None)
+                db.flush()
+                if svc.asignar(db, o, user, "Reasignada al respaldo del día"):
+                    reasignadas.append(o.codigo)
+                    for x in anteriores:
+                        notificar(db, x.user_id, f"{o.codigo} reasignada", "Esta orden pasó al respaldo del día.", o.id)
+                    svc.avisar_seguimiento(db, o, f"{o.codigo} reasignada", svc.nombres_cuadrilla(o))
+                else:
+                    svc.registrar(db, o, "solicitud_enviada", user, "Sin técnico disponible")
+    db.commit()
+    return {"activo": body.activo, "reasignadas": reasignadas}

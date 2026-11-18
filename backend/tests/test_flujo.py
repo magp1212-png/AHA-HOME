@@ -403,3 +403,45 @@ def test_analitica_ranking_y_mapa(client):
     # el técnico supervisor solo ve su tienda; el cliente no entra
     assert client.get("/supervisor/analitica", headers=login(client, "tecsup@ahahome.test")).status_code == 200
     assert client.get("/supervisor/analitica", headers=login(client, "maria@ahahome.test")).status_code == 403
+
+
+def test_luces_y_respaldo_del_dia(client):
+    from app.asignacion import grupo_de_guardia, hoy
+    hoy_ = hoy().isoformat()
+    guardia = grupo_de_guardia(hoy())
+    otro = next(g for g in "ABC" if g != guardia)
+    with SessionLocal() as db:
+        de_guardia = db.scalars(select(Tecnico).where(Tecnico.grupo == guardia, Tecnico.es_ayudante.is_(False)).order_by(Tecnico.id)).all()
+        tels = [t.user.telefono for t in de_guardia]
+        tel_resp = db.scalar(select(Tecnico).where(Tecnico.grupo == otro, Tecnico.es_ayudante.is_(False))).user.telefono
+
+    agente = login(client, "agente@ahahome.test")
+    sup = login(client, "tecsup@ahahome.test")
+    o = nueva(client, agente, fecha=hoy_, **SOLO_TRASLADO)
+    t1 = login_pin(client, tel_de(o["tecnico"]["id"]))
+    client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=t1)
+    eq = client.get("/supervisor/equipo-hoy", headers=sup).json()
+    luces = {f["id"]: f["luz"] for f in eq["equipo"]}
+    assert luces[o["tecnico"]["id"]] == "roja" and list(luces.values()).count("verde") == 2 and eq["faltan_tecnicos"] is False
+
+    # Los otros dos técnicos de guardia avisan que no pueden: faltan técnicos
+    for tel in tels:
+        if tel != tel_de(o["tecnico"]["id"]):
+            r = client.post("/tecnico/ausencia", json={"disponible": False, "motivo": "Enfermo"}, headers=login_pin(client, tel))
+            assert r.json()["ausente"] is True
+    assert "Falta un técnico hoy" in titulos(client, sup)
+    o2 = nueva(client, agente, fecha=hoy_, **SOLO_TRASLADO)
+    assert o2["tecnico"]["id"] == o["tecnico"]["id"]  # solo queda el que está ocupado
+
+    # Un técnico de otro grupo se ofrece como respaldo y el centro de control lo activa
+    tr = login_pin(client, tel_resp)
+    assert client.post("/tecnico/respaldo", json={"disponible": True}, headers=tr).json()["respaldo"] is True
+    eq = client.get("/supervisor/equipo-hoy", headers=sup).json()
+    assert eq["faltan_tecnicos"] is True and eq["resumen"]["grises"] == 2
+    resp = next(f for f in eq["respaldo"] if f["respaldo_ofrecido"])
+    assert client.post(f"/supervisor/tecnicos/{resp['id']}/respaldo", json={"activo": True}, headers=sup).json()["activo"]
+    assert client.get("/tecnico/hoy", headers=tr).json()["respaldo_activo"] is True
+    o3 = nueva(client, agente, fecha=hoy_, **SOLO_TRASLADO)
+    assert o3["tecnico"]["id"] == resp["id"]  # el respaldo activado recibe órdenes
+    eq = client.get("/supervisor/equipo-hoy", headers=sup).json()
+    assert any(f["id"] == resp["id"] and f["luz"] == "verde" for f in eq["equipo"])
