@@ -238,6 +238,10 @@ def test_subir_foto_y_salud(client):
     assert client.get(r.json()["url"]).status_code == 200
     assert client.post("/archivos", files={"archivo": ("x.txt", b"hola", "text/plain")}, headers=h).status_code == 415
     assert client.get("/salud").json()["ok"] is True
+    import base64
+    r = client.post("/archivos/base64", json={"data": base64.b64encode(b"\xff\xd8\xff123").decode()}, headers=h)
+    assert client.get(r.json()["url"]).status_code == 200
+    assert client.post("/archivos/base64", json={"data": "%%%"}, headers=h).status_code == 422
 
 
 def test_tecnico_anota_sus_ayudantes(client):

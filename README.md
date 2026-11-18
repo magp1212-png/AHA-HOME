@@ -12,13 +12,30 @@ AHA HOME es la app hermana de AHA VOY. La especificación completa está en `doc
 | Paso | Qué incluye | Estado |
 |---|---|---|
 | 1 | Servidor: órdenes, roles, asignación automática por zona y guardia, retiro con QR, checklist, cierre, panel del supervisor | ✅ Listo, con pruebas |
-| 2 | App móvil base (Expo): inicio de sesión, conexión con el servidor, colores y logo | ⏳ |
-| 3 | Pantallas del agente en caja: registrar orden y mostrar el QR | ⏳ |
-| 4 | Pantallas del cliente: mis equipos, seguimiento en vivo, ficha de seguridad, calificación | ⏳ |
-| 5 | Pantallas del técnico: huella o PIN, alta biométrica, escáner QR, navegación GPS, checklist y fotos | ⏳ |
+| 2 | App móvil base (Expo): inicio de sesión, conexión con el servidor, colores y logo | ✅ |
+| 3 | Pantallas del agente en caja: registrar orden y mostrar el QR | ✅ |
+| 4 | Pantallas del cliente: mis equipos, seguimiento en vivo, ficha de seguridad, calificación | ✅ |
+| 5 | Pantallas del técnico: huella o PIN, alta biométrica, escáner QR, navegación GPS, checklist y fotos | ✅ (falta GPS en vivo) |
 | 6 | Panel web del supervisor | ⏳ |
 | 7 | Notificaciones push y WhatsApp, pruebas en tienda y publicación en Google Play y App Store | ⏳ |
 | 8 | Tabla de precios de instalación (después de entrevistar a los técnicos) | ⏳ |
+
+## App móvil (`mobile/`)
+
+Hecha con Expo y React Native (TypeScript). Es una sola app para iPhone, Android y web, que muestra pantallas distintas según el rol:
+
+- **Cliente:** sus pedidos, el rastreo en 4 fases, la foto del técnico y del ayudante cuando salen, la reprogramación y la calificación.
+- **Agente en caja:** nueva orden con varios artículos, casilla «instalar» en cada uno, cobro y QR de retiro.
+- **Técnico y ayudante:** acceso con huella y PIN, registro con rostro, cédula en alto y huella, guardia del día, retiro con QR, navegación, checklist con fotos, sus ayudantes e incidencias.
+- **Técnico supervisor, supervisor y superadmin:** centro de control, reasignación, Guardia Retén, incidencias y expediente con alta y grupo.
+
+```bash
+cd mobile
+npm install
+npx expo start            # abre en el teléfono con Expo Go o en la web (tecla w)
+```
+
+La dirección del servidor sale de `AHAHOME_API_URL` (en `app.config.js`). También se cambia dentro de la app, en la pantalla de inicio → «Servidor», por ejemplo para pasar a tu servidor físico.
 
 ## Servidor (`backend/`)
 
