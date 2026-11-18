@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Mapa en vivo de Caracas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<section style="width: 100%; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px; font-family: Inter, system-ui, sans-serif; color: #1A1C3D">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 10px"><h2 style="margin: 0; font-size: 18px">Mapa en vivo · Caracas</h2><span style="display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 12px; background: #E7F6EE; color: #0F5132; font-size: 12px; font-weight: 700"><span style="width: 8px; height: 8px; border-radius: 4px; background: #167A45"></span>EN VIVO · {{hora}}</span></div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{capas}}" as="c" hint-placeholder-count="3">
+<sc-if value="{{c.on}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{c.toggle}}" style="height: 34px; padding: 0 12px; border: none; border-radius: 17px; background: #21244D; color: #FFFFFF; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer">✓ {{c.label}}</button></sc-if>
+<sc-if value="{{c.off}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{c.toggle}}" style="height: 34px; padding: 0 12px; border: 1px solid #CBD5E1; border-radius: 17px; background: #FFFFFF; color: #1A1C3D; font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer">{{c.label}}</button></sc-if>
+</sc-for>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start">
+<div style="flex: 999 1 520px; min-width: 0; border-radius: 14px; overflow: hidden; background: #EEF3F8">
+<svg viewBox="0 0 900 520" style="display: block; width: 100%; height: auto" role="img" aria-label="Mapa esquemático de Caracas con tiendas Damasco y técnicos en tiempo real">
+<rect width="900" height="520" fill="#EEF3F8"></rect>
+<path d="M0 0 H900 V120 C780 150 700 112 600 128 C480 146 380 118 280 134 C180 150 90 126 0 142 Z" fill="#D7E4D3"></path>
+<path d="M0 0 H900 V70 C760 96 640 62 520 82 C400 100 260 70 140 90 C80 100 30 92 0 98 Z" fill="#C3D6BE"></path>
+<text x="450" y="52" text-anchor="middle" font-size="16" font-weight="700" fill="#4F6B4A" font-family="Inter, sans-serif">El Ávila</text>
+<path d="M0 150 C120 140 220 168 330 160 C460 150 560 176 680 166 C780 158 850 176 900 170 V520 H0 Z" fill="#F7F9FC"></path>
+<rect x="0" y="150" width="300" height="370" fill="#21244D" opacity="0.035"></rect>
+<rect x="600" y="150" width="300" height="370" fill="#21244D" opacity="0.035"></rect>
+<line x1="300" y1="160" x2="300" y2="520" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="6 6"></line>
+<line x1="600" y1="160" x2="600" y2="520" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="6 6"></line>
+<text x="150" y="505" text-anchor="middle" font-size="14" font-weight="700" fill="#6B7789" font-family="Inter, sans-serif" letter-spacing="2">ZONA OESTE</text>
+<text x="450" y="505" text-anchor="middle" font-size="14" font-weight="700" fill="#6B7789" font-family="Inter, sans-serif" letter-spacing="2">ZONA CENTRAL</text>
+<text x="750" y="505" text-anchor="middle" font-size="14" font-weight="700" fill="#6B7789" font-family="Inter, sans-serif" letter-spacing="2">ZONA ESTE</text>
+<path d="M0 300 C120 296 220 312 330 306 C440 300 520 326 620 318 C720 310 800 330 900 322" fill="none" stroke="#9CC3E6" stroke-width="7" stroke-linecap="round"></path>
+<text x="700" y="345" font-size="11" fill="#5B7FA3" font-family="Inter, sans-serif">Río Guaire</text>
+<path d="M20 268 C140 262 240 280 340 272 C450 264 540 290 640 282 C740 274 820 292 890 286" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"></path>
+<path d="M20 268 C140 262 240 280 340 272 C450 264 540 290 640 282 C740 274 820 292 890 286" fill="none" stroke="#D4DAE3" stroke-width="2" stroke-dasharray="10 8"></path>
+<text x="40" y="258" font-size="11" fill="#6B7789" font-family="Inter, sans-serif">Autopista Francisco Fajardo</text>
+<path d="M30 176 C200 166 380 186 560 176 C700 168 800 180 880 176" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"></path>
+<text x="760" y="168" font-size="11" fill="#6B7789" font-family="Inter, sans-serif">Cota Mil</text>
+<path d="M240 300 L300 420 L380 470" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"></path>
+<path d="M520 300 L560 400 L620 470" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"></path>
+
+<sc-if value="{{verOrdenes}}" hint-placeholder-val="{{true}}">
+<sc-for list="{{destinos}}" as="d" hint-placeholder-count="5">
+<g>
+<path d="{{d.ruta}}" fill="none" stroke="#21244D" stroke-width="2" stroke-dasharray="4 5" opacity="0.45"></path>
+<circle cx="{{d.x}}" cy="{{d.y}}" r="9" fill="#FFFFFF" stroke="#21244D" stroke-width="3"></circle>
+<circle cx="{{d.x}}" cy="{{d.y}}" r="3" fill="#21244D"></circle>
+</g>
+</sc-for>
+</sc-if>
+
+<sc-if value="{{verTiendas}}" hint-placeholder-val="{{true}}">
+<sc-for list="{{tiendas}}" as="t" hint-placeholder-count="7">
+<g onClick="{{t.pick}}" style="cursor: pointer">
+<circle cx="{{t.x}}" cy="{{t.y}}" r="26" fill="transparent"></circle>
+<sc-if value="{{t.piloto}}" hint-placeholder-val="{{false}}"><circle cx="{{t.x}}" cy="{{t.y}}" r="24" fill="#CFD72A" opacity="0.45"></circle></sc-if>
+<rect x="{{t.rx}}" y="{{t.ry}}" width="30" height="30" rx="9" fill="#21244D"></rect>
+<path d="{{t.casa}}" fill="#CFD72A"></path>
+<text x="{{t.x}}" y="{{t.ly}}" text-anchor="middle" font-size="12" font-weight="700" fill="#1A1C3D" font-family="Inter, sans-serif" stroke="#F7F9FC" stroke-width="4" paint-order="stroke">{{t.nombre}}</text>
+</g>
+</sc-for>
+</sc-if>
+
+<sc-if value="{{verTecnicos}}" hint-placeholder-val="{{true}}">
+<sc-for list="{{tecnicos}}" as="m" hint-placeholder-count="6">
+<g onClick="{{m.pick}}" style="cursor: pointer">
+<circle cx="{{m.x}}" cy="{{m.y}}" r="22" fill="transparent"></circle>
+<sc-if value="{{m.sel}}" hint-placeholder-val="{{false}}"><circle cx="{{m.x}}" cy="{{m.y}}" r="21" fill="none" stroke="#21244D" stroke-width="2"></circle></sc-if>
+<circle cx="{{m.x}}" cy="{{m.y}}" r="15" fill="{{m.color}}" stroke="#FFFFFF" stroke-width="3"></circle>
+<text x="{{m.x}}" y="{{m.ty}}" text-anchor="middle" font-size="10" font-weight="700" fill="#FFFFFF" font-family="Inter, sans-serif">{{m.ini}}</text>
+</g>
+</sc-for>
+</sc-if>
+</svg>
+</div>
+
+<aside style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<div style="border-radius: 14px; background: #21244D; color: #FFFFFF; padding: 14px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: #CFD72A">{{panel.etiqueta}}</span>
+<strong style="font-size: 16px">{{panel.titulo}}</strong>
+<span style="font-size: 13px; color: #DCDEF0; white-space: pre-line">{{panel.texto}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 14px; height: 14px; border-radius: 7px; background: #EB6834; border: 2px solid #FFFFFF; box-shadow: 0 0 0 1px #CBD5E1"></span>En ruta · {{nRuta}}</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 14px; height: 14px; border-radius: 7px; background: #2A78D6; border: 2px solid #FFFFFF; box-shadow: 0 0 0 1px #CBD5E1"></span>En servicio · {{nServ}}</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 14px; height: 14px; border-radius: 7px; background: #1BAF7A; border: 2px solid #FFFFFF; box-shadow: 0 0 0 1px #CBD5E1"></span>Disponible de guardia · {{nDisp}}</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 14px; height: 14px; border-radius: 4px; background: #21244D"></span>Tienda Damasco (resaltada: piloto)</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 14px; height: 14px; border-radius: 7px; background: #FFFFFF; border: 3px solid #21244D; box-sizing: border-box"></span>Domicilio del cliente</span>
+</div>
+<span style="font-size: 11px; color: #4A5568">Mapa esquemático y ubicaciones aproximadas para la maqueta. En la app real: mapa de OpenStreetMap con el GPS del técnico cada 15 segundos.</span>
+</aside>
+</div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1100,"height":560}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tick: 0, capas: { tiendas: true, tecnicos: true, ordenes: true }, foco: 'tec:JH' };
+  }
+  componentDidMount() {
+    this.timer = setInterval(() => this.setState({ tick: this.state.tick + 1 }), 1500);
+  }
+  componentWillUnmount() {
+    clearInterval(this.timer);
+  }
+  renderVals() {
+    const s = this.state;
+    const TIENDAS = [
+      ['San Martín', 255, 330, true, 'Av. Sur 19 con Av. Urdaneta · PRUEBA PILOTO\n10 técnicos · 10 ayudantes'],
+      ['Catia', 140, 205, false, 'Zona Oeste · por replicar'],
+      ['Sabana Grande', 430, 250, false, 'Av. Casanova, El Recreo · por replicar'],
+      ['Calle París', 500, 352, false, 'Las Mercedes · por replicar'],
+      ['Chuao', 615, 300, false, 'Zona Este · por replicar'],
+      ['La Trinidad', 600, 430, false, 'Zona Este · por replicar'],
+      ['La Guairita', 690, 470, false, 'Zona Este · por replicar'],
+    ];
+    // [iniciales, nombre, estado, ruta (puntos), orden, detalle]
+    const TECS = [
+      ['JH', 'José Hernández + Daniel Pérez', 'ruta', [[255, 330], [300, 318], [350, 300], [395, 285], [430, 280]], 'WO-4921', 'Nevera + juego de comedor · llega en ~12 min'],
+      ['LR', 'Luis Rodríguez + Carmen Rojas', 'servicio', [[180, 360]], 'WO-4926', 'Lavadora · instalando desde las 10:40'],
+      ['PS', 'Pedro Silva + Rafael Mendoza', 'ruta', [[255, 330], [235, 365], [215, 400], [200, 430]], 'WO-4923', 'Aire acondicionado · salida directa (solo instalación)'],
+      ['AM', 'Andrea Medina + Luisa Romero', 'disp', [[320, 380]], '—', 'De guardia, sin órdenes: disponible para la zona vecina'],
+      ['RP', 'Ricardo Pérez + Valentina Morales', 'disp', [[270, 290]], '—', 'Guardia Retén en standby'],
+      ['RD', 'Rosa Díaz + Gabriela Flores', 'servicio', [[110, 300]], 'WO-4925', 'Cocina · entrega en empaque original'],
+    ];
+    const COLOR = { ruta: '#EB6834', servicio: '#2A78D6', disp: '#1BAF7A' };
+    const ESTADO = { ruta: 'En ruta', servicio: 'En servicio', disp: 'Disponible' };
+    const pos = (ruta) => {
+      if (ruta.length === 1) return ruta[0];
+      const n = ruta.length - 1, f = (s.tick % (n * 4)) / 4, i = Math.floor(f), r = f - i;
+      const a = ruta[i], b = ruta[Math.min(i + 1, n)];
+      return [a[0] + (b[0] - a[0]) * r, a[1] + (b[1] - a[1]) * r];
+    };
+    const casa = (x, y) => `M${x} ${y - 9} L${x + 9} ${y - 2} V${y + 7} H${x - 9} V${y - 2} Z`;
+    const capa = (k) => () => this.setState({ capas: Object.assign({}, s.capas, { [k]: !s.capas[k] }) });
+    let panel = { etiqueta: 'SELECCIONA', titulo: 'Toca una tienda o un técnico', texto: 'Verás su orden, su cuadrilla y su estado.' };
+    const [tipo, clave] = s.foco.split(':');
+    if (tipo === 'tec') {
+      const t = TECS.find((x) => x[0] === clave);
+      if (t) panel = { etiqueta: ESTADO[t[2]].toUpperCase() + (t[4] !== '—' ? ' · ' + t[4] : ''), titulo: t[1], texto: t[5] };
+    } else {
+      const t = TIENDAS.find((x) => x[0] === clave);
+      if (t) panel = { etiqueta: 'TIENDA DAMASCO', titulo: 'Damasco ' + t[0], texto: t[4] };
+    }
+    const d = new Date(Date.UTC(2026, 10, 23, 14, 32, 0) + s.tick * 1500);
+    return {
+      hora: d.toISOString().slice(11, 19),
+      capas: [['tiendas', 'Tiendas'], ['tecnicos', 'Técnicos'], ['ordenes', 'Órdenes']].map(([k, label]) => ({ label, on: s.capas[k], off: !s.capas[k], toggle: capa(k) })),
+      verTiendas: s.capas.tiendas, verTecnicos: s.capas.tecnicos, verOrdenes: s.capas.ordenes,
+      tiendas: TIENDAS.map(([nombre, x, y, piloto]) => ({ nombre, x, y, piloto, rx: x - 15, ry: y - 15, ly: y + 32, casa: casa(x, y),
+        pick: () => this.setState({ foco: 'tienda:' + nombre }) })),
+      tecnicos: TECS.map(([ini, nombre, est, ruta]) => {
+        const [x, y] = pos(ruta);
+        return { ini, x: x.toFixed(1), y: y.toFixed(1), ty: (y + 3.5).toFixed(1), color: COLOR[est], sel: s.foco === 'tec:' + ini,
+                 pick: () => this.setState({ foco: 'tec:' + ini }) };
+      }),
+      destinos: TECS.filter((t) => t[2] !== 'disp').map((t) => {
+        const fin = t[3][t[3].length - 1], ini = t[3][0];
+        return { x: fin[0], y: fin[1], ruta: 'M' + t[3].map((p) => p.join(' ')).join(' L') + (t[3].length === 1 ? ` L${ini[0]} ${ini[1]}` : '') };
+      }),
+      nRuta: TECS.filter((t) => t[2] === 'ruta').length, nServ: TECS.filter((t) => t[2] === 'servicio').length, nDisp: TECS.filter((t) => t[2] === 'disp').length,
+      panel,
+    };
+  }
+}
+</script>
+</body>
+</html>
