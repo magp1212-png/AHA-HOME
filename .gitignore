@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+datos/
+backend/*.db
+backend/*.db-*
+backend/uploads/
+backend/.secreto-jwt.txt
+node_modules/
+mobile/.expo/
+mobile/dist-web/

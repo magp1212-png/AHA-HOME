@@ -1,0 +1,14 @@
+# Servidor de AHA HOME. Funciona igual en la nube o en tu servidor físico:
+#   1. Copia .env.ejemplo a .env y cambia AHAHOME_JWT_SECRET por una frase larga y secreta.
+#   2. docker compose up -d --build
+#   3. (primera vez, opcional) docker compose exec api python seed.py   ← datos de demostración
+# La base de datos y las fotos quedan en la carpeta ./datos (respáldala).
+services:
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./datos:/datos

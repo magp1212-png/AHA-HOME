@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>AHA HOME — Técnico</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#21244D}a:hover{color:#1A1C3D}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F4F7FB; font-family: Inter, system-ui, sans-serif; color: #1A1C3D; overflow: hidden">
+
+<sc-if value="{{isLogin}}" hint-placeholder-val="{{true}}">
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding: 88px 28px 40px; gap: 14px; background: #1A1C3D; color: #FFFFFF">
+<svg width="64" height="64" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="24" fill="#21244D"></rect><g transform="translate(12 10) scale(0.76)"><path d="M50 13 L85 38.5 Q87.5 40.3 87.5 43.4 L87.5 69 Q87.5 76 80.5 76 L45 76 L29.5 88.5 Q26.5 90.8 26.5 87 L26.5 76 L19.5 76 Q12.5 76 12.5 69 L12.5 43.4 Q12.5 40.3 15 38.5 Z" fill="#CFD72A" stroke="#CFD72A" stroke-width="5" stroke-linejoin="round"></path><path d="M33 50 L45 62 L67.5 39.5" fill="none" stroke="#21244D" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"></path></g></svg>
+<h1 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 30px">AHA HOME Técnico</h1>
+<p style="margin: 0; font-size: 15px; color: #C5C8E4; text-align: center">Acceso protegido. Usa tu huella, tu rostro o tu PIN personal.</p>
+<button type="button" onClick="{{entrar}}" aria-label="Entrar con huella" style="margin-top: 48px; width: 132px; height: 132px; border-radius: 66px; border: 2px solid #CFD72A; background: #2E3266; color: #CFD72A; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 11v4a6 6 0 0 0 1 3"></path><path d="M8.5 9.5a4 4 0 0 1 7 2.5v2"></path><path d="M6 13v-1a6 6 0 0 1 11-3.3"></path><path d="M9 16c.3 1.5 1 3 2 4"></path><path d="M15.5 17c-.2 1.2-.5 2.3-1 3"></path><path d="M4.5 9A8 8 0 0 1 19 7"></path></svg></button>
+<span style="font-size: 15px; font-weight: 600">Toca para validar tu identidad</span>
+<div style="flex: 1"></div>
+<button type="button" onClick="{{entrar}}" style="height: 48px; padding: 0 24px; border: 1px solid #5A5F99; border-radius: 12px; background: transparent; color: #FFFFFF; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer">Usar PIN</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isHome}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1; display: flex; flex-direction: column; min-height: 0">
+<div style="background: #1A1C3D; color: #FFFFFF; padding: 18px 16px 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 20px; font-weight: 700">Hola, José</span>
+<span style="font-size: 13px; color: #C5C8E4">Damasco Oeste</span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; background: #2E3266; border-radius: 14px; padding: 10px 10px 10px 14px">
+<span style="display: flex; flex-direction: column; gap: 2px; flex: 1"><span style="font-size: 12px; color: #C5C8E4">Guardia actual</span><span style="display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700"><span style="width: 10px; height: 10px; border-radius: 5px; background: #CFD72A"></span>ACTIVA · Grupo A</span></span>
+<button type="button" style="height: 44px; padding: 0 14px; border: none; border-radius: 12px; background: #C2410C; color: #FFFFFF; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"></path></svg>Supervisor</button>
+</div>
+</div>
+<div style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{orderOpen}}" hint-placeholder-val="{{true}}">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; overflow: hidden">
+<div style="background: #2E3266; color: #FFFFFF; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center">
+<strong style="font-size: 16px">ORDEN ACTIVA · WO-4921</strong>
+<span style="font-size: 13px; color: #DCDEF0">10:00 – 12:00</span>
+</div>
+<div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="display: inline-flex; align-self: flex-start; height: 26px; align-items: center; padding: 0 10px; border-radius: 13px; background: {{etapaBg}}; color: {{etapaColor}}; font-size: 12px; font-weight: 700">{{etapa}}</span>
+<span style="font-size: 13px; color: #4A5568">Cliente</span>
+<strong style="font-size: 16px; margin-top: -6px">María González · 0414 123 4567</strong>
+<span style="font-size: 13px; color: #4A5568">Dirección</span>
+<span style="font-size: 15px; margin-top: -6px">Av. Sucre, Res. Los Andes, piso 4, apto 4-B, Catia</span>
+<span style="font-size: 13px; color: #4A5568">Equipo</span>
+<span style="font-size: 15px; margin-top: -6px">Nevera Samsung RT38K5932SL · instalación + retiro de embalaje</span>
+<sc-if value="{{porRetirar}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{goRetiro}}" style="margin-top: 6px; width: 100%; height: 50px; border: none; border-radius: 12px; background: #21244D; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3"></path><path d="M4 12h16"></path></svg>Retiro en almacén: escanear QR</button>
+</sc-if>
+<sc-if value="{{retirado}}" hint-placeholder-val="{{false}}">
+<div style="margin-top: 6px; display: flex; flex-direction: column; gap: 8px">
+<button type="button" style="width: 100%; height: 50px; border: none; border-radius: 12px; background: #C2410C; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"></path></svg>Iniciar navegación</button>
+<button type="button" onClick="{{goChecklist}}" style="width: 100%; height: 50px; border: none; border-radius: 12px; background: #167A45; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 4h6v3H9z"></path><path d="M9 13l2 2 4-4"></path></svg>Checklist de instalación</button>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{cerrada}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 12px; border-radius: 14px; background: #E7F6EE; padding: 14px 16px; color: #0F5132"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg><span style="display: flex; flex-direction: column"><strong style="font-size: 15px">WO-4921 completada</strong><span style="font-size: 13px">Evidencia enviada · cliente notificado</span></span></div>
+<button type="button" onClick="{{reiniciar}}" style="height: 44px; border: 1px dashed #9EB3CC; border-radius: 12px; background: transparent; color: #4A5568; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer">Demo: reiniciar la orden</button>
+</sc-if>
+<h2 style="margin: 4px 0 0; font-size: 14px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">ÓRDENES PENDIENTES DE HOY</h2>
+<sc-for list="{{pendientes}}" as="p" hint-placeholder-count="3">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 12px 14px; display: flex; gap: 12px; align-items: center">
+<div style="width: 56px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center"><strong style="font-size: 15px">{{p.hora}}</strong><span style="font-size: 11px; color: #4A5568">llegada</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<strong style="font-size: 14px">{{p.wo}} · {{p.equipo}}</strong>
+<span style="font-size: 13px; color: #4A5568">{{p.dir}}</span>
+</div>
+</div>
+</sc-for>
+</div>
+<nav style="display: flex; justify-content: space-around; padding: 8px 4px 22px; background: #FFFFFF; border-top: 1px solid #E2E8F0">
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 64px; font-size: 11px; font-weight: 600; color: #21244D; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg>Inicio</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 64px; font-size: 11px; font-weight: 500; color: #4A5568; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 9h6M9 13h6M9 17h4"></path></svg>Órdenes</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 64px; font-size: 11px; font-weight: 500; color: #4A5568; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"></path><circle cx="12" cy="9" r="2.5"></circle></svg>Mapa</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 64px; font-size: 11px; font-weight: 500; color: #4A5568; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>Perfil</a>
+</nav>
+</div>
+</sc-if>
+
+<sc-if value="{{isRetiro}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1; display: flex; flex-direction: column; min-height: 0; background: #1A1C3D; color: #FFFFFF">
+<div style="display: flex; align-items: center; gap: 8px; padding: 16px 12px 12px">
+<button type="button" onClick="{{goHome}}" aria-label="Volver" style="width: 44px; height: 44px; border: none; background: transparent; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Retiro en almacén Damasco</h2>
+</div>
+<sc-if value="{{noEscaneado}}" hint-placeholder-val="{{true}}">
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding: 24px 28px 32px; gap: 18px">
+<div style="width: 260px; height: 260px; border-radius: 24px; background: #2E3266; position: relative; display: flex; align-items: center; justify-content: center">
+<span style="position: absolute; top: 18px; left: 18px; width: 44px; height: 44px; border-top: 4px solid #CFD72A; border-left: 4px solid #CFD72A; border-radius: 8px 0 0 0"></span>
+<span style="position: absolute; top: 18px; right: 18px; width: 44px; height: 44px; border-top: 4px solid #CFD72A; border-right: 4px solid #CFD72A; border-radius: 0 8px 0 0"></span>
+<span style="position: absolute; bottom: 18px; left: 18px; width: 44px; height: 44px; border-bottom: 4px solid #CFD72A; border-left: 4px solid #CFD72A; border-radius: 0 0 0 8px"></span>
+<span style="position: absolute; bottom: 18px; right: 18px; width: 44px; height: 44px; border-bottom: 4px solid #CFD72A; border-right: 4px solid #CFD72A; border-radius: 0 0 8px 0"></span>
+<span style="font-size: 14px; color: #C5C8E4">Cámara</span>
+</div>
+<p style="margin: 0; text-align: center; font-size: 15px; color: #DCDEF0">Apunta al código QR de la orden en el área de despacho. Tu identidad ya fue validada con huella.</p>
+<div style="flex: 1"></div>
+<button type="button" onClick="{{escanear}}" style="width: 100%; height: 52px; border: none; border-radius: 14px; background: #CFD72A; color: #1A1C3D; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer">Simular escaneo del QR</button>
+</div>
+</sc-if>
+<sc-if value="{{escaneado}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1; display: flex; flex-direction: column; padding: 16px 20px 32px; gap: 14px; background: #F4F7FB; color: #1A1C3D">
+<div style="display: flex; align-items: center; gap: 12px; border-radius: 14px; background: #E7F6EE; padding: 14px 16px; color: #0F5132"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg><strong style="font-size: 15px">Retiro registrado y validado</strong></div>
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #4A5568">Técnico</span><strong style="font-size: 14px">José Hernández</strong></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #4A5568">Sucursal</span><strong style="font-size: 14px">Damasco Oeste</strong></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #4A5568">Producto</span><strong style="font-size: 14px">Nevera Samsung RT38K5932SL</strong></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #4A5568">Serial</span><strong style="font-size: 14px">0B5R4AAN300125</strong></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #4A5568">Fecha y hora</span><strong style="font-size: 14px">18/11/2026 · 9:42 a. m.</strong></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #4A5568">Orden</span><strong style="font-size: 14px">WO-4921</strong></span>
+</div>
+<p style="margin: 0; font-size: 14px; color: #4A5568">La cliente recibió tu ficha de seguridad con foto, nombre y cédula.</p>
+<div style="flex: 1"></div>
+<button type="button" onClick="{{confirmarRetiro}}" style="width: 100%; height: 52px; border: none; border-radius: 14px; background: #21244D; color: #FFFFFF; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer">Salir en ruta</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{isChecklist}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1; display: flex; flex-direction: column; min-height: 0; background: #FFFFFF">
+<div style="display: flex; align-items: center; gap: 8px; padding: 16px 12px 12px; border-bottom: 1px solid #E2E8F0">
+<button type="button" onClick="{{goHome}}" aria-label="Volver" style="width: 44px; height: 44px; border: none; background: transparent; color: #1A1C3D; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Checklist · WO-4921</h2>
+<span style="margin-left: auto; margin-right: 8px; font-size: 13px; font-weight: 600; color: #4A5568">{{progreso}}</span>
+</div>
+<div style="flex: 1; overflow-y: auto; padding: 14px 16px 20px; display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 4px 0 4px; font-size: 13px; font-weight: 700; color: #21244D; letter-spacing: 0.6px">INSTALACIÓN</h3>
+<sc-for list="{{tecItems}}" as="it" hint-placeholder-count="4">
+<button type="button" onClick="{{it.toggle}}" style="min-height: 48px; border: 1px solid #E2E8F0; border-radius: 12px; background: #FFFFFF; display: flex; align-items: center; gap: 12px; padding: 0 14px; font-size: 15px; font-family: inherit; color: #1A1C3D; text-align: left; cursor: pointer">
+<sc-if value="{{it.on}}" hint-placeholder-val="{{false}}"><span style="width: 24px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #167A45; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span></sc-if>
+<sc-if value="{{it.off}}" hint-placeholder-val="{{true}}"><span style="width: 24px; height: 24px; flex-shrink: 0; box-sizing: border-box; border-radius: 6px; border: 2px solid #9AA8BA"></span></sc-if>
+{{it.label}}
+</button>
+</sc-for>
+<h3 style="margin: 12px 0 4px; font-size: 13px; font-weight: 700; color: #C2410C; letter-spacing: 0.6px">RETIRO DE RESIDUOS · OBLIGATORIO</h3>
+<sc-for list="{{resItems}}" as="it" hint-placeholder-count="5">
+<button type="button" onClick="{{it.toggle}}" style="min-height: 48px; border: 1px solid #F3D3C2; border-radius: 12px; background: #FFF8F4; display: flex; align-items: center; gap: 12px; padding: 0 14px; font-size: 15px; font-family: inherit; color: #1A1C3D; text-align: left; cursor: pointer">
+<sc-if value="{{it.on}}" hint-placeholder-val="{{false}}"><span style="width: 24px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #167A45; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span></sc-if>
+<sc-if value="{{it.off}}" hint-placeholder-val="{{true}}"><span style="width: 24px; height: 24px; flex-shrink: 0; box-sizing: border-box; border-radius: 6px; border: 2px solid #C2410C"></span></sc-if>
+{{it.label}}
+</button>
+</sc-for>
+<h3 style="margin: 12px 0 4px; font-size: 13px; font-weight: 700; color: #21244D; letter-spacing: 0.6px">EVIDENCIA FOTOGRÁFICA</h3>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{fotos}}" as="f" hint-placeholder-count="2">
+<sc-if value="{{f.on}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{f.toggle}}" style="height: 92px; border: 2px solid #167A45; border-radius: 12px; background: #E7F6EE; color: #0F5132; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{f.label}}</button></sc-if>
+<sc-if value="{{f.off}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{f.toggle}}" style="height: 92px; border: 2px dashed #9EB3CC; border-radius: 12px; background: #F8FAFC; color: #4A5568; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>{{f.label}}</button></sc-if>
+</sc-for>
+</div>
+</div>
+<div style="padding: 12px 16px 24px; border-top: 1px solid #E2E8F0; display: flex; flex-direction: column; gap: 6px">
+<sc-if value="{{allDone}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{completar}}" style="width: 100%; height: 52px; border: none; border-radius: 14px; background: #167A45; color: #FFFFFF; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer">Completar orden</button></sc-if>
+<sc-if value="{{notDone}}" hint-placeholder-val="{{true}}"><button type="button" disabled style="width: 100%; height: 52px; border: none; border-radius: 14px; background: #E2E8F0; color: #4A5568; font-size: 16px; font-weight: 700; font-family: inherit">Completar orden</button><span style="text-align: center; font-size: 12px; color: #4A5568">Marca todos los puntos y sube las 2 fotos para cerrar</span></sc-if>
+</div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { screen: 'login', escaneado: false, retirado: false, cerrada: false, checks: {} };
+  }
+  renderVals() {
+    const s = this.state;
+    const go = (screen) => () => this.setState({ screen });
+    const tec = ['Conexión eléctrica verificada', 'Conexión hidráulica / drenaje', 'Equipo nivelado', 'Prueba de encendido OK'];
+    const res = ['Cajas de cartón', 'Anime', 'Plásticos', 'Flejes', 'Precintos de seguridad'];
+    const fot = ['Foto: equipo instalado', 'Foto: espacio limpio'];
+    const toggle = (k) => () => this.setState({ checks: Object.assign({}, s.checks, { [k]: !s.checks[k] }) });
+    const mk = (k) => ({ label: k, on: !!s.checks[k], off: !s.checks[k], toggle: toggle(k) });
+    const all = tec.concat(res, fot);
+    const hechos = all.filter((k) => s.checks[k]).length;
+    const allDone = hechos === all.length;
+    return {
+      isLogin: s.screen === 'login',
+      isHome: s.screen === 'home',
+      isRetiro: s.screen === 'retiro',
+      isChecklist: s.screen === 'checklist',
+      entrar: go('home'),
+      goHome: go('home'),
+      goRetiro: go('retiro'),
+      goChecklist: go('checklist'),
+      escanear: () => this.setState({ escaneado: true }),
+      confirmarRetiro: () => this.setState({ retirado: true, screen: 'home' }),
+      completar: () => this.setState({ cerrada: true, screen: 'home' }),
+      reiniciar: () => this.setState({ escaneado: false, retirado: false, cerrada: false, checks: {} }),
+      noEscaneado: !s.escaneado,
+      escaneado: s.escaneado,
+      orderOpen: !s.cerrada,
+      cerrada: s.cerrada,
+      porRetirar: !s.retirado,
+      retirado: s.retirado,
+      etapa: s.retirado ? 'EN RUTA AL DOMICILIO' : 'POR RETIRAR EN DAMASCO OESTE',
+      etapaBg: s.retirado ? '#FFF1E8' : '#F1F3D4',
+      etapaColor: s.retirado ? '#9A3412' : '#21244D',
+      tecItems: tec.map(mk),
+      resItems: res.map(mk),
+      fotos: fot.map(mk),
+      progreso: hechos + ' de ' + all.length,
+      allDone,
+      notDone: !allDone,
+      pendientes: [
+        { hora: '12:30', wo: 'WO-4922', equipo: 'Lavadora', dir: 'Propatria, calle 4 · Zona Oeste' },
+        { hora: '14:15', wo: 'WO-4923', equipo: 'Aire acondicionado', dir: 'La Pastora · límite Zona Central' },
+        { hora: '16:00', wo: 'WO-4925', equipo: 'Secadora', dir: 'Los Magallanes de Catia · Zona Oeste' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

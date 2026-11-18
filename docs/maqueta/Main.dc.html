@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>AHA HOME — Cliente</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#21244D}a:hover{color:#1A1C3D}
+input::placeholder{color:#6B7789}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F4F7FB; font-family: Inter, system-ui, sans-serif; color: #1A1C3D; overflow: hidden">
+
+<sc-if value="{{isLogin}}" hint-placeholder-val="{{true}}">
+<div style="flex: 1; display: flex; flex-direction: column; padding: 72px 28px 32px; gap: 16px; background: #FFFFFF">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 24px">
+<svg width="72" height="72" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="24" fill="#21244D"></rect><g transform="translate(12 10) scale(0.76)"><path d="M50 13 L85 38.5 Q87.5 40.3 87.5 43.4 L87.5 69 Q87.5 76 80.5 76 L45 76 L29.5 88.5 Q26.5 90.8 26.5 87 L26.5 76 L19.5 76 Q12.5 76 12.5 69 L12.5 43.4 Q12.5 40.3 15 38.5 Z" fill="#CFD72A" stroke="#CFD72A" stroke-width="5" stroke-linejoin="round"></path><path d="M33 50 L45 62 L67.5 39.5" fill="none" stroke="#21244D" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"></path></g></svg>
+<h1 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 40px; letter-spacing: -0.5px">AHA HOME</h1>
+<p style="margin: 0; color: #4A5568; font-size: 15px">Hacemos todo por ti</p>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Teléfono o correo
+<input type="text" placeholder="0414 000 0000" style="height: 48px; border: 1px solid #CBD5E1; border-radius: 12px; padding: 0 14px; font-size: 15px; font-family: inherit">
+</label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Contraseña
+<input type="password" placeholder="••••••••" style="height: 48px; border: 1px solid #CBD5E1; border-radius: 12px; padding: 0 14px; font-size: 15px; font-family: inherit">
+</label>
+<button type="button" onClick="{{goHome}}" style="height: 52px; border: none; border-radius: 14px; background: #21244D; color: #FFFFFF; font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer; margin-top: 8px">Entrar</button>
+<div style="display: flex; align-items: center; gap: 12px; color: #6B7789; font-size: 13px"><span style="flex: 1; height: 1px; background: #E2E8F0"></span>o continúa con<span style="flex: 1; height: 1px; background: #E2E8F0"></span></div>
+<div style="display: flex; gap: 12px">
+<button type="button" onClick="{{goHome}}" style="flex: 1; height: 48px; border: 1px solid #CBD5E1; border-radius: 12px; background: #FFFFFF; font-size: 15px; font-weight: 600; font-family: inherit; color: #1A1C3D; cursor: pointer">Google</button>
+<button type="button" onClick="{{goHome}}" style="flex: 1; height: 48px; border: 1px solid #CBD5E1; border-radius: 12px; background: #FFFFFF; font-size: 15px; font-weight: 600; font-family: inherit; color: #1A1C3D; cursor: pointer">Facebook</button>
+</div>
+<a href="#" style="text-align: center; font-size: 14px; font-weight: 500">¿Olvidaste tu contraseña?</a>
+<div style="flex: 1"></div>
+<p style="margin: 0; text-align: center; font-size: 14px; color: #4A5568">¿Nuevo en AHA HOME? <a href="#" style="font-weight: 600">Regístrate</a></p>
+</div>
+</sc-if>
+
+<sc-if value="{{isHome}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1; display: flex; flex-direction: column; min-height: 0">
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 12px; background: #FFFFFF">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="34" height="34" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="24" fill="#21244D"></rect><g transform="translate(12 10) scale(0.76)"><path d="M50 13 L85 38.5 Q87.5 40.3 87.5 43.4 L87.5 69 Q87.5 76 80.5 76 L45 76 L29.5 88.5 Q26.5 90.8 26.5 87 L26.5 76 L19.5 76 Q12.5 76 12.5 69 L12.5 43.4 Q12.5 40.3 15 38.5 Z" fill="#CFD72A" stroke="#CFD72A" stroke-width="5" stroke-linejoin="round"></path><path d="M33 50 L45 62 L67.5 39.5" fill="none" stroke="#21244D" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"></path></g></svg>
+<span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 22px; font-weight: 700">AHA HOME</span>
+</div>
+<button type="button" aria-label="Mi cuenta" style="width: 44px; height: 44px; border-radius: 22px; border: none; background: #F1F3D4; color: #21244D; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg></button>
+</div>
+<div style="flex: 1; overflow-y: auto; padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 16px">
+<div>
+<p style="margin: 0; font-size: 14px; color: #4A5568">Bienvenida,</p>
+<h2 style="margin: 2px 0 0; font-size: 24px; font-weight: 700">María González</h2>
+</div>
+<sc-if value="{{hasOrder}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{goSeguimiento}}" style="text-align: left; border: none; border-radius: 16px; background: #1A1C3D; color: #FFFFFF; padding: 16px; display: flex; flex-direction: column; gap: 6px; font-family: inherit; cursor: pointer">
+<span style="font-size: 12px; font-weight: 600; color: #CFD72A; letter-spacing: 0.5px">SERVICIO ACTIVO · WO-4921</span>
+<span style="font-size: 17px; font-weight: 600">Instalación de {{tipoLower}}</span>
+<span style="font-size: 14px; color: #DCDEF0">{{estadoLabel}} · Ver seguimiento</span>
+</button>
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<button type="button" onClick="{{goSeguimiento}}" style="height: 112px; border: 1px solid #E2E8F0; border-radius: 16px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-family: inherit; font-size: 14px; font-weight: 600; color: #1A1C3D; cursor: pointer"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#21244D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v10H3z"></path><path d="M14 10h4l3 3v3h-7"></path><circle cx="7" cy="18" r="2"></circle><circle cx="17" cy="18" r="2"></circle></svg>Seguimiento</button>
+<button type="button" onClick="{{goRegistro}}" style="height: 112px; border: 1px solid #E2E8F0; border-radius: 16px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-family: inherit; font-size: 14px; font-weight: 600; color: #1A1C3D; cursor: pointer"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#21244D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M12 8v8M8 12h8"></path></svg>Registrar equipo</button>
+<button type="button" onClick="{{goAgenda}}" style="height: 112px; border: 1px solid #E2E8F0; border-radius: 16px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-family: inherit; font-size: 14px; font-weight: 600; color: #1A1C3D; cursor: pointer"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#21244D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Programar instalación</button>
+<button type="button" style="height: 112px; border: 1px solid #E2E8F0; border-radius: 16px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-family: inherit; font-size: 14px; font-weight: 600; color: #1A1C3D; cursor: pointer"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#21244D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><path d="M6 10h12M9 6v2M9 13v3"></path></svg>Mis equipos</button>
+<button type="button" style="height: 112px; border: 1px solid #E2E8F0; border-radius: 16px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-family: inherit; font-size: 14px; font-weight: 600; color: #1A1C3D; cursor: pointer"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#21244D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>Mi cuenta</button>
+<button type="button" style="height: 112px; border: 1px solid #E2E8F0; border-radius: 16px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-family: inherit; font-size: 14px; font-weight: 600; color: #1A1C3D; cursor: pointer"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#21244D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg>Notificaciones</button>
+</div>
+<button type="button" onClick="{{goRegistro}}" style="height: 54px; border: none; border-radius: 14px; background: #21244D; color: #FFFFFF; font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer">Nueva solicitud</button>
+</div>
+<nav style="display: flex; justify-content: space-around; padding: 8px 4px 22px; background: #FFFFFF; border-top: 1px solid #E2E8F0">
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 60px; font-size: 11px; font-weight: 600; color: #21244D; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg>Inicio</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 60px; font-size: 11px; font-weight: 500; color: #4A5568; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l9-4 9 4-9 4-9-4z"></path><path d="M3 7v10l9 4 9-4V7"></path><path d="M12 11v10"></path></svg>Mis equipos</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 60px; font-size: 11px; font-weight: 500; color: #4A5568; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg>Actividad</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 60px; font-size: 11px; font-weight: 500; color: #4A5568; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.5V14"></path><path d="M12 17h.01"></path></svg>Soporte</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 60px; font-size: 11px; font-weight: 500; color: #4A5568; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>Menú</a>
+</nav>
+</div>
+</sc-if>
+
+<sc-if value="{{isRegistro}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1; display: flex; flex-direction: column; min-height: 0; background: #FFFFFF">
+<div style="display: flex; align-items: center; gap: 8px; padding: 16px 12px 12px; border-bottom: 1px solid #E2E8F0">
+<button type="button" onClick="{{goHome}}" aria-label="Volver" style="width: 44px; height: 44px; border: none; background: transparent; color: #1A1C3D; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Registrar equipo</h2>
+<span style="margin-left: auto; margin-right: 8px; font-size: 13px; color: #4A5568">Paso 1 de 2</span>
+</div>
+<div style="flex: 1; overflow-y: auto; padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 12px">
+<h3 style="margin: 4px 0 0; font-size: 13px; font-weight: 700; color: #21244D; letter-spacing: 0.6px">DATOS DEL CLIENTE</h3>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Nombre completo<input type="text" value="María González" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Dirección exacta<input type="text" value="Av. Sucre, Res. Los Andes, piso 4, Catia" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<button type="button" style="align-self: flex-start; height: 36px; border: none; background: #F1F3D4; color: #21244D; border-radius: 18px; padding: 0 14px; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"></path><circle cx="12" cy="9" r="2.5"></circle></svg>Usar mi ubicación (Zona Oeste)</button>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Teléfono de contacto<input type="tel" value="0414 123 4567" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<h3 style="margin: 12px 0 0; font-size: 13px; font-weight: 700; color: #21244D; letter-spacing: 0.6px">DATOS DEL EQUIPO</h3>
+<span style="font-size: 13px; font-weight: 600">Tipo de equipo</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{tipos}}" as="t" hint-placeholder-count="4">
+<sc-if value="{{t.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{t.pick}}" style="height: 44px; border: 2px solid #21244D; border-radius: 10px; background: #F1F3D4; color: #21244D; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer">{{t.label}}</button></sc-if>
+<sc-if value="{{t.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{t.pick}}" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; color: #1A1C3D; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer">{{t.label}}</button></sc-if>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Marca<input type="text" placeholder="Ej. Samsung" style="height: 44px; min-width: 0; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Modelo<input type="text" placeholder="N.º de modelo" style="height: 44px; min-width: 0; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Serial
+<span style="display: flex; gap: 8px"><input type="text" placeholder="N.º de serial" style="flex: 1; min-width: 0; height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"><button type="button" style="height: 44px; border: 1px solid #21244D; border-radius: 10px; background: #FFFFFF; color: #21244D; padding: 0 12px; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3"></path><path d="M4 12h16"></path></svg>Escanear</button></span>
+</label>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Fecha de compra<input type="text" value="18/11/2026" style="height: 44px; min-width: 0; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Garantía<input type="text" value="12 meses" style="height: 44px; min-width: 0; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+</div>
+<button type="button" style="height: 72px; border: 2px dashed #9EB3CC; border-radius: 12px; background: #F8FAFC; color: #4A5568; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"></path><path d="M4 16v4h16v-4"></path></svg>Subir foto de la factura</button>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #4A5568; min-height: 44px"><input type="checkbox" checked style="width: 20px; height: 20px; accent-color: #21244D">Acepto los términos del servicio</label>
+</div>
+<div style="padding: 12px 20px 24px; border-top: 1px solid #E2E8F0">
+<button type="button" onClick="{{goAgenda}}" style="width: 100%; height: 52px; border: none; border-radius: 14px; background: #21244D; color: #FFFFFF; font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer">Siguiente: programar instalación</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isAgenda}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1; display: flex; flex-direction: column; min-height: 0; background: #FFFFFF">
+<div style="display: flex; align-items: center; gap: 8px; padding: 16px 12px 12px; border-bottom: 1px solid #E2E8F0">
+<button type="button" onClick="{{goRegistro}}" aria-label="Volver" style="width: 44px; height: 44px; border: none; background: transparent; color: #1A1C3D; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Programar instalación</h2>
+<span style="margin-left: auto; margin-right: 8px; font-size: 13px; color: #4A5568">Paso 2 de 2</span>
+</div>
+<div style="flex: 1; overflow-y: auto; padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 14px">
+<h3 style="margin: 4px 0 0; font-size: 13px; font-weight: 700; color: #21244D; letter-spacing: 0.6px">DÍA</h3>
+<div style="display: flex; gap: 8px">
+<sc-for list="{{dias}}" as="d" hint-placeholder-count="4">
+<sc-if value="{{d.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{d.pick}}" style="flex: 1; height: 64px; border: 2px solid #21244D; border-radius: 12px; background: #F1F3D4; color: #21244D; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-family: inherit; cursor: pointer"><span style="font-size: 12px; font-weight: 600">{{d.dow}}</span><span style="font-size: 18px; font-weight: 700">{{d.num}}</span></button></sc-if>
+<sc-if value="{{d.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{d.pick}}" style="flex: 1; height: 64px; border: 1px solid #CBD5E1; border-radius: 12px; background: #FFFFFF; color: #1A1C3D; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-family: inherit; cursor: pointer"><span style="font-size: 12px; font-weight: 500; color: #4A5568">{{d.dow}}</span><span style="font-size: 18px; font-weight: 600">{{d.num}}</span></button></sc-if>
+</sc-for>
+</div>
+<h3 style="margin: 8px 0 0; font-size: 13px; font-weight: 700; color: #21244D; letter-spacing: 0.6px">FRANJA HORARIA</h3>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{franjas}}" as="f" hint-placeholder-count="4">
+<sc-if value="{{f.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{f.pick}}" style="height: 48px; border: 2px solid #21244D; border-radius: 10px; background: #F1F3D4; color: #21244D; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer">{{f.label}}</button></sc-if>
+<sc-if value="{{f.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{f.pick}}" style="height: 48px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; color: #1A1C3D; font-size: 15px; font-weight: 500; font-family: inherit; cursor: pointer">{{f.label}}</button></sc-if>
+</sc-for>
+</div>
+<div style="margin-top: 8px; border-radius: 16px; background: #F4F7FB; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 13px; font-weight: 700; color: #1A1C3D">Incluido en tu servicio</span>
+<sc-for list="{{incluye}}" as="i" hint-placeholder-count="5">
+<span style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #1A1C3D"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#167A45" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{i}}</span>
+</sc-for>
+</div>
+<p style="margin: 0; font-size: 13px; color: #4A5568">Equipo: {{tipo}} · Retiro en Damasco Oeste · Entrega en Catia</p>
+</div>
+<div style="padding: 12px 20px 24px; border-top: 1px solid #E2E8F0">
+<button type="button" onClick="{{confirmar}}" style="width: 100%; height: 52px; border: none; border-radius: 14px; background: #21244D; color: #FFFFFF; font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer">Confirmar solicitud</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isSeguimiento}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1; display: flex; flex-direction: column; min-height: 0">
+<div style="display: flex; align-items: center; gap: 8px; padding: 16px 12px 12px; background: #FFFFFF; border-bottom: 1px solid #E2E8F0">
+<button type="button" onClick="{{goHome}}" aria-label="Volver" style="width: 44px; height: 44px; border: none; background: transparent; color: #1A1C3D; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Mi actividad</h2>
+</div>
+<div style="flex: 1; overflow-y: auto; padding: 16px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+<sc-if value="{{completed}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 12px; border-radius: 14px; background: #E7F6EE; padding: 14px 16px; color: #0F5132"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg><span style="display: flex; flex-direction: column"><strong style="font-size: 15px">¡Instalación completada!</strong><span style="font-size: 13px">{{diaLabel}} · espacio limpio y sin embalaje</span></span></div>
+</sc-if>
+<div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E2E8F0; padding: 16px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">ORDEN WO-4921</span>
+<span style="font-size: 17px; font-weight: 700">Instalación de {{tipoLower}}</span>
+<span style="font-size: 14px; color: #4A5568">{{diaLabel}}, {{franja}} · <strong style="color: #167A45">{{estadoLabel}}</strong></span>
+<div style="display: flex; flex-direction: column; margin-top: 12px">
+<sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+<div style="display: flex; gap: 12px; min-height: 40px">
+<div style="display: flex; flex-direction: column; align-items: center; width: 24px">
+<sc-if value="{{s.done}}" hint-placeholder-val="{{true}}"><span style="width: 24px; height: 24px; border-radius: 12px; background: #21244D; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span></sc-if>
+<sc-if value="{{s.current}}" hint-placeholder-val="{{false}}"><span style="width: 24px; height: 24px; box-sizing: border-box; border-radius: 12px; border: 3px solid #21244D; background: #FFFFFF; box-shadow: 0 0 0 4px #E3E8A0"></span></sc-if>
+<sc-if value="{{s.pending}}" hint-placeholder-val="{{false}}"><span style="width: 24px; height: 24px; box-sizing: border-box; border-radius: 12px; border: 2px solid #CBD5E1; background: #FFFFFF"></span></sc-if>
+<sc-if value="{{s.notLast}}" hint-placeholder-val="{{true}}"><span style="flex: 1; width: 2px; background: #CBD5E1; min-height: 16px"></span></sc-if>
+</div>
+<div style="display: flex; flex-direction: column; padding-bottom: 12px">
+<sc-if value="{{s.pending}}" hint-placeholder-val="{{false}}"><span style="font-size: 14px; color: #6B7789">{{s.label}}</span></sc-if>
+<sc-if value="{{s.reached}}" hint-placeholder-val="{{true}}"><span style="font-size: 14px; font-weight: 600; color: #1A1C3D">{{s.label}}</span></sc-if>
+<sc-if value="{{s.reached}}" hint-placeholder-val="{{true}}"><span style="font-size: 12px; color: #4A5568">{{s.detail}}</span></sc-if>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<sc-if value="{{showFicha}}" hint-placeholder-val="{{false}}">
+<div style="border-radius: 16px; background: #1A1C3D; color: #FFFFFF; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; color: #CFD72A"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg>FICHA DE SEGURIDAD · IDENTIDAD VERIFICADA</span>
+<div style="display: flex; align-items: center; gap: 14px">
+<div style="width: 64px; height: 64px; border-radius: 32px; background: #383D78; border: 2px solid #CFD72A; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: #FFFFFF">JH</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<strong style="font-size: 17px">José Hernández</strong>
+<span style="font-size: 13px; color: #DCDEF0">C.I. V-12.345.678 · Técnico instalador</span>
+<span style="font-size: 13px; color: #DCDEF0">Retiró tu equipo en Damasco Oeste · 9:42 a. m.</span>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{completed}}" hint-placeholder-val="{{false}}">
+<div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E2E8F0; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<span style="font-size: 15px; font-weight: 700">Evidencia del técnico</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<div style="height: 88px; border-radius: 10px; background: #F1F3D4; display: flex; align-items: flex-end; padding: 8px; box-sizing: border-box; font-size: 12px; font-weight: 600; color: #21244D">Foto: equipo instalado</div>
+<div style="height: 88px; border-radius: 10px; background: #E7F6EE; display: flex; align-items: flex-end; padding: 8px; box-sizing: border-box; font-size: 12px; font-weight: 600; color: #0F5132">Foto: espacio limpio</div>
+</div>
+<span style="font-size: 15px; font-weight: 700">¿Cómo fue el servicio?</span>
+<div style="display: flex; gap: 6px">
+<sc-for list="{{stars}}" as="st" hint-placeholder-count="5">
+<button type="button" onClick="{{st.pick}}" aria-label="{{st.aria}}" style="width: 44px; height: 44px; border: none; background: transparent; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<sc-if value="{{st.on}}" hint-placeholder-val="{{false}}"><svg width="32" height="32" viewBox="0 0 24 24" fill="#F59E0B" stroke="#D97706" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg></sc-if>
+<sc-if value="{{st.off}}" hint-placeholder-val="{{true}}"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9AA8BA" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg></sc-if>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{notCompleted}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<button type="button" style="height: 48px; border: 1px solid #21244D; border-radius: 12px; background: #FFFFFF; color: #21244D; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"></path></svg>Escribir al técnico</button>
+<div style="display: flex; gap: 8px">
+<button type="button" onClick="{{goAgenda}}" style="flex: 1; height: 48px; border: 1px solid #CBD5E1; border-radius: 12px; background: #FFFFFF; color: #1A1C3D; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer">Reprogramar</button>
+<button type="button" style="flex: 1; height: 48px; border: 1px solid #CBD5E1; border-radius: 12px; background: #FFFFFF; color: #B42318; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer">Cancelar</button>
+</div>
+</div>
+</sc-if>
+<button type="button" onClick="{{avanzar}}" style="height: 44px; border: 1px dashed #9EB3CC; border-radius: 12px; background: transparent; color: #4A5568; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer">{{demoLabel}}</button>
+</div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { screen: 'login', tipo: 'Nevera', dia: 1, franja: '10:00 – 12:00', estado: -1, rating: 0 };
+  }
+  renderVals() {
+    const s = this.state;
+    const go = (screen) => () => this.setState({ screen });
+    const estados = ['Solicitud enviada', 'Técnico asignado', 'Cita confirmada', 'Técnico en ruta', 'Servicio en progreso', 'Servicio completado'];
+    const detalles = ['Registrada en caja Damasco Oeste', 'José H. · Grupo A de guardia', 'Te avisaremos 30 min antes', 'Equipo retirado con QR · 9:42 a. m.', 'Instalación y retiro de embalaje', 'Evidencia fotográfica cargada'];
+    const dias = [['Mié', '18', 'Hoy'], ['Jue', '19', 'Jue 19 nov'], ['Vie', '20', 'Vie 20 nov'], ['Sáb', '21', 'Sáb 21 nov']];
+    const franjas = ['8:00 – 10:00', '10:00 – 12:00', '13:00 – 15:00', '15:00 – 17:00'];
+    const e = s.estado;
+    return {
+      isLogin: s.screen === 'login',
+      isHome: s.screen === 'home',
+      isRegistro: s.screen === 'registro',
+      isAgenda: s.screen === 'agenda',
+      isSeguimiento: s.screen === 'seguimiento',
+      goHome: go('home'),
+      goRegistro: go('registro'),
+      goAgenda: go('agenda'),
+      goSeguimiento: () => this.setState({ screen: 'seguimiento', estado: Math.max(0, s.estado) }),
+      confirmar: () => this.setState({ screen: 'seguimiento', estado: 0, rating: 0 }),
+      avanzar: () => this.setState({ estado: e >= 5 ? 0 : e + 1, rating: e >= 5 ? 0 : s.rating }),
+      demoLabel: e >= 5 ? 'Demo: reiniciar el servicio' : 'Demo: avanzar al siguiente estado ›',
+      hasOrder: e >= 0,
+      tipo: s.tipo,
+      tipoLower: s.tipo === 'Aire acond.' ? 'aire acondicionado' : s.tipo.toLowerCase(),
+      franja: s.franja,
+      diaLabel: dias[s.dia][2],
+      estadoLabel: estados[Math.max(0, e)],
+      tipos: ['Nevera', 'Lavadora', 'Secadora', 'Aire acond.'].map((t) => ({ label: t, sel: t === s.tipo, unsel: t !== s.tipo, pick: () => this.setState({ tipo: t }) })),
+      dias: dias.map((d, i) => ({ dow: d[0], num: d[1], sel: i === s.dia, unsel: i !== s.dia, pick: () => this.setState({ dia: i }) })),
+      franjas: franjas.map((f) => ({ label: f, sel: f === s.franja, unsel: f !== s.franja, pick: () => this.setState({ franja: f }) })),
+      incluye: ['Retiro en almacén Damasco', 'Traslado seguro a tu casa', 'Desembalaje', 'Instalación y prueba de encendido', 'Retiro de cajas, anime, plásticos y flejes'],
+      steps: estados.map((label, i) => ({ label, detail: detalles[i], done: i < e || (i === e && i === 5), current: i === e && i !== 5, pending: i > e, reached: i <= e, notLast: i < 5 })),
+      showFicha: e >= 3,
+      completed: e >= 5,
+      notCompleted: e < 5,
+      stars: [1, 2, 3, 4, 5].map((n) => ({ on: n <= s.rating, off: n > s.rating, aria: n + ' estrellas', pick: () => this.setState({ rating: n }) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

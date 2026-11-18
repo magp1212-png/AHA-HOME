@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>AHA HOME — Agente en caja</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#21244D}a:hover{color:#1A1C3D}
+input::placeholder{color:#6B7789}
+</style>
+</helmet>
+<div style="width: 1024px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F4F7FB; font-family: Inter, system-ui, sans-serif; color: #1A1C3D; overflow: hidden">
+<header style="display: flex; align-items: center; gap: 14px; padding: 16px 28px; background: #1A1C3D; color: #FFFFFF">
+<svg width="36" height="36" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="24" fill="#21244D"></rect><g transform="translate(12 10) scale(0.76)"><path d="M50 13 L85 38.5 Q87.5 40.3 87.5 43.4 L87.5 69 Q87.5 76 80.5 76 L45 76 L29.5 88.5 Q26.5 90.8 26.5 87 L26.5 76 L19.5 76 Q12.5 76 12.5 69 L12.5 43.4 Q12.5 40.3 15 38.5 Z" fill="#CFD72A" stroke="#CFD72A" stroke-width="5" stroke-linejoin="round"></path><path d="M33 50 L45 62 L67.5 39.5" fill="none" stroke="#21244D" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"></path></g></svg>
+<div style="display: flex; flex-direction: column">
+<span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 20px; font-weight: 700">AHA HOME · Punto de venta</span>
+<span style="font-size: 13px; color: #C5C8E4">Tiendas Damasco — Sucursal Oeste (Catia) · Caja 3</span>
+</div>
+<span style="margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #DCDEF0"><span style="width: 10px; height: 10px; border-radius: 5px; background: #CFD72A"></span>Agente: Carla Pérez</span>
+</header>
+
+<div style="flex: 1; display: flex; gap: 20px; padding: 20px 28px; min-height: 0">
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 22px; overflow-y: auto">
+<h1 style="margin: 0; font-size: 22px; font-weight: 700">Nueva orden de servicio</h1>
+<h2 style="margin: 4px 0 0; font-size: 13px; font-weight: 700; color: #21244D; letter-spacing: 0.6px">DATOS DEL CLIENTE</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Nombre completo<input type="text" value="María González" style="height: 44px; min-width: 0; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Teléfono (WhatsApp)<input type="tel" value="0414 123 4567" style="height: 44px; min-width: 0; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Dirección exacta / geolocalización<input type="text" value="Av. Sucre, Res. Los Andes, piso 4, apto 4-B, Catia" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<span style="font-size: 13px; font-weight: 600; margin-right: 4px">Zona:</span>
+<sc-for list="{{zonas}}" as="z" hint-placeholder-count="3">
+<sc-if value="{{z.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{z.pick}}" style="height: 40px; padding: 0 16px; border: 2px solid #21244D; border-radius: 20px; background: #F1F3D4; color: #21244D; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer">{{z.label}}</button></sc-if>
+<sc-if value="{{z.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{z.pick}}" style="height: 40px; padding: 0 16px; border: 1px solid #CBD5E1; border-radius: 20px; background: #FFFFFF; color: #1A1C3D; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer">{{z.label}}</button></sc-if>
+</sc-for>
+</div>
+<h2 style="margin: 8px 0 0; font-size: 13px; font-weight: 700; color: #21244D; letter-spacing: 0.6px">DATOS DEL EQUIPO</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{tipos}}" as="t" hint-placeholder-count="4">
+<sc-if value="{{t.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{t.pick}}" style="height: 44px; border: 2px solid #21244D; border-radius: 10px; background: #F1F3D4; color: #21244D; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer">{{t.label}}</button></sc-if>
+<sc-if value="{{t.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{t.pick}}" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; color: #1A1C3D; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer">{{t.label}}</button></sc-if>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Marca<input type="text" value="Samsung" style="height: 44px; min-width: 0; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Modelo<input type="text" value="RT38K5932SL" style="height: 44px; min-width: 0; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Serial<input type="text" placeholder="Escanear código" style="height: 44px; min-width: 0; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+</div>
+<div style="display: flex; gap: 12px">
+<button type="button" style="flex: 1; height: 48px; border: 2px dashed #9EB3CC; border-radius: 12px; background: #F8FAFC; color: #4A5568; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"></path><path d="M4 16v4h16v-4"></path></svg>Foto de la factura</button>
+<button type="button" style="flex: 1; height: 48px; border: 1px solid #21244D; border-radius: 12px; background: #FFFFFF; color: #21244D; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3"></path><path d="M4 12h16"></path></svg>Escanear serial</button>
+</div>
+<h2 style="margin: 8px 0 0; font-size: 13px; font-weight: 700; color: #21244D; letter-spacing: 0.6px">VENTANA HORARIA ACORDADA</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{franjas}}" as="f" hint-placeholder-count="4">
+<sc-if value="{{f.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{f.pick}}" style="height: 44px; border: 2px solid #21244D; border-radius: 10px; background: #F1F3D4; color: #21244D; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer">{{f.label}}</button></sc-if>
+<sc-if value="{{f.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{f.pick}}" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; color: #1A1C3D; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer">{{f.label}}</button></sc-if>
+</sc-for>
+</div>
+<button type="button" onClick="{{generar}}" style="margin-top: auto; height: 54px; border: none; border-radius: 14px; background: #21244D; color: #FFFFFF; font-size: 17px; font-weight: 600; font-family: inherit; cursor: pointer">Generar orden y código QR</button>
+</div>
+
+<div style="width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{sinOrden}}" hint-placeholder-val="{{true}}">
+<div style="flex: 1; border: 2px dashed #CBD5E1; border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; color: #4A5568">
+<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#9AA8BA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 20h2M20 14v2"></path></svg>
+<strong style="font-size: 16px; color: #1A1C3D">El código QR aparecerá aquí</strong>
+<span style="font-size: 14px">Completa los datos y pulsa «Generar orden». El técnico de guardia más cercano se asigna solo.</span>
+</div>
+</sc-if>
+<sc-if value="{{conOrden}}" hint-placeholder-val="{{false}}">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px">
+<span style="font-size: 12px; font-weight: 700; letter-spacing: 0.5px; color: #4A5568">ORDEN WO-4921 · QR DE RETIRO EN ALMACÉN</span>
+<div style="width: 188px; height: 188px; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; padding: 10px; box-sizing: border-box; border: 1px solid #E2E8F0; border-radius: 12px" role="img" aria-label="Código QR de ejemplo">
+<sc-for list="{{qr}}" as="c" hint-placeholder-count="81">
+<sc-if value="{{c.on}}" hint-placeholder-val="{{true}}"><span style="background: #1A1C3D; border-radius: 2px"></span></sc-if>
+<sc-if value="{{c.off}}" hint-placeholder-val="{{false}}"><span></span></sc-if>
+</sc-for>
+</div>
+<strong style="font-size: 16px">{{tipo}} · {{franja}}</strong>
+<span style="font-size: 13px; color: #4A5568; text-align: center">Enviado al cliente por la app y WhatsApp</span>
+<div style="display: flex; gap: 8px; width: 100%">
+<button type="button" style="flex: 1; height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; font-size: 14px; font-weight: 600; font-family: inherit; color: #1A1C3D; cursor: pointer">Imprimir</button>
+<button type="button" onClick="{{nueva}}" style="flex: 1; height: 44px; border: 1px solid #21244D; border-radius: 10px; background: #FFFFFF; font-size: 14px; font-weight: 600; font-family: inherit; color: #21244D; cursor: pointer">Nueva orden</button>
+</div>
+</div>
+<div style="background: #1A1C3D; color: #FFFFFF; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 12px; font-weight: 700; letter-spacing: 0.5px; color: #CFD72A">ASIGNACIÓN AUTOMÁTICA · ZONA {{zonaUpper}}</span>
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 48px; height: 48px; border-radius: 24px; background: #383D78; border: 2px solid #CFD72A; display: flex; align-items: center; justify-content: center; font-weight: 700">{{tecIni}}</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<strong style="font-size: 16px">{{tecNombre}}</strong>
+<span style="font-size: 13px; color: #DCDEF0">{{tecGrupo}} · de guardia</span>
+</div>
+</div>
+<span style="font-size: 13px; color: #DCDEF0">Notificación push enviada al técnico. Debe validar su identidad y escanear este QR en el área de despacho.</span>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1024,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { zona: 'Oeste', tipo: 'Nevera', franja: '10:00 – 12:00', generada: false };
+  }
+  renderVals() {
+    const s = this.state;
+    const tecnicos = {
+      Oeste: ['José Hernández', 'JH', 'Grupo A'],
+      Central: ['Luis Rodríguez', 'LR', 'Grupo B'],
+      Este: ['Andrea Medina', 'AM', 'Grupo C'],
+    };
+    const tec = tecnicos[s.zona];
+    const patron = '111101111100101001101111101000000000111010111001000100111010101000101001111101111';
+    return {
+      zonas: ['Oeste', 'Central', 'Este'].map((z) => ({ label: 'Zona ' + z, sel: z === s.zona, unsel: z !== s.zona, pick: () => this.setState({ zona: z }) })),
+      tipos: ['Nevera', 'Lavadora', 'Secadora', 'Aire acond.'].map((t) => ({ label: t, sel: t === s.tipo, unsel: t !== s.tipo, pick: () => this.setState({ tipo: t }) })),
+      franjas: ['8:00 – 10:00', '10:00 – 12:00', '13:00 – 15:00', '15:00 – 17:00'].map((f) => ({ label: f, sel: f === s.franja, unsel: f !== s.franja, pick: () => this.setState({ franja: f }) })),
+      generar: () => this.setState({ generada: true }),
+      nueva: () => this.setState({ generada: false }),
+      sinOrden: !s.generada,
+      conOrden: s.generada,
+      tipo: s.tipo,
+      franja: s.franja,
+      zonaUpper: s.zona.toUpperCase(),
+      tecNombre: tec[0],
+      tecIni: tec[1],
+      tecGrupo: tec[2],
+      qr: patron.split('').map((b) => ({ on: b === '1', off: b !== '1' })),
+    };
+  }
+}
+</script>
+</body>
+</html>
