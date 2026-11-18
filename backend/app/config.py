@@ -26,5 +26,8 @@ PUBLIC_URL = os.environ.get("AHAHOME_PUBLIC_URL", "http://127.0.0.1:8000").rstri
 # El cliente tiene 24 horas para verificar su correo; si no, su cuenta se elimina del registro.
 VERIFICACION_HORAS = int(os.environ.get("AHAHOME_VERIFICACION_HORAS", "24"))
 
+# Versión web de la app (mobile/dist-web): el servidor la sirve en "/" para www.ahahome.app y los paneles
+WEB_DIR = pathlib.Path(os.environ.get("AHAHOME_WEB_DIR", BASE_DIR.parent / "mobile" / "dist-web"))
+
 # Hora de Caracas (UTC-4, sin horario de verano) para saber qué grupo está de guardia hoy.
 UTC_OFFSET_HOURS = -4

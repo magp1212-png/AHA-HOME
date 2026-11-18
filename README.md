@@ -81,6 +81,27 @@ Todos usan la contraseña `aha12345`. Los técnicos entran con su teléfono y el
 | Clienta | `maria@ahahome.test` |
 | Técnicos | `04242000000` … `04242000026` (grupos A, B y C) y `04243000000` … `04243000002` (Guardia Retén) |
 
+### En el mismo servidor Windows que anunciate (recomendado)
+
+Funciona igual que anunciate, en el **puerto 8096** (anunciate usa el 8095):
+
+```powershell
+git clone https://github.com/magp1212-png/AHA-HOME.git "C:\Users\Administrator\APP AHA HOME"
+cd "C:\Users\Administrator\APP AHA HOME"
+powershell -ExecutionPolicy Bypass -File ops\instalar-windows.ps1
+```
+
+El instalador:
+- Prepara Python, la clave secreta, el correo de Brevo, la web y el superadministrador.
+- Usa los respaldos en R2 de anunciate.
+- Crea 4 tareas programadas:
+  - **aha home API**
+  - **aha home tunel**
+  - **aha home publicar**: cada 5 minutos publica lo que llegue a la rama `produccion`, con pruebas, respaldo y vuelta atrás si falla.
+  - **aha home respaldo**: todos los días.
+
+Para el túnel con nombre, sigue `ops/cloudflared/config.ejemplo.yml`. Con él, `api.ahahome.app` y `www.ahahome.app` llegan a este servidor.
+
 ### Instalar en tu servidor físico (un solo comando)
 
 En tu servidor (Linux o Mac, con Docker):

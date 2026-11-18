@@ -3,7 +3,13 @@ import Constants from "expo-constants";
 
 // Dirección del servidor: viene de app.config.js (AHAHOME_API_URL). Se puede cambiar desde la app
 // (pantalla de inicio → «Servidor») para mudarse al servidor físico sin publicar otra versión.
-const CONFIG_URL = (Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl ?? "http://127.0.0.1:8000";
+import { Platform } from "react-native";
+
+// En la web publicada (www.ahahome.app) la API está en el mismo servidor que sirve la página, como en anunciate.
+const DEFAULT_URL = (Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl ?? "http://127.0.0.1:8000";
+const CONFIG_URL: string = Platform.OS === "web" && typeof window !== "undefined" && !__DEV__ && !/^(localhost|127\.)/.test(window.location.hostname)
+  ? window.location.origin
+  : DEFAULT_URL;
 let baseUrl = CONFIG_URL;
 let token: string | null = null;
 

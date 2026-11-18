@@ -6,6 +6,7 @@ import time
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from . import config
@@ -63,3 +64,8 @@ def salud():
     with engine.connect() as c:
         c.execute(text("SELECT 1"))
     return {"ok": True, "app": "AHA HOME", "version": config.APP_VERSION}
+
+
+# La app web (misma app que el teléfono) en "/", después de todas las rutas de la API
+if config.WEB_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=config.WEB_DIR, html=True), name="web")
