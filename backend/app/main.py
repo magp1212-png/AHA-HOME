@@ -1,4 +1,9 @@
 """AHA HOME API · Hacemos todo por ti."""
+import logging
+import os
+import threading
+import time
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -7,6 +12,7 @@ from . import config
 from .db import Base, engine
 from .routers import admin, archivos, auth, ordenes, supervisor, tecnico
 
+log = logging.getLogger("ahahome")
 app = FastAPI(title="AHA HOME API", version=config.APP_VERSION)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
@@ -32,6 +38,23 @@ for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.
 @app.on_event("startup")
 def crear_tablas() -> None:
     Base.metadata.create_all(engine)
+    if os.environ.get("AHAHOME_PURGA", "1") == "1":
+        threading.Thread(target=_purga_periodica, daemon=True).start()
+
+
+def _purga_periodica() -> None:
+    """Cada hora elimina los registros de clientes que no verificaron su correo en 24 horas."""
+    from .db import SessionLocal
+    from .routers.auth import purgar_no_verificados
+    while True:
+        try:
+            with SessionLocal() as db:
+                n = purgar_no_verificados(db)
+                if n:
+                    log.info("registros sin verificar eliminados: %s", n)
+        except Exception:
+            log.exception("falló la purga de registros sin verificar")
+        time.sleep(3600)
 
 
 @app.get("/salud")

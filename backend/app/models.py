@@ -92,6 +92,10 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(200))
     rol: Mapped[str] = mapped_column(String(20), default="cliente")
     cedula: Mapped[str | None] = mapped_column(String(20))
+    foto: Mapped[str | None] = mapped_column(String(200))  # foto del cliente al registrarse
+    email_verificado: Mapped[bool] = mapped_column(Boolean, default=True)  # los clientes empiezan sin verificar
+    verificacion_token: Mapped[str | None] = mapped_column(String(60), index=True)
+    verificacion_vence: Mapped[dt.datetime | None] = mapped_column(DateTime)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     push_token: Mapped[str | None] = mapped_column(String(200))
     tienda_id: Mapped[int | None] = mapped_column(ForeignKey("tiendas.id"))  # agentes y supervisores

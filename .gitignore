@@ -11,3 +11,4 @@ backend/.secreto-jwt.txt
 node_modules/
 mobile/.expo/
 mobile/dist-web/
+backend/correo.key

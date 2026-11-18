@@ -317,3 +317,57 @@ def test_metodos_de_pago(client):
     agente = login(client, "agente@ahahome.test")
     assert client.post("/ordenes", json=ORDEN | {"pago": {"metodo": "punto_de_venta", "referencia": "lote 0042"}}, headers=agente).status_code == 200
     assert client.post("/ordenes", json=ORDEN | {"pago": {"metodo": "cheque"}}, headers=agente).status_code == 422
+
+
+def test_registro_rapido_cliente_y_verificacion_24h(client):
+    import base64
+    import datetime as dt
+    import re
+
+    from app import correo
+    from app.models import User
+
+    correo.outbox.clear()
+    foto = base64.b64encode(b"\xff\xd8\xff" + b"1" * 200).decode()
+    datos = {"nombre": "Carla Ruiz", "cedula": "v 20.555.111", "telefono": "0412-777-8888", "email": "Carla@Correo.com",
+             "password": "clave123", "foto": foto}
+    # faltan datos → no se registra
+    assert client.post("/auth/registro", json={k: v for k, v in datos.items() if k != "foto"}).status_code == 422
+    # la caja ya le había creado un pedido con su teléfono
+    nueva(client, login(client, "agente@ahahome.test"), cliente_nombre="Carla Ruiz", cliente_telefono="04127778888")
+
+    r = client.post("/auth/registro", json=datos)
+    assert r.status_code == 200
+    u = r.json()["usuario"]
+    assert u["cedula"] == "V-20.555.111" and u["email"] == "carla@correo.com" and u["foto"].startswith("/archivos/")
+    assert u["email_verificado"] is False and u["verificacion_vence"]
+    h = {"Authorization": "Bearer " + r.json()["token"]}
+    assert client.get(u["foto"]).status_code == 200
+    assert client.post("/auth/registro", json=datos).status_code == 409
+
+    # Llega el correo con el enlace; sin verificar todavía no ve el pedido de caja
+    assert correo.outbox[-1]["to"] == "carla@correo.com" and "24 horas" in correo.outbox[-1]["html"]
+    assert client.get("/ordenes", headers=h).json() == []
+    client.post("/auth/reenviar-verificacion", headers=h)
+    enlace = re.search(r"token=([\w-]+)", correo.outbox[-1]["html"]).group(1)
+    assert client.get("/auth/verificar", params={"token": "malo"}).status_code == 400
+    r = client.get("/auth/verificar", params={"token": enlace})
+    assert r.status_code == 200 and "verificado" in r.text
+    assert client.get("/yo", headers=h).json()["email_verificado"] is True
+    assert len(client.get("/ordenes", headers=h).json()) == 1
+
+    # Otro cliente que no verifica: a las 24 horas su registro se elimina
+    datos2 = datos | {"cedula": "V-21000000", "telefono": "04127779999", "email": "sin@correo.com"}
+    r = client.post("/auth/registro", json=datos2)
+    h2 = {"Authorization": "Bearer " + r.json()["token"]}
+    with SessionLocal() as db:
+        u2 = db.scalar(select(User).where(User.email == "sin@correo.com"))
+        u2.verificacion_vence = dt.datetime.utcnow() - dt.timedelta(minutes=1)
+        db.commit()
+    assert client.get("/yo", headers=h2).status_code == 401
+    r = client.post("/auth/login", json={"usuario": "sin@correo.com", "password": "clave123"})
+    assert r.status_code == 401 and "24 horas" in r.json()["detail"]
+    with SessionLocal() as db:
+        assert db.scalar(select(User).where(User.email == "sin@correo.com")) is None
+    # y puede registrarse otra vez con los mismos datos
+    assert client.post("/auth/registro", json=datos2).status_code == 200

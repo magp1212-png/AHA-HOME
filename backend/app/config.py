@@ -20,5 +20,11 @@ MAX_IMAGE_BYTES = 6 * 1024 * 1024
 # Notificaciones push con el servicio gratuito de Expo; las pruebas lo apagan.
 PUSH_ENABLED = os.environ.get("AHAHOME_PUSH", "1") == "1"
 
+# Dirección pública del servidor, para los enlaces de los correos (ej. https://api.ahahome.app)
+PUBLIC_URL = os.environ.get("AHAHOME_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
+
+# El cliente tiene 24 horas para verificar su correo; si no, su cuenta se elimina del registro.
+VERIFICACION_HORAS = int(os.environ.get("AHAHOME_VERIFICACION_HORAS", "24"))
+
 # Hora de Caracas (UTC-4, sin horario de verano) para saber qué grupo está de guardia hoy.
 UTC_OFFSET_HOURS = -4

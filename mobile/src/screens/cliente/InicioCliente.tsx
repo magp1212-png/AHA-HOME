@@ -10,7 +10,17 @@ import { Aviso, C, Cargando, Etiqueta, Pantalla, Texto, Titulo, tonoEstado } fro
 
 export default function InicioCliente() {
   const nav = useNav();
-  const { perfil, salir } = useSession();
+  const { perfil, salir, recargar } = useSession();
+  const [msg, setMsg] = useState<string | null>(null);
+  const horas = perfil?.verificacion_vence ? Math.max(0, Math.ceil((new Date(perfil.verificacion_vence).getTime() - Date.now()) / 3600000)) : null;
+
+  async function reenviar() {
+    try { await api("/auth/reenviar-verificacion", { body: {} }); setMsg(`Te enviamos otro correo a ${perfil?.email}.`); } catch (e: any) { setError(e.message); }
+  }
+  async function yaVerifique() {
+    await recargar().catch(() => {});
+    cargar();
+  }
   const [ordenes, setOrdenes] = useState<Orden[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refrescando, setRefrescando] = useState(false);
@@ -31,6 +41,19 @@ export default function InicioCliente() {
         <Texto gris>Hola,</Texto>
         <Titulo>{perfil?.nombre}</Titulo>
       </View>
+      {perfil && !perfil.email_verificado ? (
+        <View style={{ backgroundColor: C.alertaSuave, borderRadius: 16, padding: 14, gap: 10 }}>
+          <Text style={{ fontWeight: "800", color: "#9A3412", fontSize: 15 }}>Verifica tu correo{horas !== null ? ` · te quedan ${horas} h` : ""}</Text>
+          <Text style={{ color: "#9A3412", fontSize: 14 }}>Abre el correo que te enviamos a {perfil.email} y toca «Verificar mi correo». Si no lo haces en 24 horas, tu registro se elimina.</Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable onPress={reenviar} style={{ minHeight: 40, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: "#9A3412", justifyContent: "center" }}>
+              <Text style={{ color: "#9A3412", fontWeight: "800" }}>Reenviar correo</Text></Pressable>
+            <Pressable onPress={yaVerifique} style={{ minHeight: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: C.marino, justifyContent: "center" }}>
+              <Text style={{ color: C.blanco, fontWeight: "800" }}>Ya lo verifiqué</Text></Pressable>
+          </View>
+          {msg ? <Text style={{ color: "#0F5132" }}>{msg}</Text> : null}
+        </View>
+      ) : null}
       <Aviso texto={error} />
       {ordenes === null ? <Cargando /> : null}
       {ordenes && ordenes.length === 0 ? (

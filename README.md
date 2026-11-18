@@ -99,6 +99,16 @@ docker compose exec api python seed.py   # opcional: datos de demostración
 - **Cancelación de una orden ya pagada:** queda anotado «REEMBOLSO PENDIENTE» con el monto.
 - **Alta del técnico:** sube foto de rostro, selfie con la cédula y su PIN. El supervisor verifica la identidad antes de que pueda recibir órdenes.
 
+### Registro del cliente y verificación del correo
+
+- **Registro rápido:** foto, nombre, cédula, teléfono, correo y contraseña.
+- **Verificación:** llega un correo con un enlace que dura **24 horas**. Si no lo verifica a tiempo, la cuenta se **elimina del registro** (el servidor revisa cada hora) y la persona puede registrarse de nuevo.
+- **Pedidos de caja:** los pedidos creados en caja con su teléfono aparecen en su cuenta solo **después de verificar** el correo.
+- **Para enviar correos de verdad:**
+  - Crea `backend/correo.key` en el servidor, con `{"host", "port", "user", "password", "from"}` de una cuenta SMTP (por ejemplo Brevo, como en Anunciate).
+  - Define `AHAHOME_PUBLIC_URL` con la dirección pública (por ejemplo `https://api.ahahome.app`) para que el enlace funcione.
+  - Sin ese archivo, los correos no se envían. Solo quedan anotados para pruebas.
+
 ### Pendientes conocidos
 
 - **Comparación automática de rostro:** hoy la verificación la hace el supervisor viendo las fotos. Se puede conectar un servicio de reconocimiento facial más adelante.
