@@ -70,7 +70,8 @@ def test_traslado_e_instalacion_completo(client):
     r = client.post("/tecnico/retiro", json={"qr": o["qr"], "serial": "0B5R4AAN300125"}, headers=tecnico)
     assert r.json()["estado"] == "en_ruta"
     v = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
-    assert v["tecnico"]["cedula"].startswith("V-") and v["ayudantes"][0]["cedula"].startswith("V-")
+    assert set(v["tecnico"]) == {"nombre", "foto", "rol"} and set(v["ayudantes"][0]) == {"nombre", "foto", "rol"}
+    assert v["tecnico"]["foto"] and v["ayudantes"][0]["foto"]
 
     client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
     r = client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico)

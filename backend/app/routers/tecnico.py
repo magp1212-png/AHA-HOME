@@ -221,7 +221,7 @@ def _salida(db: Session, o: Orden, user: User, nota: str) -> None:
     svc.registrar(db, o, "en_ruta", user, nota)
     equipo = svc.nombres_cuadrilla(o)
     notificar(db, o.cliente_id, "Tu servicio va en camino",
-              f"{equipo} va hacia tu casa. Abre la app para ver su ficha de seguridad con foto y cédula.", o.id)
+              f"{equipo} va hacia tu casa. Abre la app para ver su foto.", o.id)
     svc.avisar_seguimiento(db, o, f"{o.codigo} en ruta", nota)
 
 

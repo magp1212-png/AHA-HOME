@@ -107,6 +107,14 @@ def ficha(tec: Tecnico | None) -> dict | None:
             "rol": "ayudante" if tec.es_ayudante else "tecnico"}
 
 
+def ficha_cliente(tec: Tecnico | None) -> dict | None:
+    """El cliente solo ve la foto (y el nombre) del técnico y del ayudante asignados: nada de cédula ni teléfono."""
+    if not tec:
+        return None
+    return {"nombre": tec.user.nombre, "foto": tec.foto_perfil or tec.foto_rostro,
+            "rol": "ayudante" if tec.es_ayudante else "tecnico"}
+
+
 def _iso(x: dt.datetime | None) -> str | None:
     return x.isoformat() + "Z" if x else None
 
@@ -142,8 +150,8 @@ def vista(orden: Orden, rol: str) -> dict:
     }
     en_camino = orden.estado in ("en_ruta", "en_progreso", "completado")
     if rol == "cliente":
-        d["tecnico"] = ficha(orden.tecnico) if en_camino else None
-        d["ayudantes"] = [ficha(a) for a in orden.ayudantes] if en_camino else []
+        d["tecnico"] = ficha_cliente(orden.tecnico) if en_camino else None
+        d["ayudantes"] = [ficha_cliente(a) for a in orden.ayudantes] if en_camino else []
         d["tecnico_asignado"] = orden.tecnico is not None
     else:
         d["tecnico"] = ficha(orden.tecnico)
