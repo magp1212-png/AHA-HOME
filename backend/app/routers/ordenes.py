@@ -138,10 +138,8 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
     else:
         tipo_servicio = "traslado_instalacion" if a_instalar else "traslado"
     precios = {x.tipo: x.precio_centavos for x in db.scalars(select(Tarifa).where(Tarifa.activa.is_(True)))}
-    sin_tarifa = sorted({a.tipo for a in a_instalar if a.tipo not in precios})
-    if sin_tarifa:
-        raise HTTPException(422, f"No hay tarifa de instalación para: {', '.join(sin_tarifa)}")
-    total = sum(precios[a.tipo] for a in a_instalar)
+    # Mientras no se publique la tabla de precios, la instalación queda «precio por definir» (sin cobro en caja)
+    total = sum(precios.get(a.tipo, 0) for a in a_instalar)
     if total and not body.pago:
         raise HTTPException(422, "Registra el pago de la instalación en caja")
 

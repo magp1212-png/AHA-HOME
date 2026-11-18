@@ -281,9 +281,10 @@ def test_varios_articulos_instalacion_pagada_en_caja(client):
     # sin pago no se crea si hay instalación
     r = client.post("/ordenes", json=ORDEN | {"articulos": arts, "pago": None}, headers=agente)
     assert r.status_code == 422 and "pago" in r.json()["detail"]
-    # un artículo sin tarifa no se puede instalar
-    r = client.post("/ordenes", json=ORDEN | {"articulos": [{"tipo": "otro", "descripcion": "Ropero", "instalar": True}]}, headers=agente)
-    assert r.status_code == 422 and "tarifa" in r.json()["detail"]
+    # un artículo sin tarifa todavía: precio por definir, sin cobro en caja
+    r = client.post("/ordenes", json=ORDEN | {"articulos": [{"tipo": "otro", "descripcion": "Ropero", "instalar": True}], "pago": None},
+                    headers=agente).json()
+    assert r["pago_instalacion"]["monto"] == "0.00" and r["pago_instalacion"]["precio_por_definir"] is True
 
     o = nueva(client, agente, articulos=arts)
     assert o["tipo_servicio"] == "traslado_instalacion" and len(o["articulos"]) == 4

@@ -18,6 +18,7 @@ AHA HOME es la app hermana de AHA VOY. La especificación completa está en `doc
 | 5 | Pantallas del técnico: huella o PIN, alta biométrica, escáner QR, navegación GPS, checklist y fotos | ⏳ |
 | 6 | Panel web del supervisor | ⏳ |
 | 7 | Notificaciones push y WhatsApp, pruebas en tienda y publicación en Google Play y App Store | ⏳ |
+| 8 | Tabla de precios de instalación (después de entrevistar a los técnicos) | ⏳ |
 
 ## Servidor (`backend/`)
 
@@ -72,7 +73,7 @@ docker compose exec api python seed.py   # opcional: datos de demostración
   3. Si no hay, la **Guardia Retén** activada por el supervisor.
   4. Si tampoco hay, se avisa al supervisor.
 - **Retiro en almacén:** solo el técnico asignado y verificado puede escanear el QR. Queda registrado quién retiró, qué producto y serial, de qué sucursal y a qué hora. En ese momento el cliente recibe la ficha de seguridad del técnico.
-- **Pedido con varios artículos:** todos los artículos van en el traslado. En caja, el cliente marca cuáles quiere instalar y paga esa instalación en el momento. El precio sale de la tarifa por tipo de artículo, que fija el superadmin (`PUT /admin/tarifas/{tipo}`). Los precios que trae `seed.py` son **de prueba**.
+- **Pedido con varios artículos:** todos los artículos van en el traslado. En caja, el cliente marca cuáles quiere instalar y paga esa instalación en el momento. El precio sale de la tarifa por tipo de artículo, que fija el superadmin (`PUT /admin/tarifas/{tipo}`). **La tabla de precios se define al final del proyecto**, después de entrevistar a los técnicos. Mientras tanto, la instalación queda como «precio por definir» y no se cobra en caja.
 - **Tipo de servicio:** se calcula solo según lo que pide el cliente.
   - **Traslado:** ningún artículo se instala. Se entrega tal cual sale de la tienda, en su caja, sin desembalar ni retirar residuos.
   - **Traslado e instalación:** algún artículo se instala.

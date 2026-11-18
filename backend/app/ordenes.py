@@ -179,6 +179,7 @@ def vista(orden: Orden, rol: str) -> dict:
         "articulos": articulos_vista(orden),
         "compra": {"factura": orden.factura, "numero_factura": orden.numero_factura, "fecha_compra": orden.fecha_compra},
         "pago_instalacion": {"monto": dinero(orden.monto_instalacion_centavos), "moneda": "USD", "metodo": orden.pago_metodo,
+                             "precio_por_definir": any(a.instalar and not a.precio_instalacion_centavos for a in orden.articulos),
                              "referencia": orden.pago_referencia, "pagado": orden.pagado_en is not None,
                              "pagado_en": _iso(orden.pagado_en)},
         "fecha": orden.fecha, "franja": orden.franja,
