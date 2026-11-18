@@ -1,16 +1,17 @@
-"""Reglas de la orden de servicio: estados, asignación, avisos y lo que ve cada rol."""
+"""Reglas de la orden de servicio: estados, asignación de la cuadrilla, avisos y lo que ve cada rol."""
 import datetime as dt
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from . import asignacion
-from .models import (CHECKLIST_INSTALACION, CHECKLIST_RESIDUOS, ESTADO_CANCELADO, ESTADO_TEXTO, ESTADOS, FOTOS_CIERRE,
-                     Evento, Orden, Tecnico, User, ahora)
+from .models import (ESTADO_CANCELADO, ESTADO_TEXTO, ESTADOS, TIPO_SERVICIO_TEXTO, Evento, Orden, Tecnico, User, ahora,
+                     checklist_de, con_retiro, fotos_de)
 from .notificar import notificar
 
 TIPO_TEXTO = {"nevera": "nevera", "lavadora": "lavadora", "secadora": "secadora", "aire_acondicionado": "aire acondicionado"}
+ROLES_SEGUIMIENTO = ("supervisor", "superadmin")
 
 
 def nuevo_codigo(db: Session) -> str:
@@ -23,25 +24,66 @@ def registrar(db: Session, orden: Orden, estado: str, actor: User | None, nota: 
     db.add(Evento(orden_id=orden.id, estado=estado, nota=nota, actor_id=actor.id if actor else None))
 
 
+def descripcion(orden: Orden) -> str:
+    return f"{TIPO_SERVICIO_TEXTO.get(orden.tipo_servicio, orden.tipo_servicio)} de {TIPO_TEXTO.get(orden.tipo_equipo, orden.tipo_equipo)}"
+
+
+def nombres_cuadrilla(orden: Orden) -> str:
+    if not orden.tecnico:
+        return "sin técnico asignado"
+    txt = orden.tecnico.user.nombre
+    if orden.ayudantes:
+        txt += " + ayudantes " + ", ".join(a.user.nombre for a in orden.ayudantes)
+    return txt
+
+
+def ayudantes_disponibles(tec: Tecnico) -> list[Tecnico]:
+    return [a for a in tec.ayudantes if a.verificado and a.disponible and a.user.activo]
+
+
+def supervisores_de(db: Session, orden: Orden) -> list[User]:
+    """Técnico supervisor de la tienda + equipo supervisor + superadmin: todos siguen cada orden."""
+    return db.scalars(select(User).where(User.activo.is_(True), or_(
+        User.rol.in_(ROLES_SEGUIMIENTO),
+        (User.rol == "tecnico_supervisor") & (User.tienda_id == orden.tienda_id)))).all()
+
+
+def avisar_seguimiento(db: Session, orden: Orden, titulo: str, texto: str) -> None:
+    for u in supervisores_de(db, orden):
+        notificar(db, u.id, titulo, texto, orden.id)
+
+
+def poner_cuadrilla(db: Session, orden: Orden, tec: Tecnico | None, ayudantes: list[Tecnico] | None = None) -> None:
+    orden.tecnico_id, orden.tecnico = (tec.id, tec) if tec else (None, None)
+    orden.ayudantes = list(ayudantes if ayudantes is not None else (ayudantes_disponibles(tec) if tec else []))
+
+
+def avisar_cuadrilla(db: Session, orden: Orden) -> None:
+    texto = f"{descripcion(orden)} · {orden.fecha} {orden.franja} · {orden.direccion}"
+    notificar(db, orden.tecnico.user_id, f"Nueva orden {orden.codigo}", texto, orden.id)
+    for a in orden.ayudantes:
+        notificar(db, a.user_id, f"Nueva orden {orden.codigo}", f"Sales con {orden.tecnico.user.nombre} · {texto}", orden.id)
+
+
 def asignar(db: Session, orden: Orden, actor: User | None, nota: str = "Asignación automática") -> Tecnico | None:
     tec = asignacion.elegir_tecnico(db, orden)
     if not tec:
-        notificar_supervisores(db, orden, "Orden sin técnico", f"{orden.codigo}: no hay técnico de guardia disponible. Activa la Guardia Retén.")
+        poner_cuadrilla(db, orden, None)
         return None
-    orden.tecnico_id = tec.id
-    orden.tecnico = tec
-    registrar(db, orden, "tecnico_asignado", actor, f"{nota}: {tec.user.nombre} (Grupo {tec.grupo}, {tec.tienda.nombre})")
-    equipo = TIPO_TEXTO.get(orden.tipo_equipo, orden.tipo_equipo)
-    notificar(db, tec.user_id, f"Nueva orden {orden.codigo}",
-              f"Instalación de {equipo} · {orden.fecha} {orden.franja} · {orden.direccion}", orden.id)
-    notificar(db, orden.cliente_id, "Técnico asignado", f"Tu instalación {orden.codigo} ya tiene técnico asignado.", orden.id)
+    poner_cuadrilla(db, orden, tec)
+    registrar(db, orden, "tecnico_asignado", actor,
+              f"{nota}: {nombres_cuadrilla(orden)} (Grupo {tec.grupo}, {tec.tienda.nombre})")
+    avisar_cuadrilla(db, orden)
+    notificar(db, orden.cliente_id, "Técnico asignado", f"Tu servicio {orden.codigo} ya tiene técnico asignado.", orden.id)
     return tec
 
 
-def notificar_supervisores(db: Session, orden: Orden, titulo: str, texto: str) -> None:
-    sups = db.scalars(select(User).where(User.rol == "supervisor", User.activo.is_(True))).all()
-    for s in sups:  # por ahora todos los supervisores ven toda Caracas
-        notificar(db, s.id, titulo, texto, orden.id)
+def avisar_nueva_orden(db: Session, orden: Orden) -> None:
+    if orden.tecnico:
+        texto = f"{descripcion(orden)} · {orden.fecha} {orden.franja} · Asignada a {nombres_cuadrilla(orden)}"
+    else:
+        texto = f"{descripcion(orden)} · {orden.fecha} {orden.franja} · SIN TÉCNICO DISPONIBLE: activa la Guardia Retén o reasigna"
+    avisar_seguimiento(db, orden, f"Nueva orden {orden.codigo} · {orden.tienda.nombre}", texto)
 
 
 def exigir_estado(orden: Orden, *permitidos: str) -> None:
@@ -52,16 +94,17 @@ def exigir_estado(orden: Orden, *permitidos: str) -> None:
 def faltantes_cierre(orden: Orden) -> list[str]:
     hechos = orden.checklist or {}
     fotos = orden.fotos or {}
-    falta = [k for k in CHECKLIST_INSTALACION + CHECKLIST_RESIDUOS if not hechos.get(k)]
-    falta += [f"foto_{k}" for k in FOTOS_CIERRE if not fotos.get(k)]
+    falta = [k for k in checklist_de(orden.tipo_servicio) if not hechos.get(k)]
+    falta += [f"foto_{k}" for k in fotos_de(orden.tipo_servicio) if not fotos.get(k)]
     return falta
 
 
-def ficha_tecnico(tec: Tecnico | None) -> dict | None:
+def ficha(tec: Tecnico | None) -> dict | None:
     if not tec:
         return None
     return {"id": tec.id, "nombre": tec.user.nombre, "cedula": tec.user.cedula, "telefono": tec.user.telefono,
-            "foto": tec.foto_rostro, "grupo": tec.grupo, "tienda": tec.tienda.nombre, "verificado": tec.verificado}
+            "foto": tec.foto_perfil or tec.foto_rostro, "grupo": tec.grupo, "tienda": tec.tienda.nombre, "verificado": tec.verificado,
+            "rol": "ayudante" if tec.es_ayudante else "tecnico"}
 
 
 def _iso(x: dt.datetime | None) -> str | None:
@@ -71,16 +114,18 @@ def _iso(x: dt.datetime | None) -> str | None:
 def linea_de_tiempo(orden: Orden) -> list[dict]:
     cuando = {}
     for e in orden.eventos:
-        cuando.setdefault(e.estado, e.creado)
+        cuando[e.estado] = e.creado
     actual = ESTADOS.index(orden.estado) if orden.estado in ESTADOS else -1
-    return [{"estado": s, "texto": ESTADO_TEXTO[s], "hecho": i <= actual, "actual": i == actual, "fecha": _iso(cuando.get(s))}
-            for i, s in enumerate(ESTADOS)]
+    return [{"estado": s, "texto": ESTADO_TEXTO[s], "hecho": i <= actual, "actual": i == actual,
+             "fecha": _iso(cuando.get(s)) if i <= actual else None} for i, s in enumerate(ESTADOS)]
 
 
 def vista(orden: Orden, rol: str) -> dict:
-    """Lo que ve cada rol. El cliente recibe la ficha de seguridad del técnico solo cuando ya retiró el equipo."""
+    """Lo que ve cada rol. El cliente recibe la ficha de seguridad de la cuadrilla cuando ya va en camino."""
     d = {
         "id": orden.id, "codigo": orden.codigo, "estado": orden.estado, "estado_texto": ESTADO_TEXTO.get(orden.estado),
+        "tipo_servicio": orden.tipo_servicio, "tipo_servicio_texto": TIPO_SERVICIO_TEXTO.get(orden.tipo_servicio),
+        "con_retiro_en_tienda": con_retiro(orden.tipo_servicio),
         "cliente": {"nombre": orden.cliente_nombre, "telefono": orden.cliente_telefono, "direccion": orden.direccion,
                     "referencia": orden.referencia, "lat": orden.lat, "lng": orden.lng, "zona": orden.zona},
         "equipo": {"tipo": orden.tipo_equipo, "marca": orden.marca, "modelo": orden.modelo, "serial": orden.serial,
@@ -89,28 +134,35 @@ def vista(orden: Orden, rol: str) -> dict:
         "tienda": {"id": orden.tienda.id, "nombre": orden.tienda.nombre, "direccion": orden.tienda.direccion,
                    "lat": orden.tienda.lat, "lng": orden.tienda.lng},
         "linea_de_tiempo": linea_de_tiempo(orden),
+        "checklist_requerido": list(checklist_de(orden.tipo_servicio)), "fotos_requeridas": list(fotos_de(orden.tipo_servicio)),
         "retirado_en": _iso(orden.retirado_en), "completado_en": _iso(orden.completado_en),
         "checklist": orden.checklist or {}, "fotos": orden.fotos or {},
         "calificacion": orden.calificacion, "comentario": orden.comentario,
         "creado": _iso(orden.creado),
     }
+    en_camino = orden.estado in ("en_ruta", "en_progreso", "completado")
     if rol == "cliente":
-        d["tecnico"] = ficha_tecnico(orden.tecnico) if orden.retirado_en else None
+        d["tecnico"] = ficha(orden.tecnico) if en_camino else None
+        d["ayudantes"] = [ficha(a) for a in orden.ayudantes] if en_camino else []
         d["tecnico_asignado"] = orden.tecnico is not None
     else:
-        d["tecnico"] = ficha_tecnico(orden.tecnico)
+        d["tecnico"] = ficha(orden.tecnico)
+        d["ayudantes"] = [ficha(a) for a in orden.ayudantes]
         d["faltantes_cierre"] = faltantes_cierre(orden)
-    if rol in ("agente", "supervisor", "admin"):
-        d["qr"] = f"AHAHOME:{orden.qr_token}"
-        d["eventos"] = [{"estado": e.estado, "nota": e.nota, "fecha": _iso(e.creado)} for e in orden.eventos]
+    if rol in ("agente", "tecnico_supervisor", "supervisor", "superadmin"):
+        if con_retiro(orden.tipo_servicio):
+            d["qr"] = f"AHAHOME:{orden.qr_token}"
+        d["eventos"] = [{"estado": e.estado, "texto": ESTADO_TEXTO.get(e.estado), "nota": e.nota, "fecha": _iso(e.creado)}
+                        for e in orden.eventos]
     return d
 
 
 def cancelar(db: Session, orden: Orden, actor: User, motivo: str) -> None:
     exigir_estado(orden, "solicitud_enviada", "tecnico_asignado", "cita_confirmada")
     registrar(db, orden, ESTADO_CANCELADO, actor, motivo or "Cancelada")
-    if orden.tecnico:
-        notificar(db, orden.tecnico.user_id, f"{orden.codigo} cancelada", motivo or "El cliente canceló la orden", orden.id)
+    for t in ([orden.tecnico] if orden.tecnico else []) + list(orden.ayudantes):
+        notificar(db, t.user_id, f"{orden.codigo} cancelada", motivo or "La orden fue cancelada", orden.id)
+    avisar_seguimiento(db, orden, f"{orden.codigo} cancelada", f"{actor.nombre}: {motivo or 'sin motivo'}")
 
 
 def marcar_completada(db: Session, orden: Orden, actor: User) -> None:
@@ -118,5 +170,7 @@ def marcar_completada(db: Session, orden: Orden, actor: User) -> None:
     if falta:
         raise HTTPException(422, {"mensaje": "Completa el checklist y las fotos antes de cerrar", "faltan": falta})
     orden.completado_en = ahora()
-    registrar(db, orden, "completado", actor, "Instalación y retiro de embalaje completados")
-    notificar(db, orden.cliente_id, "¡Instalación completada!", f"{orden.codigo}: cuéntanos cómo te fue y califica el servicio.", orden.id)
+    nota = "Entrega completada" if orden.tipo_servicio == "traslado" else "Instalación y retiro de embalaje completados"
+    registrar(db, orden, "completado", actor, nota)
+    notificar(db, orden.cliente_id, "¡Servicio completado!", f"{orden.codigo}: cuéntanos cómo te fue y califica el servicio.", orden.id)
+    avisar_seguimiento(db, orden, f"{orden.codigo} completada", f"{descripcion(orden)} · {nombres_cuadrilla(orden)}")

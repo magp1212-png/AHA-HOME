@@ -27,6 +27,7 @@ def perfil(u: User) -> dict:
     if u.tecnico:
         t = u.tecnico
         d["tecnico"] = {"id": t.id, "grupo": t.grupo, "tienda": t.tienda.nombre, "zona": t.tienda.zona,
+                        "es_ayudante": t.es_ayudante, "jefe": t.jefe.user.nombre if t.jefe else None,
                         "verificado": t.verificado, "tiene_pin": bool(t.pin_hash),
                         "onboarding_completo": bool(t.foto_rostro and t.selfie_cedula)}
     return d
@@ -79,8 +80,8 @@ class LoginPin(BaseModel):
 
 @router.post("/auth/login-pin")
 def login_pin(body: LoginPin, db: Session = Depends(get_db)):
-    """Acceso del técnico con su PIN personal (la app pide antes huella o rostro del teléfono)."""
-    u = db.scalar(select(User).where(User.telefono == limpiar_tel(body.telefono), User.rol == "tecnico"))
+    """Acceso del técnico o ayudante con su PIN personal (la app pide antes huella o rostro del teléfono)."""
+    u = db.scalar(select(User).where(User.telefono == limpiar_tel(body.telefono), User.rol.in_(("tecnico", "ayudante"))))
     if not u or not u.activo or not u.tecnico or not verify_password(body.pin, u.tecnico.pin_hash):
         raise HTTPException(401, "Teléfono o PIN incorrectos")
     return {"token": make_token(u.id), "usuario": perfil(u)}

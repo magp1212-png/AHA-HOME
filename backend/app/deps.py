@@ -16,9 +16,9 @@ def current_user(authorization: str = Header(default=""), db: Session = Depends(
 
 
 def require(*roles: str):
-    """Dependencia que deja pasar solo a ciertos roles (el admin pasa siempre)."""
+    """Dependencia que deja pasar solo a ciertos roles (el superadmin pasa siempre)."""
     def dep(user: User = Depends(current_user)) -> User:
-        if user.rol not in roles and user.rol != "admin":
+        if user.rol not in roles and user.rol != "superadmin":
             raise HTTPException(403, "No tienes permiso para esto")
         return user
     return dep

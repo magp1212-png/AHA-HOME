@@ -1,28 +1,28 @@
-"""Datos de demostración: 3 tiendas Damasco en Caracas, 9 técnicos por tienda (grupos A, B y C),
-Guardia Retén, un agente por tienda, un supervisor y una clienta.
+"""Datos de demostración para el PILOTO: una sola tienda, Damasco Santa Mónica (Caracas).
 
-Uso:  python seed.py        (no borra nada si ya hay datos)
-Las coordenadas son aproximadas; reemplázalas con las direcciones reales de cada sucursal.
-Contraseña de todos los usuarios de prueba: aha12345 · PIN de los técnicos: 1234
+Crea:
+- La tienda Damasco Santa Mónica. Las coordenadas son las del sector Santa Mónica; falta confirmar la dirección exacta.
+- 9 técnicos en 3 escuadras (grupos A, B y C) y 1 de Guardia Retén. Cada técnico tiene 1 ayudante.
+- 1 agente en caja, 1 técnico supervisor de la tienda, 1 supervisor, 1 superadmin y 1 clienta.
+
+Uso:  python seed.py        (no cambia nada si ya hay datos)
+Contraseña de todos los usuarios de prueba: aha12345 · PIN de técnicos y ayudantes: 1234
+Para replicar en otra tienda después del piloto: POST /admin/tiendas y crear su personal desde el panel.
 """
 from sqlalchemy import select
 
 from app.db import Base, SessionLocal, engine
-from app.models import Tecnico, Tienda, User
+from app.models import Tecnico, Tienda, User, ahora
 from app.security import hash_password
 
-TIENDAS = [
-    ("Damasco Oeste", "Oeste", "Catia, Caracas", 10.5125, -66.9450),
-    ("Damasco Central", "Central", "El Recreo, Caracas", 10.4930, -66.8800),
-    ("Damasco Este", "Este", "Petare, Caracas", 10.4770, -66.8080),
-]
-NOMBRES = ["José Hernández", "Luis Rodríguez", "Pedro Silva", "Andrea Medina", "Carlos Rivas", "Ana Torres",
-           "Miguel Castillo", "Rosa Díaz", "Jorge Suárez", "Daniel Pérez", "Carmen Rojas", "Rafael Mendoza",
-           "Luisa Romero", "Andrés Guzmán", "Patricia Vargas", "Héctor Blanco", "Gabriela Flores", "Ricardo Herrera",
-           "Valentina Morales", "Francisco Ramírez", "Mariana Castro", "Alejandro Ortiz", "Daniela Navarro",
-           "Eduardo Molina", "Isabel Delgado", "Fernando Peña", "Sofía Ríos", "Ricardo Pérez", "Daniela Rojas", "Miguel Torres"]
-
+TIENDA = ("Damasco Santa Mónica", "Central", "Santa Mónica, Caracas (dirección exacta por confirmar)", 10.4790, -66.8870)
+TECNICOS = ["José Hernández", "Luis Rodríguez", "Pedro Silva", "Andrea Medina", "Carlos Rivas", "Ana Torres",
+            "Miguel Castillo", "Rosa Díaz", "Jorge Suárez", "Ricardo Pérez"]
+AYUDANTES = ["Daniel Pérez", "Carmen Rojas", "Rafael Mendoza", "Luisa Romero", "Andrés Guzmán", "Patricia Vargas",
+             "Héctor Blanco", "Gabriela Flores", "Ricardo Herrera", "Valentina Morales"]
 CLAVE = "aha12345"
+DEMO_FOTOS = {"foto_rostro": "/archivos/demo-rostro.jpg", "selfie_cedula": "/archivos/demo-cedula.jpg",
+              "foto_perfil": "/archivos/demo-perfil.jpg", "huella_registrada": True}
 
 
 def run():
@@ -31,37 +31,36 @@ def run():
     if db.scalar(select(Tienda)):
         print("Ya hay datos; no se cambió nada.")
         return
-    h = hash_password(CLAVE)
-    pin = hash_password("1234")
-    tiendas = []
-    for nombre, zona, dirc, lat, lng in TIENDAS:
-        t = Tienda(nombre=nombre, zona=zona, direccion=dirc, lat=lat, lng=lng)
-        db.add(t)
-        tiendas.append(t)
+    h, pin = hash_password(CLAVE), hash_password("1234")
+    nombre, zona, dirc, lat, lng = TIENDA
+    t = Tienda(nombre=nombre, zona=zona, direccion=dirc, lat=lat, lng=lng)
+    db.add(t)
     db.flush()
-    db.add(User(nombre="Supervisor Caracas", telefono="04140000001", email="supervisor@ahahome.test", password_hash=h, rol="supervisor"))
-    db.add(User(nombre="Administrador", telefono="04140000000", email="admin@ahahome.test", password_hash=h, rol="admin"))
-    db.add(User(nombre="María González", telefono="04141234567", email="maria@ahahome.test", password_hash=h, rol="cliente"))
-    n = 0
-    for i, t in enumerate(tiendas):
-        db.add(User(nombre=f"Agente {t.nombre}", telefono=f"0414100000{i + 1}", email=f"agente{i + 1}@ahahome.test",
-                    password_hash=h, rol="agente", tienda_id=t.id))
-        for j in range(9):
-            grupo = "ABC"[j // 3]
-            u = User(nombre=NOMBRES[n], telefono=f"04242{n:06d}", cedula=f"V-{12000000 + n * 1371}", password_hash=h, rol="tecnico")
-            db.add(u)
-            db.flush()
-            db.add(Tecnico(user_id=u.id, tienda_id=t.id, grupo=grupo, lat=t.lat + (j - 4) * 0.004, lng=t.lng + (j % 3 - 1) * 0.004,
-                           pin_hash=pin, foto_rostro="/archivos/demo-rostro.jpg", selfie_cedula="/archivos/demo-cedula.jpg",
-                           verificado=True))
-            n += 1
-        u = User(nombre=NOMBRES[27 + i], telefono=f"04243{i:06d}", cedula=f"V-{15000000 + i * 977}", password_hash=h, rol="tecnico")
+    db.add_all([
+        User(nombre="Superadministrador AHA HOME", telefono="04140000000", email="superadmin@ahahome.test", password_hash=h, rol="superadmin"),
+        User(nombre="Equipo Supervisor", telefono="04140000001", email="supervisor@ahahome.test", password_hash=h, rol="supervisor"),
+        User(nombre="Técnico Supervisor Santa Mónica", telefono="04140000002", email="tecsup@ahahome.test", password_hash=h,
+             rol="tecnico_supervisor", tienda_id=t.id),
+        User(nombre="Agente Caja Santa Mónica", telefono="04141000001", email="agente@ahahome.test", password_hash=h, rol="agente", tienda_id=t.id),
+        User(nombre="María González", telefono="04141234567", email="maria@ahahome.test", password_hash=h, rol="cliente"),
+    ])
+    for i, nom in enumerate(TECNICOS):
+        grupo = "ABC"[i // 3] if i < 9 else "RETEN"
+        u = User(nombre=nom, telefono=f"04242{i:06d}", cedula=f"V-{12000000 + i * 1371}", password_hash=h, rol="tecnico")
         db.add(u)
         db.flush()
-        db.add(Tecnico(user_id=u.id, tienda_id=t.id, grupo="RETEN", lat=t.lat, lng=t.lng, pin_hash=pin,
-                       foto_rostro="/archivos/demo-rostro.jpg", selfie_cedula="/archivos/demo-cedula.jpg", verificado=True))
+        tec = Tecnico(user_id=u.id, tienda_id=t.id, grupo=grupo, lat=lat + (i - 4) * 0.004, lng=lng + (i % 3 - 1) * 0.004,
+                      pin_hash=pin, verificado=True, alta_en=ahora(), **DEMO_FOTOS)
+        db.add(tec)
+        db.flush()
+        a = User(nombre=AYUDANTES[i], telefono=f"04243{i:06d}", cedula=f"V-{20000000 + i * 977}", password_hash=h, rol="ayudante")
+        db.add(a)
+        db.flush()
+        db.add(Tecnico(user_id=a.id, tienda_id=t.id, grupo=grupo, es_ayudante=True, jefe_id=tec.id, pin_hash=pin,
+                       verificado=True, alta_en=ahora(), **DEMO_FOTOS))
     db.commit()
-    print("Listo: 3 tiendas, 30 técnicos, 3 agentes, supervisor, admin y una clienta. Clave:", CLAVE)
+    print(f"Listo: piloto {nombre} con 10 técnicos, 10 ayudantes, agente, técnico supervisor, supervisor, superadmin "
+          f"y una clienta. Clave: {CLAVE}")
 
 
 if __name__ == "__main__":

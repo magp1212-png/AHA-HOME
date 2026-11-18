@@ -45,7 +45,8 @@ def carga(db: Session, tecnico_id: int, fecha: str) -> int:
 
 def _candidatos(db: Session):
     return db.scalars(select(Tecnico).join(User, User.id == Tecnico.user_id).join(Tienda, Tienda.id == Tecnico.tienda_id)
-                      .where(Tecnico.verificado.is_(True), Tecnico.disponible.is_(True), User.activo.is_(True))).all()
+                      .where(Tecnico.verificado.is_(True), Tecnico.disponible.is_(True), Tecnico.es_ayudante.is_(False),
+                             User.activo.is_(True))).all()
 
 
 def elegir_tecnico(db: Session, orden: Orden) -> Tecnico | None:

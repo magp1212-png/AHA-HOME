@@ -1,7 +1,7 @@
 """Tablas de AHA HOME."""
 import datetime as dt
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -11,8 +11,20 @@ def ahora() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
 
 
-# Roles: cliente, agente (caja Damasco), tecnico, supervisor, admin
-ROLES = ("cliente", "agente", "tecnico", "supervisor", "admin")
+# Roles:
+#   cliente            compra en Damasco y sigue su servicio
+#   agente             Agente AHA HOME en la caja de la tienda
+#   tecnico            técnico instalador (encabeza la cuadrilla)
+#   ayudante           ayudante del técnico (también registrado y verificado)
+#   tecnico_supervisor jefe técnico de la tienda: recibe aviso de cada orden nueva
+#   supervisor         equipo supervisor: seguimiento de las tiendas
+#   superadmin         seguimiento completo de todo el proceso, crea tiendas y supervisores
+ROLES = ("cliente", "agente", "tecnico", "ayudante", "tecnico_supervisor", "supervisor", "superadmin")
+ROLES_CAMPO = ("tecnico", "ayudante")
+
+# Tipo de servicio (3 fases)
+TIPOS_SERVICIO = ("traslado", "instalacion", "traslado_instalacion")
+TIPO_SERVICIO_TEXTO = {"traslado": "Traslado", "instalacion": "Instalación", "traslado_instalacion": "Traslado e instalación"}
 ZONAS = ("Oeste", "Central", "Este")
 GRUPOS = ("A", "B", "C", "RETEN")
 TIPOS_EQUIPO = ("nevera", "lavadora", "secadora", "aire_acondicionado")
@@ -30,10 +42,33 @@ ESTADO_TEXTO = {
     "cancelado": "Cancelado",
 }
 
-# Checklist digital obligatorio (spec, pasos 6 y 7)
+# Checklist digital obligatorio (spec, pasos 6 y 7), según el tipo de servicio
+CHECKLIST_TRASLADO = ("entrega_sin_danos", "ubicado_en_sitio")
 CHECKLIST_INSTALACION = ("conexion_electrica", "conexion_hidraulica", "nivelacion", "prueba_encendido")
 CHECKLIST_RESIDUOS = ("cajas", "anime", "plasticos", "flejes", "precintos")
-FOTOS_CIERRE = ("instalacion", "espacio_limpio")
+FOTOS_CIERRE = ("instalacion", "espacio_limpio", "entrega")
+
+
+def checklist_de(tipo_servicio: str) -> tuple[str, ...]:
+    if tipo_servicio == "traslado":
+        return CHECKLIST_TRASLADO
+    return CHECKLIST_INSTALACION + CHECKLIST_RESIDUOS
+
+
+def fotos_de(tipo_servicio: str) -> tuple[str, ...]:
+    return ("entrega",) if tipo_servicio == "traslado" else ("instalacion", "espacio_limpio")
+
+
+def con_retiro(tipo_servicio: str) -> bool:
+    """Traslado y traslado+instalación pasan por el almacén Damasco (QR); solo instalación va directo al cliente."""
+    return tipo_servicio != "instalacion"
+
+
+orden_ayudantes = Table(
+    "orden_ayudantes", Base.metadata,
+    Column("orden_id", ForeignKey("ordenes.id"), primary_key=True),
+    Column("tecnico_id", ForeignKey("tecnicos.id"), primary_key=True),
+)
 
 
 class User(Base):
@@ -50,7 +85,7 @@ class User(Base):
     tienda_id: Mapped[int | None] = mapped_column(ForeignKey("tiendas.id"))  # agentes y supervisores
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
 
-    tecnico: Mapped["Tecnico | None"] = relationship(back_populates="user", uselist=False)
+    tecnico: Mapped["Tecnico | None"] = relationship(back_populates="user", uselist=False, foreign_keys="Tecnico.user_id")
 
 
 class Tienda(Base):
@@ -69,18 +104,27 @@ class Tecnico(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), unique=True)
     tienda_id: Mapped[int] = mapped_column(ForeignKey("tiendas.id"))
-    grupo: Mapped[str] = mapped_column(String(10))  # A, B, C o RETEN
+    grupo: Mapped[str | None] = mapped_column(String(10))  # A, B, C o RETEN; vacío hasta el alta en oficina
     lat: Mapped[float | None] = mapped_column(Float)  # residencia
     lng: Mapped[float | None] = mapped_column(Float)
     pin_hash: Mapped[str | None] = mapped_column(String(200))
     foto_rostro: Mapped[str | None] = mapped_column(String(200))   # captura facial del alta
     selfie_cedula: Mapped[str | None] = mapped_column(String(200))  # cédula a la altura del pecho
-    verificado: Mapped[bool] = mapped_column(Boolean, default=False)  # lo aprueba el supervisor
+    huella_registrada: Mapped[bool] = mapped_column(Boolean, default=False)  # huella del teléfono activada para la app
+    foto_perfil: Mapped[str | None] = mapped_column(String(200))  # tomada en la oficina; es la que ve el cliente
+    verificado: Mapped[bool] = mapped_column(Boolean, default=False)  # alta dada en la oficina
+    alta_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    alta_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     reten_activo: Mapped[bool] = mapped_column(Boolean, default=False)  # retén activado hoy
     disponible: Mapped[bool] = mapped_column(Boolean, default=True)  # ausencias
+    es_ayudante: Mapped[bool] = mapped_column(Boolean, default=False)
+    jefe_id: Mapped[int | None] = mapped_column(ForeignKey("tecnicos.id"))  # técnico con el que sale el ayudante
 
-    user: Mapped[User] = relationship(back_populates="tecnico")
+    user: Mapped[User] = relationship(back_populates="tecnico", foreign_keys=[user_id])
     tienda: Mapped[Tienda] = relationship()
+    documentos: Mapped[list["Documento"]] = relationship(back_populates="tecnico", order_by="Documento.id")
+    jefe: Mapped["Tecnico | None"] = relationship(remote_side="Tecnico.id", back_populates="ayudantes")
+    ayudantes: Mapped[list["Tecnico"]] = relationship(back_populates="jefe")
 
 
 class Orden(Base):
@@ -88,6 +132,7 @@ class Orden(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(20), unique=True, index=True)  # WO-4921
     estado: Mapped[str] = mapped_column(String(30), default="solicitud_enviada")
+    tipo_servicio: Mapped[str] = mapped_column(String(30), default="traslado_instalacion")
 
     # cliente (puede no tener la app todavía: se guardan sus datos aquí)
     cliente_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
@@ -127,6 +172,7 @@ class Orden(Base):
 
     tienda: Mapped[Tienda] = relationship()
     tecnico: Mapped[Tecnico | None] = relationship()
+    ayudantes: Mapped[list[Tecnico]] = relationship(secondary=orden_ayudantes)
     eventos: Mapped[list["Evento"]] = relationship(back_populates="orden", order_by="Evento.id")
 
 
@@ -163,3 +209,33 @@ class Notificacion(Base):
     orden_id: Mapped[int | None] = mapped_column(ForeignKey("ordenes.id"))
     leida: Mapped[bool] = mapped_column(Boolean, default=False)
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
+
+
+# Expediente que se arma en la oficina al registrar al técnico o ayudante
+TIPOS_DOCUMENTO = {
+    "foto_perfil": "Foto de perfil",
+    "cedula": "Cédula de identidad",
+    "licencia": "Licencia de conducir",
+    "certificado_medico": "Certificado médico",
+    "vehiculo_titulo": "Título o carnet de circulación del vehículo",
+    "vehiculo_seguro": "Seguro del vehículo",
+    "vehiculo_foto": "Foto del vehículo",
+    "rif": "RIF",
+    "antecedentes": "Constancia de antecedentes",
+    "otro": "Otro documento",
+}
+DOCUMENTOS_OBLIGATORIOS = ("foto_perfil", "cedula")
+
+
+class Documento(Base):
+    __tablename__ = "documentos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tecnico_id: Mapped[int] = mapped_column(ForeignKey("tecnicos.id"), index=True)
+    tipo: Mapped[str] = mapped_column(String(30))
+    url: Mapped[str] = mapped_column(String(200))
+    descripcion: Mapped[str] = mapped_column(String(200), default="")
+    vence: Mapped[str] = mapped_column(String(10), default="")  # AAAA-MM-DD (licencia, seguro)
+    subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
+
+    tecnico: Mapped[Tecnico] = relationship(back_populates="documentos")

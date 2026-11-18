@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from . import config
 from .db import Base, engine
-from .routers import archivos, auth, ordenes, supervisor, tecnico
+from .routers import admin, archivos, auth, ordenes, supervisor, tecnico
 
 app = FastAPI(title="AHA HOME API", version=config.APP_VERSION)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -25,7 +25,7 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, archivos.router):
+for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router):
     app.include_router(r)
 
 
