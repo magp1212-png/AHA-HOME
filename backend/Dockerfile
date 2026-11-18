@@ -3,7 +3,7 @@ WORKDIR /srv
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
-COPY seed.py .
+COPY seed.py crear_superadmin.py ./
 ENV AHAHOME_DATABASE_URL=sqlite:////datos/ahahome.db \
     AHAHOME_UPLOADS_DIR=/datos/uploads
 VOLUME ["/datos"]

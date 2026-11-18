@@ -15,7 +15,7 @@ from email.utils import formataddr, make_msgid
 from . import config
 
 log = logging.getLogger("ahahome.correo")
-KEY = config.BASE_DIR / "correo.key"
+KEY = __import__("pathlib").Path(os.environ.get("AHAHOME_CORREO_KEY", config.BASE_DIR / "correo.key"))
 ENABLED = os.environ.get("AHAHOME_EMAIL", "1") == "1"
 outbox: list[dict] = []
 

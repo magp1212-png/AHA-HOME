@@ -63,22 +63,26 @@ Todos usan la contraseña `aha12345`. Los técnicos entran con su teléfono y el
 | Clienta | `maria@ahahome.test` |
 | Técnicos | `04242000000` … `04242000026` (grupos A, B y C) y `04243000000` … `04243000002` (Guardia Retén) |
 
-### Instalar en tu servidor físico (o en cualquier nube)
+### Instalar en tu servidor físico (un solo comando)
 
-Necesitas Docker instalado.
+En tu servidor (Linux o Mac, con Docker):
 
 ```bash
 git clone https://github.com/magp1212-png/AHA-HOME.git && cd AHA-HOME
-cp .env.ejemplo .env                 # edita AHAHOME_JWT_SECRET
-docker compose up -d --build
-docker compose exec api python seed.py   # opcional: datos de demostración
+./instalar.sh
 ```
 
-- El servidor queda en el puerto **8000**.
-- La base de datos y las fotos se guardan en la carpeta `datos/`. **Respáldala.**
-- Para que la app funcione desde internet hace falta HTTPS. Pon delante un proxy, por ejemplo Caddy o Nginx con un dominio, como `api.ahahome.com`.
-- Para mudar el servidor: copia la carpeta `datos/` y el archivo `.env` a la máquina nueva y cambia la dirección del servidor (`apiUrl`) en la app.
-- `GET /salud` confirma que el servidor responde.
+El instalador:
+1. Crea la configuración con una clave secreta aleatoria.
+2. Te pide el **usuario y la clave SMTP de Brevo** (los guarda solo en `datos/correo.key`).
+3. Te pide el **token del túnel de Cloudflare**. Con él, `https://api.ahahome.app` funciona con HTTPS **sin abrir puertos en el router**.
+4. Levanta el servidor y comprueba que responda.
+5. Te pide crear el **superadministrador** real.
+
+Al final, en Cloudflare → túnel → **Public Hostname**, agrega `api.ahahome.app` → `http://api:8000`.
+
+- **Respaldos:** copia la carpeta `datos/`, que guarda la base de datos, las fotos y la clave de correo.
+- **Mudar de máquina:** copia `datos/` y `.env` a la máquina nueva y corre `./instalar.sh` otra vez.
 
 ### Reglas que aplica el servidor (según la especificación)
 
