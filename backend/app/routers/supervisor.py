@@ -230,16 +230,18 @@ def dar_de_alta(tec_id: int, body: Alta, user: User = Depends(control), db: Sess
     """Alta inmediata en la oficina: exige registro completo en la app y expediente mínimo."""
     t = tecnico_controlado(db, user, tec_id)
     falta = []
-    if not (t.foto_rostro and t.selfie_cedula):
-        falta.append("escaneo facial y foto con la cédula (desde la app)")
-    if not t.huella_registrada:
-        falta.append("huella (desde la app)")
+    if not t.es_ayudante:  # el técnico se registra en la app; el ayudante puede registrarse completo en la oficina
+        if not (t.foto_rostro and t.selfie_cedula):
+            falta.append("escaneo facial y foto con la cédula (desde la app)")
+        if not t.huella_registrada:
+            falta.append("huella (desde la app)")
     tipos = {d.tipo for d in t.documentos}
     falta += [TIPOS_DOCUMENTO[d] for d in DOCUMENTOS_OBLIGATORIOS if d not in tipos]
     if falta:
         raise HTTPException(422, {"mensaje": "Falta completar el registro", "faltan": falta})
     if t.es_ayudante:
-        jefe = tecnico_controlado(db, user, body.jefe_id or 0) if body.jefe_id else None
+        jefe_id = body.jefe_id or t.jefe_id  # si su técnico ya lo anotó, sale con él
+        jefe = tecnico_controlado(db, user, jefe_id) if jefe_id else None
         if not jefe or jefe.es_ayudante or jefe.tienda_id != t.tienda_id:
             raise HTTPException(422, "Indica el técnico de la tienda con el que saldrá el ayudante")
         t.jefe_id, t.grupo = jefe.id, jefe.grupo

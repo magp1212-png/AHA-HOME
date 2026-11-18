@@ -66,12 +66,24 @@ def registro_campo(body: RegistroCampo, db: Session = Depends(get_db)):
     tel = limpiar_tel(body.telefono)
     email = body.email.strip().lower()
     cedula = normalizar_cedula(body.cedula)
-    if db.scalar(select(User).where(User.telefono == tel)):
+    previo = db.scalar(select(User).where(User.cedula == cedula))
+    # Ayudante que su técnico ya anotó desde su perfil: al registrarse completa su propia cuenta
+    reclamar = previo if previo and previo.rol == "ayudante" and body.rol == "ayudante" and not previo.password_hash else None
+    otro_tel = db.scalar(select(User).where(User.telefono == tel))
+    if otro_tel and otro_tel is not reclamar:
         raise HTTPException(409, "Ese teléfono ya está registrado")
-    if db.scalar(select(User).where(User.email == email)):
+    otro_mail = db.scalar(select(User).where(User.email == email))
+    if otro_mail and otro_mail is not reclamar:
         raise HTTPException(409, "Ese correo ya está registrado")
-    if db.scalar(select(User).where(User.cedula == cedula)):
+    if previo and not reclamar:
         raise HTTPException(409, "Esa cédula ya está registrada")
+    if reclamar:
+        reclamar.nombre, reclamar.telefono, reclamar.email = body.nombre.strip(), tel, email
+        reclamar.password_hash = hash_password(body.password)
+        reclamar.tecnico.pin_hash = hash_password(body.pin)
+        db.commit()
+        db.refresh(reclamar)
+        return {"token": make_token(reclamar.id), "usuario": perfil(reclamar)}
     u = User(nombre=body.nombre.strip(), cedula=cedula, telefono=tel, email=email, password_hash=hash_password(body.password),
              rol=body.rol, tienda_id=body.tienda_id)
     db.add(u)
@@ -81,6 +93,42 @@ def registro_campo(body: RegistroCampo, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(u)
     return {"token": make_token(u.id), "usuario": perfil(u)}
+
+
+class NuevoAyudante(BaseModel):
+    nombre: str = Field(min_length=3, max_length=120)
+    cedula: str = Field(min_length=5, max_length=20)
+    foto: str = Field(min_length=5, max_length=200)  # subida antes con POST /archivos
+    telefono: str | None = Field(default=None, max_length=30)
+
+
+@router.get("/ayudantes")
+def mis_ayudantes(user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    t = mi_tecnico(user)
+    return [svc.ficha(a) | {"alta": a.alta_en is not None} for a in t.ayudantes]
+
+
+@router.post("/ayudantes")
+def anotar_ayudante(body: NuevoAyudante, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    """El técnico anota a su ayudante con foto y nombre. Sale en órdenes solo después del registro completo en la oficina."""
+    t = mi_tecnico(user)
+    cedula = normalizar_cedula(body.cedula)
+    if db.scalar(select(User).where(User.cedula == cedula)):
+        raise HTTPException(409, "Esa cédula ya está registrada")
+    tel = limpiar_tel(body.telefono)
+    if tel and db.scalar(select(User).where(User.telefono == tel)):
+        raise HTTPException(409, "Ese teléfono ya está registrado")
+    u = User(nombre=body.nombre.strip(), cedula=cedula, telefono=tel, rol="ayudante", tienda_id=t.tienda_id)
+    db.add(u)
+    db.flush()
+    a = Tecnico(user_id=u.id, tienda_id=t.tienda_id, grupo=t.grupo, es_ayudante=True, jefe_id=t.id, foto_perfil=body.foto)
+    db.add(a)
+    for s in db.scalars(select(User).where(User.activo.is_(True), or_(
+            User.rol.in_(("supervisor", "superadmin")),
+            (User.rol == "tecnico_supervisor") & (User.tienda_id == t.tienda_id)))):
+        notificar(db, s.id, "Ayudante por registrar", f"{user.nombre} anotó a {u.nombre} ({cedula}). Completa su registro en la oficina.")
+    db.commit()
+    return svc.ficha(a) | {"alta": False}
 
 
 class Onboarding(BaseModel):

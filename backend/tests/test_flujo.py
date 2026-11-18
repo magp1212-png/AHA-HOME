@@ -220,3 +220,30 @@ def test_subir_foto_y_salud(client):
     assert client.get(r.json()["url"]).status_code == 200
     assert client.post("/archivos", files={"archivo": ("x.txt", b"hola", "text/plain")}, headers=h).status_code == 415
     assert client.get("/salud").json()["ok"] is True
+
+
+def test_tecnico_anota_sus_ayudantes(client):
+    tecnico = login_pin(client, "04242000000")  # José Hernández, Grupo A
+    r = client.post("/tecnico/ayudantes", json={"nombre": "Pedro Ayala", "cedula": "V-27.111.222", "foto": "/archivos/pedro.jpg"},
+                    headers=tecnico)
+    assert r.status_code == 200 and r.json()["alta"] is False and r.json()["foto"] == "/archivos/pedro.jpg"
+    nuevo_id = r.json()["id"]
+    assert len(client.get("/tecnico/ayudantes", headers=tecnico).json()) == 2
+    # Aún sin registro en oficina: no sale en las órdenes
+    o = nueva(client, login(client, "agente@ahahome.test"))
+    assert nuevo_id not in [a["id"] for a in o["ayudantes"]]
+
+    oficina = login(client, "tecsup@ahahome.test")
+    assert "Ayudante por registrar" in titulos(client, oficina)
+    for tipo in ("foto_perfil", "cedula", "antecedentes"):
+        client.post(f"/supervisor/tecnicos/{nuevo_id}/documentos", json={"tipo": tipo, "url": f"/archivos/{tipo}.jpg"}, headers=oficina)
+    r = client.post(f"/supervisor/tecnicos/{nuevo_id}/alta", json={}, headers=oficina).json()
+    assert r["verificado"] and r["jefe"] == "José Hernández" and r["grupo"] == "A"
+    assert nuevo_id in [a["id"] for a in client.get("/tecnico/hoy", headers=tecnico).json()["mis_ayudantes"]]
+
+    # Luego el ayudante puede crear su propia cuenta en la app con su cédula
+    tienda_id = client.get("/tiendas").json()[0]["id"]
+    r = client.post("/tecnico/registro", json={"nombre": "Pedro Ayala", "cedula": "27111222", "telefono": "04125550000",
+                                                "email": "pedro@correo.com", "password": "clave123", "pin": "5555",
+                                                "rol": "ayudante", "tienda_id": tienda_id})
+    assert r.status_code == 200 and r.json()["usuario"]["tecnico"]["id"] == nuevo_id
