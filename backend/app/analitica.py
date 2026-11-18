@@ -111,6 +111,7 @@ def calcular(db: Session, desde: dt.date, hasta: dt.date, tienda_id: int | None 
             "ayudantes": [a.user.nombre for a in t.ayudantes], "servicios": len(suyas), "calificacion": cal, "resenas": len(cals),
             "puntualidad": p_punt, "sin_incidencias": p_sin, "incidencias": n_inc, "indice": indice(cal, p_punt, p_sin),
             "impecable": bool(cal and cal >= 4.9 and p_punt >= 98 and n_inc == 0),
+            "propinas": f"{sum(o.propina_centavos for o in suyas) / 100:.2f}", "con_propina": sum(1 for o in suyas if o.propina_centavos),
         })
     ranking.sort(key=lambda r: (-r["indice"], -(r["calificacion"] or 0), -r["servicios"]))
 

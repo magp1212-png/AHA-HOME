@@ -51,7 +51,8 @@ def run():
         db.add(u)
         db.flush()
         tec = Tecnico(user_id=u.id, tienda_id=t.id, grupo=grupo, lat=lat + (i - 4) * 0.004, lng=lng + (i % 3 - 1) * 0.004,
-                      pin_hash=pin, verificado=True, alta_en=ahora(), **DEMO_FOTOS)
+                      pin_hash=pin, verificado=True, alta_en=ahora(), pago_movil_banco="Banco de prueba", pago_movil_telefono=u.telefono,
+                      cuenta_cedula=u.cedula, cuenta_titular=nom, **DEMO_FOTOS)
         db.add(tec)
         db.flush()
         a = User(nombre=AYUDANTES[i], telefono=f"04243{i:06d}", cedula=f"V-{20000000 + i * 977}", password_hash=h, rol="ayudante")

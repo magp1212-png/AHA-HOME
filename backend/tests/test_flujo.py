@@ -171,6 +171,9 @@ def test_registro_en_app_y_alta_en_oficina(client):
     assert "Técnico por dar de alta" in titulos(client, oficina)
     r = client.post(f"/supervisor/tecnicos/{tec_id}/alta", json={"grupo": "B"}, headers=oficina)
     assert r.status_code == 422 and "Foto de perfil" in r.json()["detail"]["faltan"]
+    assert any("bancarios" in f for f in r.json()["detail"]["faltan"])
+    client.put(f"/supervisor/tecnicos/{tec_id}/cuenta-bancaria", json={"banco": "Banco de Venezuela", "tipo": "ahorro",
+               "numero": "0102-0000-00-0000000000", "titular": "Kevin Suárez", "cedula": "V-25123456"}, headers=oficina)
     for tipo in ("foto_perfil", "cedula", "licencia", "vehiculo_titulo", "vehiculo_seguro"):
         client.post(f"/supervisor/tecnicos/{tec_id}/documentos", json={"tipo": tipo, "url": f"/archivos/{tipo}.jpg"}, headers=oficina)
     exp = client.get(f"/supervisor/tecnicos/{tec_id}/expediente", headers=oficina).json()
@@ -461,3 +464,93 @@ def test_paginas_legales_y_eliminar_cuenta(client):
     assert client.post("/cuenta/eliminar", json={"usuario": "agente@ahahome.test", "password": "mala"}).status_code == 401
     assert client.post("/cuenta/eliminar", json={"usuario": "agente@ahahome.test", "password": "aha12345"}).json()["ok"]
     assert client.post("/auth/login", json={"usuario": "agente@ahahome.test", "password": "aha12345"}).status_code == 401
+
+
+def test_inspeccion_presupuesto_pago_materiales_y_propina(client):
+    agente = login(client, "agente@ahahome.test")
+    cliente = login(client, "maria@ahahome.test")
+    superadmin = login(client, "superadmin@ahahome.test")
+    sup = login(client, "supervisor@ahahome.test")
+    o = nueva(client, agente, pago=None, articulos=[{"tipo": "aire_acondicionado", "marca": "LG", "instalar": True}])
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+
+    # El cliente pide inspección antes del retiro: ya no se puede retirar
+    r = client.post(f"/ordenes/{o['id']}/inspeccion", json={}, headers=cliente).json()
+    assert r["inspeccion"]["requerida"] and r["listo_para_instalar"] is False
+    assert "Inspección solicitada" in titulos(client, tecnico)
+    r = client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico)
+    assert r.status_code == 409 and "inspección" in r.json()["detail"]
+
+    # El técnico presupuesta; con materiales necesita su cuenta registrada
+    pres = {"items": [{"tipo": "material", "descripcion": "Tubería de cobre 3 m", "cantidad": 1, "precio": 25},
+                      {"tipo": "material", "descripcion": "Base para condensadora", "cantidad": 1, "precio": 15},
+                      {"tipo": "mano_obra", "descripcion": "Instalación split 12.000 BTU", "cantidad": 1, "precio": 40}],
+            "notas": "Hay que pasar la tubería por la pared del balcón"}
+    # (los técnicos de demostración ya tienen pago móvil; se borra para probar que la oficina la registra)
+    with SessionLocal() as db:
+        tt = db.get(Tecnico, o["tecnico"]["id"]); tt.pago_movil_telefono = tt.pago_movil_banco = ""; db.commit()
+    assert client.post(f"/tecnico/ordenes/{o['id']}/presupuesto", json=pres, headers=tecnico).status_code == 422
+    assert client.put("/tecnico/cuenta-bancaria", json={"pago_movil_telefono": "0424"}, headers=tecnico).status_code == 405
+    oficina = login(client, "tecsup@ahahome.test")
+    url = f"/supervisor/tecnicos/{o['tecnico']['id']}/cuenta-bancaria"
+    assert client.put(url, json={"banco": "Banesco", "numero": "123"}, headers=oficina).status_code == 422
+    c = client.put(url, json={"pago_movil_telefono": "04242000000", "pago_movil_banco": "Banesco", "cedula": "V-12000000"}, headers=oficina).json()
+    assert c["registrada"] and client.get("/tecnico/cuenta-bancaria", headers=tecnico).json()["registrada"]
+    p = client.post(f"/tecnico/ordenes/{o['id']}/presupuesto", json=pres, headers=tecnico).json()
+    assert p["total"] == "80.00" and p["materiales"] == "40.00" and p["estado"] == "enviado"
+    assert "Presupuesto por aprobar" in titulos(client, superadmin)
+    assert "Tu presupuesto está listo" in titulos(client, cliente)
+
+    # Hace falta el sí del cliente Y del superadmin
+    client.post(f"/ordenes/{o['id']}/presupuesto/responder", json={"acepta": True}, headers=cliente)
+    assert client.get(f"/ordenes/{o['id']}", headers=cliente).json()["presupuesto"]["estado"] == "enviado"
+    assert client.post(f"/supervisor/presupuestos/{p['id']}/aprobar", json={"acepta": True}, headers=sup).status_code == 403
+    r = client.post(f"/supervisor/presupuestos/{p['id']}/aprobar", json={"acepta": True}, headers=superadmin).json()
+    assert r["estado"] == "aprobado" and r["cuenta_tecnico"]["pago_movil_telefono"] == "04242000000"
+    assert "cuenta_tecnico" not in client.get(f"/ordenes/{o['id']}", headers=cliente).json()["presupuesto"]
+
+    # El cliente paga, el control confirma y AHA HOME paga los materiales al técnico
+    client.post(f"/ordenes/{o['id']}/presupuesto/pago", json={"metodo": "pago_movil", "referencia": "998877"}, headers=cliente)
+    assert client.post(f"/supervisor/presupuestos/{p['id']}/confirmar-pago", headers=sup).json()["estado"] == "pagado"
+    assert client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico).status_code == 409
+    assert "Pagar materiales al técnico" in titulos(client, superadmin)
+    r = client.post(f"/supervisor/presupuestos/{p['id']}/pagar-materiales", json={"referencia": "PM-5566"}, headers=superadmin).json()
+    assert r["estado"] == "materiales_pagados"
+    assert "¡Listo para instalar!" in titulos(client, tecnico)
+    assert client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico).json()["estado"] == "en_ruta"
+
+    # Cierre y propina
+    client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
+    full = client.get(f"/ordenes/{o['id']}", headers=agente).json()
+    client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {k: True for k in full["checklist_requerido"]}}, headers=tecnico)
+    client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {k: "/archivos/x.jpg" for k in full["fotos_requeridas"]}}, headers=tecnico)
+    assert client.post(f"/ordenes/{o['id']}/propina", json={"monto": 5, "metodo": "zelle", "referencia": "Z1"}, headers=cliente).status_code == 409
+    client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico)
+    assert client.post(f"/ordenes/{o['id']}/propina", json={"monto": 5, "metodo": "zelle"}, headers=cliente).status_code == 422
+    r = client.post(f"/ordenes/{o['id']}/propina", json={"monto": 5, "metodo": "zelle", "referencia": "Z1"}, headers=cliente).json()
+    assert r["propina"]["monto"] == "5.00" and r["propina"]["entregada_al_tecnico"] is False
+    assert "¡Recibiste una propina!" in titulos(client, tecnico) and "Propina por transferir" in titulos(client, superadmin)
+    r = client.post(f"/supervisor/ordenes/{o['id']}/propina-entregada", json={"referencia": "PM-7788"}, headers=superadmin).json()
+    assert r["propina"]["entregada_al_tecnico"] is True
+    assert client.post(f"/ordenes/{o['id']}/propina", json={"monto": 5, "metodo": "efectivo_usd"}, headers=cliente).status_code == 409
+
+
+def test_presupuesto_rechazado_permite_uno_nuevo(client):
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente, requiere_inspeccion=True, pago=None, articulos=[{"tipo": "otro", "descripcion": "Closet", "instalar": True}])
+    assert o["inspeccion"]["requerida"]
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    solo_mano = {"items": [{"tipo": "mano_obra", "descripcion": "Armado de closet", "cantidad": 1, "precio": 30}]}
+    p = client.post(f"/tecnico/ordenes/{o['id']}/presupuesto", json=solo_mano, headers=tecnico).json()
+    assert client.post(f"/tecnico/ordenes/{o['id']}/presupuesto", json=solo_mano, headers=tecnico).status_code == 409
+    client.post(f"/supervisor/presupuestos/{p['id']}/aprobar", json={"acepta": False, "motivo": "Muy caro"}, headers=login(client, "superadmin@ahahome.test"))
+    p2 = client.post(f"/tecnico/ordenes/{o['id']}/presupuesto", json=solo_mano | {"items": [{"tipo": "mano_obra", "descripcion": "Armado", "cantidad": 1, "precio": 20}]},
+                     headers=tecnico).json()
+    assert p2["total"] == "20.00"
+    # sin materiales: al confirmar el pago queda listo directo
+    cliente = login(client, "maria@ahahome.test")
+    client.post(f"/ordenes/{o['id']}/presupuesto/responder", json={"acepta": True}, headers=cliente)
+    client.post(f"/supervisor/presupuestos/{p2['id']}/aprobar", json={"acepta": True}, headers=login(client, "superadmin@ahahome.test"))
+    client.post(f"/ordenes/{o['id']}/presupuesto/pago", json={"metodo": "efectivo_usd", "referencia": "en caja"}, headers=agente)
+    r = client.post(f"/supervisor/presupuestos/{p2['id']}/confirmar-pago", headers=login(client, "supervisor@ahahome.test")).json()
+    assert r["estado"] == "materiales_pagados"

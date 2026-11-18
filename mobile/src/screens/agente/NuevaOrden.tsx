@@ -28,6 +28,7 @@ export default function NuevaOrden() {
   const [metodo, setMetodo] = useState<string | null>(null);
   const [ref, setRef] = useState("");
   const [terminos, setTerminos] = useState(false);
+  const [inspeccion, setInspeccion] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -49,7 +50,7 @@ export default function NuevaOrden() {
         cliente_nombre: c.nombre, cliente_telefono: c.telefono, direccion: c.direccion, referencia: c.referencia, zona,
         articulos: arts.map((a) => ({ ...a, instalar: soloInst ? true : a.instalar })), solo_instalacion: soloInst,
         pago: total > 0 && metodo ? { metodo, referencia: ref } : null, numero_factura: c.numero_factura,
-        fecha, franja, acepta_terminos: terminos,
+        fecha, franja, acepta_terminos: terminos, requiere_inspeccion: inspeccion,
       } });
       nav.back();
       nav.push("ordenCaja", { id: o.id });
@@ -123,6 +124,12 @@ export default function NuevaOrden() {
         </Tarjeta>
       ) : null}
 
+      {aInstalar.length || soloInst ? (
+        <Pressable onPress={() => setInspeccion(!inspeccion)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
+          <Ionicons name={inspeccion ? "checkbox" : "square-outline"} size={26} color={C.marino} />
+          <Text style={{ flex: 1, fontSize: 15, color: C.texto }}>El cliente pide inspección antes del retiro (el técnico visita y presupuesta materiales)</Text>
+        </Pressable>
+      ) : null}
       <Pressable onPress={() => setTerminos(!terminos)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
         <Ionicons name={terminos ? "checkbox" : "square-outline"} size={26} color={C.marino} />
         <Text style={{ flex: 1, fontSize: 15, color: C.texto }}>El cliente acepta los términos del servicio</Text>

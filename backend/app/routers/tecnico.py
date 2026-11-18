@@ -243,6 +243,8 @@ def retiro_en_almacen(body: Retiro, user: User = Depends(solo_tecnico), db: Sess
     if o.tecnico_id != t.id:
         raise HTTPException(403, "Esta orden está asignada a otro técnico. Contacta a tu supervisor.")
     svc.exigir_estado(o, "tecnico_asignado", "cita_confirmada")
+    from .presupuestos import exigir_listo
+    exigir_listo(o)
     for a in o.articulos:
         if body.seriales.get(a.id) and not a.serial:
             a.serial = body.seriales[a.id].strip()[:80]
@@ -261,6 +263,8 @@ def salir_a_instalar(orden_id: int, user: User = Depends(solo_tecnico), db: Sess
     if con_retiro(o.tipo_servicio):
         raise HTTPException(409, "Esta orden requiere retirar el equipo en el almacén con el código QR")
     svc.exigir_estado(o, "tecnico_asignado", "cita_confirmada")
+    from .presupuestos import exigir_listo
+    exigir_listo(o)
     _salida(db, o, user, f"Salida directa al domicilio: {svc.nombres_cuadrilla(o)}")
     db.commit()
     return svc.vista(o, "tecnico")

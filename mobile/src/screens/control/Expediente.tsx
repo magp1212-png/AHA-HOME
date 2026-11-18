@@ -3,12 +3,13 @@ import { Image, View } from "react-native";
 
 import { api, fileUrl, subirFoto } from "../../api";
 import { tomarFoto } from "../../photo";
-import { Aviso, Boton, C, Cargando, Etiqueta, Fila, Opcion, Pantalla, Seccion, Tarjeta, Texto } from "../../ui";
+import { Aviso, Boton, C, Campo, Cargando, Etiqueta, Fila, Opcion, Pantalla, Seccion, Tarjeta, Texto } from "../../ui";
 
 type Exp = {
   id: number; nombre: string; rol: string; cedula: string | null; telefono: string; email: string | null; tienda: string; grupo: string | null; jefe: string | null;
   foto_rostro: string | null; selfie_cedula: string | null; huella_registrada: boolean; verificado: boolean; alta_en: string | null;
   documentos: { id: number; tipo: string; tipo_texto: string; url: string }[]; documentos_faltantes: string[]; tipos_documento: Record<string, string>;
+  cuenta_pago: { banco: string; tipo: string; numero: string; titular: string; cedula: string; pago_movil_telefono: string; pago_movil_banco: string; registrada: boolean };
 };
 
 /** En la oficina: expediente completo (foto de perfil, cédula, licencia, vehículo, otros) y alta con el grupo. */
@@ -18,6 +19,13 @@ export default function Expediente({ id }: { id: number }) {
   const [error, setError] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [cta, setCta] = useState({ banco: "", tipo: "", numero: "", titular: "", cedula: "", pago_movil_telefono: "", pago_movil_banco: "" });
+  useEffect(() => { if (e?.cuenta_pago) { const { registrada, ...rest } = e.cuenta_pago; setCta(rest); } }, [e?.cuenta_pago?.numero, e?.cuenta_pago?.pago_movil_telefono]);
+
+  async function guardarCuenta() {
+    setError(null);
+    try { await api(`/supervisor/tecnicos/${id}/cuenta-bancaria`, { method: "PUT", body: cta }); setMsg("Cuenta de pago guardada."); cargar(); } catch (x: any) { setError(x.message); }
+  }
 
   const cargar = useCallback(() => { api<Exp>(`/supervisor/tecnicos/${id}/expediente`).then(setE).catch((x) => setError(x.message)); }, [id]);
   useEffect(cargar, [cargar]);
@@ -68,6 +76,20 @@ export default function Expediente({ id }: { id: number }) {
         ))}
         <Texto gris size={12}>* Obligatorios para dar el alta.</Texto>
       </Tarjeta>
+      {e.rol !== "ayudante" ? (
+        <Tarjeta>
+          <Seccion>DATOS BANCARIOS (PAGO DE SERVICIOS, MATERIALES Y PROPINAS)</Seccion>
+          {e.cuenta_pago.registrada ? <Etiqueta texto="Cuenta registrada" tono="ok" /> : <Etiqueta texto="Obligatoria para el alta" tono="alerta" />}
+          <Campo etiqueta="Banco" value={cta.banco} onChangeText={(v) => setCta({ ...cta, banco: v })} />
+          <Fila>{["corriente", "ahorro"].map((x) => <Opcion key={x} texto={x === "corriente" ? "Corriente" : "Ahorro"} activo={cta.tipo === x} onPress={() => setCta({ ...cta, tipo: x })} />)}</Fila>
+          <Campo etiqueta="Número de cuenta (20 dígitos)" value={cta.numero} onChangeText={(v) => setCta({ ...cta, numero: v })} keyboardType="number-pad" />
+          <Campo etiqueta="Titular" value={cta.titular} onChangeText={(v) => setCta({ ...cta, titular: v })} />
+          <Campo etiqueta="Cédula del titular" value={cta.cedula} onChangeText={(v) => setCta({ ...cta, cedula: v })} />
+          <Campo etiqueta="Pago móvil: teléfono" value={cta.pago_movil_telefono} onChangeText={(v) => setCta({ ...cta, pago_movil_telefono: v })} keyboardType="phone-pad" />
+          <Campo etiqueta="Pago móvil: banco" value={cta.pago_movil_banco} onChangeText={(v) => setCta({ ...cta, pago_movil_banco: v })} />
+          <Boton titulo="Guardar datos bancarios" tipo="secundario" onPress={guardarCuenta} />
+        </Tarjeta>
+      ) : null}
       {!e.verificado ? (
         <Tarjeta>
           <Seccion>ALTA</Seccion>

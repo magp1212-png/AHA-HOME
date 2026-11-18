@@ -136,6 +136,14 @@ class Tecnico(Base):
     respaldo_fecha: Mapped[str | None] = mapped_column(String(10))
     respaldo_activo_fecha: Mapped[str | None] = mapped_column(String(10))
     ausente_fecha: Mapped[str | None] = mapped_column(String(10))  # avisó que no puede trabajar ese día
+    # Cuenta donde AHA HOME le paga los materiales de los presupuestos aprobados
+    cuenta_banco: Mapped[str] = mapped_column(String(60), default="")
+    cuenta_tipo: Mapped[str] = mapped_column(String(20), default="")  # corriente | ahorro
+    cuenta_numero: Mapped[str] = mapped_column(String(30), default="")
+    cuenta_titular: Mapped[str] = mapped_column(String(120), default="")
+    cuenta_cedula: Mapped[str] = mapped_column(String(20), default="")
+    pago_movil_telefono: Mapped[str] = mapped_column(String(20), default="")
+    pago_movil_banco: Mapped[str] = mapped_column(String(60), default="")
     ausente_motivo: Mapped[str] = mapped_column(String(200), default="")
     disponible: Mapped[bool] = mapped_column(Boolean, default=True)  # ausencias
     # GPS en vivo (lo envía la app del técnico mientras trabaja)
@@ -194,7 +202,17 @@ class Orden(Base):
     completado_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
     checklist: Mapped[dict] = mapped_column(JSON, default=dict)
     fotos: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Inspección antes del retiro: el técnico visita, presupuesta y se instala solo con presupuesto aprobado y pagado
+    requiere_inspeccion: Mapped[bool] = mapped_column(Boolean, default=False)
+    inspeccion_fecha: Mapped[str] = mapped_column(String(10), default="")
+    inspeccion_franja: Mapped[str] = mapped_column(String(20), default="")
     calificacion: Mapped[int | None] = mapped_column(Integer)
+    # Propina del cliente al cerrar el servicio (va al técnico y su cuadrilla)
+    propina_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    propina_metodo: Mapped[str | None] = mapped_column(String(20))
+    propina_referencia: Mapped[str] = mapped_column(String(60), default="")
+    propina_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    propina_entregada_en: Mapped[dt.datetime | None] = mapped_column(DateTime)  # en efectivo en mano, o transferida por AHA HOME
     comentario: Mapped[str] = mapped_column(Text, default="")
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
 
@@ -202,6 +220,7 @@ class Orden(Base):
     tecnico: Mapped[Tecnico | None] = relationship()
     ayudantes: Mapped[list[Tecnico]] = relationship(secondary=orden_ayudantes)
     articulos: Mapped[list["Articulo"]] = relationship(back_populates="orden", order_by="Articulo.id", cascade="all, delete-orphan")
+    presupuestos: Mapped[list["Presupuesto"]] = relationship(back_populates="orden", order_by="Presupuesto.id")
     eventos: Mapped[list["Evento"]] = relationship(back_populates="orden", order_by="Evento.id")
 
 
@@ -293,3 +312,44 @@ class Tarifa(Base):
     tipo: Mapped[str] = mapped_column(String(30), primary_key=True)
     precio_centavos: Mapped[int] = mapped_column(Integer)
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+# Presupuesto de la inspección. Estados:
+#   enviado → (cliente acepta + superadmin aprueba) aprobado → pago_registrado → pagado → materiales_pagados (= listo para instalar)
+#   rechazado (por el cliente o el superadmin: el técnico puede enviar otro)
+ESTADO_PRESUPUESTO_TEXTO = {
+    "enviado": "Esperando aprobación", "aprobado": "Aprobado · esperando el pago del cliente",
+    "pago_registrado": "Pago registrado · por confirmar", "pagado": "Pagado · materiales por pagar al técnico",
+    "materiales_pagados": "Listo para instalar", "rechazado": "Rechazado",
+}
+
+
+class Presupuesto(Base):
+    __tablename__ = "presupuestos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"), index=True)
+    tecnico_id: Mapped[int] = mapped_column(ForeignKey("tecnicos.id"))
+    items: Mapped[list] = mapped_column(JSON, default=list)  # [{tipo: material|mano_obra, descripcion, cantidad, precio_centavos}]
+    notas: Mapped[str] = mapped_column(Text, default="")
+    fotos: Mapped[list] = mapped_column(JSON, default=list)
+    materiales_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    mano_obra_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    estado: Mapped[str] = mapped_column(String(30), default="enviado")
+    motivo_rechazo: Mapped[str] = mapped_column(String(300), default="")
+    cliente_acepto_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    admin_aprobo_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    admin_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    pago_metodo: Mapped[str | None] = mapped_column(String(20))
+    pago_referencia: Mapped[str] = mapped_column(String(60), default="")
+    pago_registrado_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    pago_confirmado_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    materiales_referencia: Mapped[str] = mapped_column(String(60), default="")
+    materiales_pagados_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
+
+    orden: Mapped[Orden] = relationship(back_populates="presupuestos")
+    tecnico: Mapped[Tecnico] = relationship()
+
+    @property
+    def total_centavos(self) -> int:
+        return self.materiales_centavos + self.mano_obra_centavos

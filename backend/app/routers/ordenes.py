@@ -87,6 +87,7 @@ class NuevaOrden(BaseModel):
     zona: str
     articulos: list[ArticuloIn] = Field(min_length=1, max_length=30)
     solo_instalacion: bool = False  # el cliente ya tiene los artículos en casa: no hay traslado
+    requiere_inspeccion: bool = False  # el cliente pide que el técnico inspeccione y presupueste antes del retiro
     pago: PagoIn | None = None      # obligatorio si hay artículos para instalar
     numero_factura: str = Field(default="", max_length=40)
     fecha_compra: str = Field(default="", max_length=10)
@@ -155,7 +156,8 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
               cliente_nombre=body.cliente_nombre.strip(), cliente_telefono=tel, direccion=body.direccion.strip(),
               referencia=body.referencia.strip(), lat=body.lat, lng=body.lng, zona=body.zona, tipo_servicio=tipo_servicio,
               numero_factura=body.numero_factura.strip(), fecha_compra=body.fecha_compra, factura=body.factura,
-              monto_instalacion_centavos=total, fecha=body.fecha.isoformat(), franja=body.franja, tienda_id=tienda.id,
+              monto_instalacion_centavos=total, requiere_inspeccion=body.requiere_inspeccion,
+              inspeccion_fecha=body.fecha.isoformat() if body.requiere_inspeccion else "", inspeccion_franja=body.franja if body.requiere_inspeccion else "", fecha=body.fecha.isoformat(), franja=body.franja, tienda_id=tienda.id,
               agente_id=user.id if user.rol == "agente" else None, qr_token=new_qr_token(), checklist={}, fotos={})
     if total:
         o.pago_metodo, o.pago_referencia, o.pagado_en, o.cobrado_por = body.pago.metodo, body.pago.referencia.strip(), ahora(), user.id

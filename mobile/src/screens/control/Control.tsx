@@ -59,6 +59,7 @@ export default function Control() {
             <View style={{ flex: 1 }}><Boton titulo="Mapa en vivo" icono="map" onPress={() => nav.push("mapa")} /></View>
             <View style={{ flex: 1 }}><Boton titulo="Analítica" icono="bar-chart" tipo="secundario" onPress={() => nav.push("analitica")} /></View>
           </View>
+          <Boton titulo="Presupuestos y pagos" icono="cash-outline" tipo="lima" onPress={() => nav.push("pagos")} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
             {[["Órdenes", k!.ordenes, C.texto], ["En curso", k!.en_ruta_o_en_servicio, C.texto], ["Completadas", k!.completadas, C.ok],
               ["Sin técnico", k!.sin_tecnico, C.error], ["Incidencias", k!.incidencias_abiertas, C.alerta]].map(([t, v, col]) => (

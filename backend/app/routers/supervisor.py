@@ -181,8 +181,9 @@ def doc_dict(d: Documento) -> dict:
 @router.get("/tecnicos/{tec_id}/expediente")
 def expediente(tec_id: int, user: User = Depends(control), db: Session = Depends(get_db)):
     t = tecnico_controlado(db, user, tec_id)
+    from .presupuestos import cuenta_tecnico
     return tecnico_dict(db, t, asignacion.hoy().isoformat()) | {
-        "documentos": [doc_dict(d) for d in t.documentos], "tipos_documento": TIPOS_DOCUMENTO}
+        "documentos": [doc_dict(d) for d in t.documentos], "tipos_documento": TIPOS_DOCUMENTO, "cuenta_pago": cuenta_tecnico(t)}
 
 
 class NuevoDocumento(BaseModel):
@@ -235,6 +236,10 @@ def dar_de_alta(tec_id: int, body: Alta, user: User = Depends(control), db: Sess
             falta.append("escaneo facial y foto con la cédula (desde la app)")
         if not t.huella_registrada:
             falta.append("huella (desde la app)")
+    if not t.es_ayudante:
+        from .presupuestos import cuenta_tecnico
+        if not cuenta_tecnico(t)["registrada"]:
+            falta.append("datos bancarios o de pago móvil (para pagarle sus servicios)")
     tipos = {d.tipo for d in t.documentos}
     falta += [TIPOS_DOCUMENTO[d] for d in DOCUMENTOS_OBLIGATORIOS if d not in tipos]
     if falta:

@@ -4,6 +4,7 @@ import { Pressable, Text, View } from "react-native";
 
 import { api } from "../../api";
 import { useNav } from "../../nav";
+import { FormPago, InspeccionCliente } from "../../components";
 import type { Orden, Persona } from "../../types";
 import { Aviso, Avatar, Boton, C, Cargando, Etiqueta, Pantalla, Tarjeta, Texto, Titulo } from "../../ui";
 
@@ -73,6 +74,8 @@ export default function Rastreo({ id }: { id: number }) {
         </View>
       </Tarjeta>
 
+      <InspeccionCliente o={o} recargar={cargar} />
+
       <Titulo>Tus artículos</Titulo>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
         {o.articulos.map((a) => {
@@ -129,6 +132,19 @@ export default function Rastreo({ id }: { id: number }) {
             ))}
           </View>
           <Aviso texto={msg} tono="ok" />
+        </Tarjeta>
+      ) : null}
+
+      {o.estado === "completado" ? (
+        <Tarjeta>
+          {o.propina.dada ? <Aviso tono="ok" texto={`¡Gracias! Le diste USD ${o.propina.monto} de propina a la cuadrilla.`} /> : (
+            <>
+              <Texto negrita size={16}>¿Quieres dar propina a la cuadrilla?</Texto>
+              <Texto gris size={14}>Es opcional. Va completa al técnico y su ayudante.</Texto>
+              <FormPago titulo="PROPINA" boton="Dar propina" conMonto
+                onEnviar={async (d) => { await api(`/ordenes/${id}/propina`, { body: d }); cargar(); }} />
+            </>
+          )}
         </Tarjeta>
       ) : null}
 

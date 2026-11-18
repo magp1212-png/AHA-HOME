@@ -120,13 +120,21 @@ export default function InicioTecnico() {
               {!esAyudante ? (
                 <View style={{ gap: 10, marginTop: 6 }}>
                   {o.estado === "tecnico_asignado" ? <Boton titulo="Confirmar cita" tipo="secundario" onPress={() => accion(`/tecnico/ordenes/${o.id}/confirmar`)} cargando={cargando} /> : null}
-                  {["tecnico_asignado", "cita_confirmada"].includes(o.estado) && o.con_retiro_en_tienda ? (
+                  {o.inspeccion.requerida && ["tecnico_asignado", "cita_confirmada"].includes(o.estado) ? (
+                    <View style={{ gap: 8, backgroundColor: C.limaSuave, borderRadius: 12, padding: 12 }}>
+                      <Texto negrita>Inspección antes del retiro · {o.inspeccion.fecha} {o.inspeccion.franja}</Texto>
+                      <Texto gris size={14}>{o.presupuesto ? `Presupuesto USD ${o.presupuesto.total}: ${o.presupuesto.estado_texto}` : "Visita al cliente, revisa y envía el presupuesto."}</Texto>
+                      <Boton titulo={o.presupuesto ? "Ver presupuesto" : "Hacer presupuesto"} icono="calculator" tipo={o.presupuesto ? "secundario" : "principal"}
+                        onPress={() => nav.push("presupuesto", { id: o.id })} />
+                    </View>
+                  ) : null}
+                  {["tecnico_asignado", "cita_confirmada"].includes(o.estado) && o.con_retiro_en_tienda && o.listo_para_instalar ? (
                     <>
                       <Boton titulo="Ir a la tienda" tipo="secundario" icono="navigate" onPress={() => navegar(o, true)} />
                       <Boton titulo="Retiro en almacén: escanear QR" icono="qr-code" onPress={retirar} />
                     </>
                   ) : null}
-                  {["tecnico_asignado", "cita_confirmada"].includes(o.estado) && !o.con_retiro_en_tienda ? (
+                  {["tecnico_asignado", "cita_confirmada"].includes(o.estado) && !o.con_retiro_en_tienda && o.listo_para_instalar ? (
                     <Boton titulo="Salir hacia el cliente" icono="car" onPress={() => accion(`/tecnico/ordenes/${o.id}/salir`)} cargando={cargando} />
                   ) : null}
                   {o.estado === "en_ruta" ? (
@@ -163,6 +171,7 @@ export default function InicioTecnico() {
                 </View>
               ))}
               <Boton titulo="Ver y agregar ayudantes" tipo="secundario" icono="people" onPress={() => nav.push("ayudantes")} />
+              <Boton titulo="Mi cuenta de pago" tipo="secundario" icono="card-outline" onPress={() => nav.push("cuentaPago")} />
             </Tarjeta>
           ) : null}
         </>

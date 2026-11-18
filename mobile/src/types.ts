@@ -26,4 +26,18 @@ export type Orden = {
   faltantes_cierre?: string[];
   pago_instalacion: { monto: string; metodo: string | null; pagado: boolean; precio_por_definir?: boolean };
   calificacion: number | null; qr?: string;
+  inspeccion: { requerida: boolean; fecha: string; franja: string };
+  presupuesto: Presupuesto | null; listo_para_instalar: boolean;
+  propina: { monto: string; metodo: string | null; dada: boolean; entregada_al_tecnico: boolean };
+};
+
+export type CuentaPago = { banco: string; tipo: string; numero: string; titular: string; cedula: string; pago_movil_telefono: string;
+                           pago_movil_banco: string; registrada: boolean };
+
+export type Presupuesto = {
+  id: number; orden_id: number; codigo: string; estado: string; estado_texto: string;
+  items: { tipo: "material" | "mano_obra"; descripcion: string; cantidad: number; precio: string; subtotal: string }[];
+  materiales: string; mano_obra: string; total: string; notas: string; motivo_rechazo: string; tecnico: string;
+  cliente_acepto: boolean; admin_aprobo: boolean; pago: { metodo: string | null; referencia: string };
+  cuenta_tecnico?: CuentaPago; cliente?: string;
 };

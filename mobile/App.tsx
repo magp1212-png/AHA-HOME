@@ -8,6 +8,7 @@ import Expediente from "./src/screens/control/Expediente";
 import Analitica from "./src/screens/control/Analitica";
 import Control from "./src/screens/control/Control";
 import MapaVivo from "./src/screens/control/Mapa";
+import Pagos from "./src/screens/control/Pagos";
 import InicioCaja from "./src/screens/agente/InicioCaja";
 import NuevaOrden from "./src/screens/agente/NuevaOrden";
 import OrdenCaja from "./src/screens/agente/OrdenCaja";
@@ -23,6 +24,8 @@ import RegistroCliente from "./src/screens/RegistroCliente";
 import RegistroTecnico from "./src/screens/RegistroTecnico";
 import Servidor from "./src/screens/Servidor";
 import Ayudantes from "./src/screens/tecnico/Ayudantes";
+import CuentaPagoTecnico from "./src/screens/tecnico/CuentaPago";
+import PresupuestoTecnico from "./src/screens/tecnico/Presupuesto";
 import Checklist from "./src/screens/tecnico/Checklist";
 import Escaner from "./src/screens/tecnico/Escaner";
 import Incidencia from "./src/screens/tecnico/Incidencia";
@@ -64,11 +67,14 @@ function Router() {
           case "escaner": return <Escaner />;
           case "checklist": return <Checklist id={p.id} />;
           case "ayudantes": return <Ayudantes />;
+          case "presupuesto": return <PresupuestoTecnico id={p.id} />;
+          case "cuentaPago": return <CuentaPagoTecnico />;
           case "incidencia": return <Incidencia id={p.id} />;
           case "control": return <Control />;
           case "expediente": return <Expediente id={p.id} />;
           case "analitica": return <Analitica />;
           case "mapa": return <MapaVivo />;
+          case "pagos": return <Pagos />;
           default: return <Inicio />;
         }
       }}
