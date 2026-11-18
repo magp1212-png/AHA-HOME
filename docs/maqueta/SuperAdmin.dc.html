@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>AHA HOME — Superadministrador</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#21244D}a:hover{color:#383D78}
+input::placeholder{color:#6B7789}
+</style>
+</helmet>
+<div style="min-height: 1400px; background: #F4F7FB; font-family: Inter, system-ui, sans-serif; color: #1A1C3D">
+
+<header style="background: #21244D; color: #FFFFFF">
+<div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 14px 24px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<svg width="38" height="38" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="24" fill="#2E3266"></rect><g transform="translate(12 10) scale(0.76)"><path d="M50 13 L85 38.5 Q87.5 40.3 87.5 43.4 L87.5 69 Q87.5 76 80.5 76 L45 76 L29.5 88.5 Q26.5 90.8 26.5 87 L26.5 76 L19.5 76 Q12.5 76 12.5 69 L12.5 43.4 Q12.5 40.3 15 38.5 Z" fill="#CFD72A" stroke="#CFD72A" stroke-width="5" stroke-linejoin="round"></path><path d="M33 50 L45 62 L67.5 39.5" fill="none" stroke="#21244D" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"></path></g></svg>
+<div style="display: flex; flex-direction: column">
+<span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 20px; font-weight: 700; letter-spacing: 0.4px">AHA HOME · Superadministrador</span>
+<span style="font-size: 13px; color: #C5C8E4">Seguimiento completo del proceso · Piloto Damasco San Martín</span>
+</div>
+<div style="margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<label style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 20px; background: #2E3266; font-size: 14px; color: #DCDEF0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><input type="search" placeholder="Buscar orden, cliente o cédula" style="width: 210px; border: none; background: transparent; color: #FFFFFF; font-size: 14px; font-family: inherit; outline: none"></label>
+<button type="button" aria-label="Notificaciones" style="position: relative; width: 44px; height: 44px; border: none; border-radius: 22px; background: #2E3266; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg><span style="position: absolute; top: 6px; right: 6px; min-width: 18px; height: 18px; border-radius: 9px; background: #CFD72A; color: #21244D; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">5</span></button>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="width: 36px; height: 36px; border-radius: 18px; background: #CFD72A; color: #21244D; font-weight: 700; display: flex; align-items: center; justify-content: center">SA</span>Superadmin</span>
+</div>
+</div>
+</header>
+
+<div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 20px 24px 40px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+<nav aria-label="Módulos" style="flex: 1 1 220px; max-width: 250px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 4px">
+<sc-for list="{{modulos}}" as="m" hint-placeholder-count="9">
+<sc-if value="{{m.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{m.pick}}" style="min-height: 44px; border: none; border-radius: 12px; background: #21244D; color: #FFFFFF; display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 14px; font-weight: 700; font-family: inherit; text-align: left; cursor: pointer"><span style="width: 8px; height: 8px; border-radius: 4px; background: #CFD72A"></span><span style="flex: 1">{{m.label}}</span><sc-if value="{{m.hasBadge}}" hint-placeholder-val="{{false}}"><span style="min-width: 22px; height: 22px; border-radius: 11px; background: #CFD72A; color: #21244D; font-size: 12px; display: flex; align-items: center; justify-content: center">{{m.badge}}</span></sc-if></button></sc-if>
+<sc-if value="{{m.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{m.pick}}" style="min-height: 44px; border: none; border-radius: 12px; background: transparent; color: #1A1C3D; display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 14px; font-weight: 500; font-family: inherit; text-align: left; cursor: pointer"><span style="width: 8px; height: 8px; border-radius: 4px; background: #CBD5E1"></span><span style="flex: 1">{{m.label}}</span><sc-if value="{{m.hasBadge}}" hint-placeholder-val="{{false}}"><span style="min-width: 22px; height: 22px; border-radius: 11px; background: #F1F3D4; color: #21244D; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{m.badge}}</span></sc-if></button></sc-if>
+</sc-for>
+<p style="margin: 10px 12px 6px; font-size: 12px; color: #4A5568">Datos de ejemplo para la maqueta.</p>
+</nav>
+
+<main style="flex: 999 1 680px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+
+<sc-if value="{{isGeneral}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px"><h1 style="margin: 0; font-size: 24px">Panel general</h1><span style="font-size: 14px; color: #4A5568">Lunes 23 nov · Guardia del Grupo A</span></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px">
+<sc-for list="{{kpis}}" as="k" hint-placeholder-count="6">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #4A5568">{{k.label}}</span><strong style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 30px; color: {{k.color}}">{{k.valor}}</strong><span style="font-size: 12px; color: #4A5568">{{k.nota}}</span></div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px">
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 16px">Órdenes por tipo de servicio</h2>
+<sc-for list="{{porTipo}}" as="b" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="display: flex; justify-content: space-between; font-size: 14px"><span>{{b.label}}</span><strong>{{b.n}}</strong></span><span style="height: 10px; border-radius: 5px; background: #EEF2F7; overflow: hidden; display: block"><span style="display: block; height: 10px; border-radius: 5px; background: #21244D; width: {{b.w}}"></span></span></div>
+</sc-for>
+</section>
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 16px">Tiempo promedio por fase</h2>
+<sc-for list="{{tiempos}}" as="t" hint-placeholder-count="5">
+<div style="display: flex; align-items: center; gap: 10px; font-size: 14px"><span style="flex: 1">{{t.fase}}</span><strong>{{t.min}}</strong></div>
+</sc-for>
+</section>
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 16px">Actividad reciente</h2>
+<sc-for list="{{actividad}}" as="a" hint-placeholder-count="5">
+<div style="display: flex; gap: 10px; font-size: 13px"><span style="width: 52px; flex-shrink: 0; color: #4A5568">{{a.hora}}</span><span><strong>{{a.titulo}}</strong> · {{a.texto}}</span></div>
+</sc-for>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{isSeguimiento}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px"><h1 style="margin: 0; font-size: 24px">Seguimiento de órdenes</h1>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{filtros}}" as="f" hint-placeholder-count="5">
+<sc-if value="{{f.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{f.pick}}" style="height: 36px; padding: 0 14px; border: none; border-radius: 18px; background: #21244D; color: #FFFFFF; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer">{{f.label}}</button></sc-if>
+<sc-if value="{{f.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{f.pick}}" style="height: 36px; padding: 0 14px; border: 1px solid #CBD5E1; border-radius: 18px; background: #FFFFFF; color: #1A1C3D; font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer">{{f.label}}</button></sc-if>
+</sc-for>
+</div></div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+<section style="flex: 999 1 420px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 8px; display: flex; flex-direction: column">
+<sc-for list="{{ordenes}}" as="o" hint-placeholder-count="6">
+<sc-if value="{{o.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{o.pick}}" style="border: 2px solid #21244D; border-radius: 12px; background: #F1F3D4; padding: 10px 12px; display: grid; grid-template-columns: 82px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-family: inherit; text-align: left; color: #1A1C3D; cursor: pointer"><strong style="font-size: 14px">{{o.wo}}</strong><span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 14px; font-weight: 600">{{o.cliente}} · {{o.tipo}}</span><span style="font-size: 12px; color: #4A5568">{{o.cuadrilla}} · {{o.franja}}</span></span><span style="height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: {{o.bg}}; color: {{o.fg}}">{{o.estado}}</span></button></sc-if>
+<sc-if value="{{o.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{o.pick}}" style="border: 2px solid transparent; border-radius: 12px; background: transparent; padding: 10px 12px; display: grid; grid-template-columns: 82px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-family: inherit; text-align: left; color: #1A1C3D; cursor: pointer"><strong style="font-size: 14px">{{o.wo}}</strong><span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 14px; font-weight: 600">{{o.cliente}} · {{o.tipo}}</span><span style="font-size: 12px; color: #4A5568">{{o.cuadrilla}} · {{o.franja}}</span></span><span style="height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: {{o.bg}}; color: {{o.fg}}">{{o.estado}}</span></button></sc-if>
+</sc-for>
+</section>
+<section style="flex: 1 1 360px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><strong style="font-size: 20px">{{det.wo}}</strong><span style="height: 28px; padding: 0 12px; border-radius: 14px; font-size: 13px; font-weight: 700; display: flex; align-items: center; background: {{det.bg}}; color: {{det.fg}}">{{det.estado}}</span></div>
+<span style="font-size: 14px; color: #4A5568">{{det.tipo}} · {{det.cliente}} · {{det.direccion}}</span>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">ARTÍCULOS</span>
+<sc-for list="{{det.articulos}}" as="ar" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="flex: 1">{{ar.nombre}}</span><span style="height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: {{ar.bg}}; color: {{ar.fg}}">{{ar.tag}}</span></div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">CUADRILLA</span>
+<sc-for list="{{det.cuadrilla}}" as="c" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 18px; background: #21244D; color: #CFD72A; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{c.ini}}</span><span style="display: flex; flex-direction: column"><strong style="font-size: 14px">{{c.nombre}}</strong><span style="font-size: 12px; color: #4A5568">{{c.rol}} · {{c.cedula}}</span></span></div>
+</sc-for>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 14px; background: #F4F7FB; border-radius: 12px; padding: 10px 12px"><span>Pago de instalación</span><strong>{{det.pago}}</strong></div>
+<div style="display: flex; flex-direction: column; gap: 0"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px; margin-bottom: 8px">BITÁCORA (QUIÉN Y CUÁNDO)</span>
+<sc-for list="{{det.bitacora}}" as="e" hint-placeholder-count="5">
+<div style="display: flex; gap: 10px; min-height: 44px"><div style="display: flex; flex-direction: column; align-items: center; width: 14px"><span style="width: 12px; height: 12px; border-radius: 6px; background: #21244D; margin-top: 4px"></span><span style="flex: 1; width: 2px; background: #E2E8F0"></span></div><div style="display: flex; flex-direction: column; padding-bottom: 10px"><span style="font-size: 13px; font-weight: 700">{{e.hora}} · {{e.estado}}</span><span style="font-size: 12px; color: #4A5568">{{e.nota}}</span></div></div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<div style="height: 70px; border-radius: 10px; background: #F1F3D4; display: flex; align-items: flex-end; padding: 8px; box-sizing: border-box; font-size: 12px; font-weight: 600; color: #21244D">Foto: equipo instalado</div>
+<div style="height: 70px; border-radius: 10px; background: #E7F6EE; display: flex; align-items: flex-end; padding: 8px; box-sizing: border-box; font-size: 12px; font-weight: 600; color: #0F5132">Foto: espacio limpio</div>
+</div>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{isTecnicos}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Técnicos y ayudantes</h1>
+<section style="background: #FFFFFF; border: 2px solid #CFD72A; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<span style="width: 56px; height: 56px; border-radius: 28px; background: #21244D; color: #CFD72A; font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center">KS</span>
+<span style="display: flex; flex-direction: column; flex: 1; min-width: 200px"><strong style="font-size: 18px">Kevin Suárez · Técnico</strong><span style="font-size: 13px; color: #4A5568">V-25.123.456 · 0412-999-0000 · kevin@correo.com · Damasco San Martín</span></span>
+<span style="height: 28px; padding: 0 12px; border-radius: 14px; font-size: 13px; font-weight: 700; display: flex; align-items: center; background: {{altaBg}}; color: {{altaFg}}">{{altaEstado}}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">REGISTRO EN LA APP</span>
+<sc-for list="{{regApp}}" as="r" hint-placeholder-count="5">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#167A45" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{r}}</span>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">EXPEDIENTE EN OFICINA</span>
+<sc-for list="{{docs}}" as="d" hint-placeholder-count="6">
+<button type="button" onClick="{{d.toggle}}" style="min-height: 36px; border: none; background: transparent; padding: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; font-family: inherit; color: #1A1C3D; text-align: left; cursor: pointer">
+<sc-if value="{{d.ok}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#167A45" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+<sc-if value="{{d.falta}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA8BA" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></sc-if>
+{{d.label}}<span style="font-size: 12px; color: #4A5568">{{d.nota}}</span></button>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">ALTA Y GRUPO</span>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{grupos}}" as="g" hint-placeholder-count="4">
+<sc-if value="{{g.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{g.pick}}" style="height: 44px; border: 2px solid #21244D; border-radius: 10px; background: #F1F3D4; color: #21244D; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer">{{g.label}}</button></sc-if>
+<sc-if value="{{g.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{g.pick}}" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; color: #1A1C3D; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer">{{g.label}}</button></sc-if>
+</sc-for>
+</div>
+<sc-if value="{{puedeAlta}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{darAlta}}" style="height: 48px; border: none; border-radius: 12px; background: #21244D; color: #FFFFFF; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer">Dar de alta ahora</button></sc-if>
+<sc-if value="{{noPuedeAlta}}" hint-placeholder-val="{{true}}"><button type="button" disabled style="height: 48px; border: none; border-radius: 12px; background: #E2E8F0; color: #4A5568; font-size: 15px; font-weight: 700; font-family: inherit">Dar de alta ahora</button><span style="font-size: 12px; color: #4A5568">{{altaAyuda}}</span></sc-if>
+</div>
+</div>
+</section>
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 8px 8px 4px; overflow-x: auto">
+<table style="width: 100%; min-width: 720px; border-collapse: collapse; font-size: 14px">
+<thead><tr style="text-align: left; color: #4A5568; font-size: 12px; letter-spacing: 0.4px"><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">NOMBRE</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">ROL</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">GRUPO</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">CÉDULA</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">SALE CON</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">EXPEDIENTE</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">ESTADO</th></tr></thead>
+<tbody>
+<sc-for list="{{personal}}" as="p" hint-placeholder-count="6">
+<tr><td style="padding: 10px; border-bottom: 1px solid #EEF2F7; font-weight: 600">{{p.nombre}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7">{{p.rol}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7">{{p.grupo}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7">{{p.cedula}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7">{{p.con}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7">{{p.docs}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7"><span style="height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; background: {{p.bg}}; color: {{p.fg}}">{{p.estado}}</span></td></tr>
+</sc-for>
+</tbody>
+</table>
+</section>
+</sc-if>
+
+<sc-if value="{{isGuardias}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Guardias y escuadras · Damasco San Martín</h1>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{semana}}" as="d" hint-placeholder-count="7">
+<span style="flex: 1 1 80px; min-width: 80px; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; background: {{d.bg}}; color: {{d.fg}}"><span style="font-size: 12px">{{d.dia}}</span><strong style="font-size: 16px">Grupo {{d.g}}</strong></span>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">
+<sc-for list="{{escuadras}}" as="e" hint-placeholder-count="3">
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center"><strong style="font-size: 17px">{{e.nombre}}</strong><span style="height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: {{e.bg}}; color: {{e.fg}}">{{e.estado}}</span></div>
+<sc-for list="{{e.tecnicos}}" as="t" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #F4F7FB"><strong style="font-size: 14px">{{t.nombre}}</strong><span style="font-size: 12px; color: #4A5568">Ayudante: {{t.ayudante}} · {{t.ordenes}}</span></div>
+</sc-for>
+</section>
+</sc-for>
+</div>
+<section style="background: #21244D; color: #FFFFFF; border-radius: 18px; padding: 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<span style="display: flex; flex-direction: column; flex: 1; min-width: 220px"><strong style="font-size: 16px">Guardia Retén · Ricardo Pérez + Valentina Morales</strong><span style="font-size: 13px; color: #C5C8E4">Respaldo para picos de demanda, emergencias o ausencias.</span></span>
+<sc-if value="{{retenOn}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{toggleReten}}" style="height: 44px; padding: 0 18px; border: none; border-radius: 12px; background: #CFD72A; color: #21244D; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer">Retén activado</button></sc-if>
+<sc-if value="{{retenOff}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{toggleReten}}" style="height: 44px; padding: 0 18px; border: 1px solid #5A5F99; border-radius: 12px; background: transparent; color: #FFFFFF; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer">Activar retén</button></sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{isTiendas}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Tiendas</h1>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px">
+<section style="background: #FFFFFF; border: 2px solid #21244D; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+<span style="align-self: flex-start; height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: #CFD72A; color: #21244D">PRUEBA PILOTO</span>
+<strong style="font-size: 20px">Damasco San Martín</strong>
+<span style="font-size: 14px; color: #4A5568">Av. Sur 19 con Av. Urdaneta, San Martín, Caracas · Zona Central</span>
+<span style="font-size: 14px">10 técnicos · 10 ayudantes · 1 agente en caja · 1 técnico supervisor</span>
+<a href="#" style="font-size: 14px; font-weight: 600">Ajustar ubicación en el mapa</a>
+</section>
+<section style="background: #FFFFFF; border: 1px dashed #9EB3CC; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<strong style="font-size: 17px">Replicar en otra tienda</strong>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Nombre<input type="text" placeholder="Damasco …" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Dirección<input type="text" placeholder="Avenida, esquina, sector" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<div style="display: flex; gap: 6px"><button type="button" style="flex: 1; height: 40px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; font-family: inherit; font-size: 14px; cursor: pointer">Oeste</button><button type="button" style="flex: 1; height: 40px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; font-family: inherit; font-size: 14px; cursor: pointer">Central</button><button type="button" style="flex: 1; height: 40px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; font-family: inherit; font-size: 14px; cursor: pointer">Este</button></div>
+<button type="button" style="height: 46px; border: none; border-radius: 12px; background: #21244D; color: #FFFFFF; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer">Crear tienda</button>
+<span style="font-size: 12px; color: #4A5568">Luego: agente en caja, técnico supervisor, 9 técnicos en grupos A/B/C con sus ayudantes y la Guardia Retén.</span>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{isPagos}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Pagos de instalación en caja</h1>
+<div style="border-radius: 14px; background: #F1F3D4; padding: 12px 16px; font-size: 14px; color: #21244D"><strong>Tabla de precios pendiente.</strong> Las instalaciones quedan «precio por definir» y no se cobran hasta publicar las tarifas.</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px">
+<sc-for list="{{metodos}}" as="m" hint-placeholder-count="5">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #4A5568">{{m}}</span><strong style="font-size: 24px; font-family: 'Space Grotesk', Inter, sans-serif">USD —</strong><span style="font-size: 12px; color: #4A5568">0 cobros</span></div>
+</sc-for>
+</div>
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><strong style="font-size: 16px">Reembolsos pendientes</strong><span style="font-size: 14px; color: #4A5568">Cuando se cancela una orden con instalación pagada, aparece aquí con el monto y el método.</span></section>
+</sc-if>
+
+<sc-if value="{{isTarifas}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Tarifas de instalación</h1>
+<p style="margin: 0; font-size: 14px; color: #4A5568">Se definen al final, después de entrevistar a los técnicos. Solo el superadmin las cambia.</p>
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 8px; display: flex; flex-direction: column">
+<sc-for list="{{tarifas}}" as="t" hint-placeholder-count="7">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid #EEF2F7"><span style="flex: 1; font-size: 15px; font-weight: 600">{{t}}</span><span style="font-size: 14px; color: #4A5568">Por definir</span><button type="button" style="height: 36px; padding: 0 14px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Fijar precio</button></div>
+</sc-for>
+</section>
+</sc-if>
+
+<sc-if value="{{isIncidencias}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Incidencias</h1>
+<sc-for list="{{incidencias}}" as="i" hint-placeholder-count="3">
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<span style="display: flex; flex-direction: column; flex: 1; min-width: 240px"><strong style="font-size: 15px">{{i.titulo}}</strong><span style="font-size: 13px; color: #4A5568">{{i.detalle}}</span></span>
+<sc-if value="{{i.abierta}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{i.toggle}}" style="height: 40px; padding: 0 14px; border: none; border-radius: 10px; background: #C2410C; color: #FFFFFF; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer">Marcar resuelta</button></sc-if>
+<sc-if value="{{i.resuelta}}" hint-placeholder-val="{{false}}"><span style="height: 28px; padding: 0 12px; border-radius: 14px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: #E7F6EE; color: #0F5132">Resuelta</span></sc-if>
+</section>
+</sc-for>
+</sc-if>
+
+<sc-if value="{{isUsuarios}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Usuarios y roles</h1>
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 8px; overflow-x: auto">
+<table style="width: 100%; min-width: 760px; border-collapse: collapse; font-size: 14px">
+<thead><tr style="text-align: left; color: #4A5568; font-size: 12px; letter-spacing: 0.4px"><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">ROL</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">USUARIOS</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">QUÉ PUEDE HACER</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">QUÉ VE</th></tr></thead>
+<tbody>
+<sc-for list="{{roles}}" as="r" hint-placeholder-count="7">
+<tr><td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7; font-weight: 700">{{r.rol}}</td><td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7">{{r.n}}</td><td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7">{{r.puede}}</td><td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7; color: #4A5568">{{r.ve}}</td></tr>
+</sc-for>
+</tbody>
+</table>
+</section>
+</sc-if>
+
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1400}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mod: 'general', filtro: 'Todas', orden: 'WO-4921', grupo: null, alta: false,
+                   docs: { foto_perfil: true, cedula: true, licencia: true }, reten: false, resueltas: {} };
+  }
+  renderVals() {
+    const s = this.state;
+    const ESTILO = {
+      'En ruta': ['#FFF1E8', '#9A3412'], 'En servicio': ['#E6E8F7', '#21244D'], 'Completada': ['#E7F6EE', '#0F5132'],
+      'Asignada': ['#EEF2F7', '#334155'], 'Sin técnico': ['#FDECEC', '#B42318'], 'Cancelada': ['#EEF2F7', '#4A5568'],
+    };
+    const ORD = [
+      { wo: 'WO-4921', cliente: 'María González', tipo: 'Traslado e instalación', estado: 'En ruta', franja: '10:00–12:00', direccion: 'Av. San Martín, Res. Los Pinos',
+        cuadrilla: [['José Hernández', 'Técnico · Grupo A', 'V-12.000.000'], ['Daniel Pérez', 'Ayudante', 'V-20.000.000']],
+        articulos: [['Nevera Samsung RT38', true], ['Juego de comedor 6 puestos', false]], pago: 'Precio por definir',
+        bitacora: [['8:41', 'Solicitud enviada', 'Caja San Martín · Agente Caja · 2 artículos'], ['8:41', 'Técnico asignado', 'Automática: José Hernández + Daniel Pérez (Grupo A)'],
+                   ['8:55', 'Cita confirmada', 'José Hernández'], ['9:42', 'Técnico en ruta', 'Retiro en almacén con QR · serial 0B5R4AAN300125']] },
+      { wo: 'WO-4922', cliente: 'Luis Rangel', tipo: 'Traslado', estado: 'Completada', franja: '8:00–10:00', direccion: 'Calle Real de San Martín',
+        cuadrilla: [['Luis Rodríguez', 'Técnico · Grupo A', 'V-12.001.371'], ['Carmen Rojas', 'Ayudante', 'V-20.000.977']],
+        articulos: [['Lavadora LG', false], ['Colchón matrimonial', false]], pago: 'No aplica (solo traslado)',
+        bitacora: [['7:30', 'Solicitud enviada', 'Caja San Martín'], ['7:30', 'Técnico asignado', 'Luis Rodríguez + Carmen Rojas'], ['8:10', 'Técnico en ruta', 'Retiro con QR'],
+                   ['8:52', 'Servicio en progreso', 'Llegada al domicilio'], ['9:05', 'Servicio completado', 'Entrega en empaque original · foto de entrega']] },
+      { wo: 'WO-4923', cliente: 'Ana Mora', tipo: 'Instalación', estado: 'En servicio', franja: '10:00–12:00', direccion: 'Sector El Paraíso',
+        cuadrilla: [['Pedro Silva', 'Técnico · Grupo A', 'V-12.002.742'], ['Rafael Mendoza', 'Ayudante', 'V-20.001.954']],
+        articulos: [['Aire acondicionado 12.000 BTU', true]], pago: 'Precio por definir',
+        bitacora: [['8:00', 'Solicitud enviada', 'Caja San Martín · solo instalación'], ['8:00', 'Técnico asignado', 'Pedro Silva + Rafael Mendoza'], ['9:20', 'Técnico en ruta', 'Salida directa (sin almacén)'], ['9:58', 'Servicio en progreso', 'Llegada al domicilio']] },
+      { wo: 'WO-4924', cliente: 'Carlos Peña', tipo: 'Traslado e instalación', estado: 'Sin técnico', franja: '15:00–17:00', direccion: 'Av. Páez',
+        cuadrilla: [], articulos: [['Secadora Whirlpool', true]], pago: 'Precio por definir',
+        bitacora: [['11:02', 'Solicitud enviada', 'Caja San Martín · aviso: sin técnico de guardia disponible']] },
+      { wo: 'WO-4925', cliente: 'Rosa Díaz', tipo: 'Traslado', estado: 'Asignada', franja: '13:00–15:00', direccion: 'Artigas',
+        cuadrilla: [['José Hernández', 'Técnico · Grupo A', 'V-12.000.000'], ['Daniel Pérez', 'Ayudante', 'V-20.000.000']],
+        articulos: [['Cocina Mabe 4 hornillas', false]], pago: 'No aplica (solo traslado)',
+        bitacora: [['10:15', 'Solicitud enviada', 'Caja San Martín'], ['10:15', 'Técnico asignado', 'José Hernández + Daniel Pérez']] },
+    ];
+    const mapFiltro = { 'Todas': null, 'En curso': ['En ruta', 'En servicio', 'Asignada'], 'Sin técnico': ['Sin técnico'], 'Completadas': ['Completada'] };
+    const lista = ORD.filter((o) => !mapFiltro[s.filtro] || mapFiltro[s.filtro].includes(o.estado));
+    const d = ORD.find((o) => o.wo === s.orden) || ORD[0];
+    const ini = (n) => n.split(' ').map((x) => x[0]).slice(0, 2).join('');
+    const MODS = [['general', 'Panel general', ''], ['seguimiento', 'Seguimiento de órdenes', '5'], ['tecnicos', 'Técnicos y ayudantes', '1'],
+                  ['guardias', 'Guardias y escuadras', ''], ['tiendas', 'Tiendas', ''], ['pagos', 'Pagos en caja', ''], ['tarifas', 'Tarifas', ''],
+                  ['incidencias', 'Incidencias', '2'], ['usuarios', 'Usuarios y roles', '']];
+    const DOCS = [['foto_perfil', 'Foto de perfil', ''], ['cedula', 'Cédula', ''], ['licencia', 'Licencia de conducir', 'vence 2028'],
+                  ['vehiculo_titulo', 'Carnet de circulación', ''], ['vehiculo_seguro', 'Seguro del vehículo', ''], ['antecedentes', 'Antecedentes', 'otro documento']];
+    const docsOk = s.docs.foto_perfil && s.docs.cedula;
+    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const escuadra = (g, nombres, ayud, ords) => ({ nombre: 'Escuadra ' + g, estado: g === 'A' ? 'De guardia hoy' : 'Descanso',
+      bg: g === 'A' ? '#CFD72A' : '#EEF2F7', fg: g === 'A' ? '#21244D' : '#334155',
+      tecnicos: nombres.map((n, i) => ({ nombre: n, ayudante: ayud[i], ordenes: ords[i] })) });
+    const INC = [['i1', 'WO-4923 · Toma de agua sin llave de paso', 'Pedro Silva · necesita plomería del cliente'],
+                 ['i2', 'WO-4921 · Espera en despacho', 'Almacén San Martín · 25 min']];
+    return {
+      modulos: MODS.map(([k, label, badge]) => ({ label, badge, hasBadge: !!badge, sel: s.mod === k, unsel: s.mod !== k, pick: () => this.setState({ mod: k }) })),
+      isGeneral: s.mod === 'general', isSeguimiento: s.mod === 'seguimiento', isTecnicos: s.mod === 'tecnicos', isGuardias: s.mod === 'guardias',
+      isTiendas: s.mod === 'tiendas', isPagos: s.mod === 'pagos', isTarifas: s.mod === 'tarifas', isIncidencias: s.mod === 'incidencias', isUsuarios: s.mod === 'usuarios',
+      kpis: [
+        { label: 'Órdenes de hoy', valor: '5', nota: '8 artículos', color: '#1A1C3D' },
+        { label: 'En curso', valor: '3', nota: 'en ruta o en servicio', color: '#1A1C3D' },
+        { label: 'Completadas', valor: '1', nota: 'con evidencia', color: '#167A45' },
+        { label: 'Sin técnico', valor: '1', nota: 'activa la Guardia Retén', color: '#B42318' },
+        { label: 'Incidencias abiertas', valor: '2', nota: 'en 2 órdenes', color: '#C2410C' },
+        { label: 'Calificación promedio', valor: '4,8', nota: 'últimos 30 días', color: '#1A1C3D' },
+      ],
+      porTipo: [{ label: 'Traslado', n: 2, w: '40%' }, { label: 'Traslado e instalación', n: 2, w: '40%' }, { label: 'Instalación', n: 1, w: '20%' }],
+      tiempos: [{ fase: 'Caja → técnico asignado', min: '1 min' }, { fase: 'Asignado → sale en ruta', min: '58 min' },
+                { fase: 'Traslado al domicilio', min: '38 min' }, { fase: 'Servicio en el domicilio', min: '13 min (traslado) · 52 min (instalación)' },
+                { fase: 'Total de punta a punta', min: '1 h 35 min' }],
+      actividad: [{ hora: '11:02', titulo: 'WO-4924', texto: 'Sin técnico de guardia disponible' }, { hora: '10:15', titulo: 'WO-4925', texto: 'Asignada a José Hernández + Daniel Pérez' },
+                  { hora: '9:58', titulo: 'WO-4923', texto: 'La cuadrilla llegó al domicilio' }, { hora: '9:42', titulo: 'WO-4921', texto: 'Retiro en almacén validado con QR' },
+                  { hora: '9:05', titulo: 'WO-4922', texto: 'Entrega completada · 5 estrellas' }],
+      filtros: Object.keys(mapFiltro).map((f) => ({ label: f, sel: s.filtro === f, unsel: s.filtro !== f, pick: () => this.setState({ filtro: f }) })),
+      ordenes: lista.map((o) => ({ wo: o.wo, cliente: o.cliente, tipo: o.tipo, franja: o.franja, estado: o.estado,
+        cuadrilla: o.cuadrilla.length ? o.cuadrilla.map((c) => c[0].split(' ')[0]).join(' + ') : 'Sin cuadrilla',
+        bg: ESTILO[o.estado][0], fg: ESTILO[o.estado][1], sel: o.wo === d.wo, unsel: o.wo !== d.wo, pick: () => this.setState({ orden: o.wo }) })),
+      det: { wo: d.wo, estado: d.estado, bg: ESTILO[d.estado][0], fg: ESTILO[d.estado][1], tipo: d.tipo, cliente: d.cliente, direccion: d.direccion, pago: d.pago,
+        articulos: d.articulos.map(([n, inst]) => ({ nombre: n, tag: inst ? 'Instalar' : 'En su caja', bg: inst ? '#F1F3D4' : '#EEF2F7', fg: inst ? '#21244D' : '#334155' })),
+        cuadrilla: d.cuadrilla.map(([n, rol, ced]) => ({ nombre: n, rol, cedula: ced, ini: ini(n) })),
+        bitacora: d.bitacora.map(([hora, estado, nota]) => ({ hora, estado, nota })) },
+      regApp: ['Escaneo facial', 'Foto con la cédula en alto', 'Huella registrada', 'Cédula, teléfono y correo', 'PIN personal'],
+      docs: DOCS.map(([k, label, nota]) => ({ label, nota, ok: !!s.docs[k], falta: !s.docs[k], toggle: () => this.setState({ docs: Object.assign({}, s.docs, { [k]: !s.docs[k] }) }) })),
+      grupos: ['A', 'B', 'C', 'Retén'].map((g) => ({ label: g, sel: s.grupo === g, unsel: s.grupo !== g, pick: () => this.setState({ grupo: g }) })),
+      puedeAlta: !s.alta && docsOk && !!s.grupo, noPuedeAlta: s.alta || !docsOk || !s.grupo,
+      altaAyuda: s.alta ? 'Alta dada.' : !docsOk ? 'Falta foto de perfil o cédula en el expediente.' : 'Elige el grupo A, B o C.',
+      darAlta: () => this.setState({ alta: true }),
+      altaEstado: s.alta ? 'Alta · Grupo ' + s.grupo : 'Pendiente de alta', altaBg: s.alta ? '#E7F6EE' : '#FFF1E8', altaFg: s.alta ? '#0F5132' : '#9A3412',
+      personal: [
+        { nombre: 'José Hernández', rol: 'Técnico', grupo: 'A', cedula: 'V-12.000.000', con: 'Daniel Pérez', docs: '6/6', estado: 'Alta', bg: '#E7F6EE', fg: '#0F5132' },
+        { nombre: 'Daniel Pérez', rol: 'Ayudante', grupo: 'A', cedula: 'V-20.000.000', con: 'José Hernández', docs: '3/3', estado: 'Alta', bg: '#E7F6EE', fg: '#0F5132' },
+        { nombre: 'Luis Rodríguez', rol: 'Técnico', grupo: 'A', cedula: 'V-12.001.371', con: 'Carmen Rojas', docs: '5/6', estado: 'Alta', bg: '#E7F6EE', fg: '#0F5132' },
+        { nombre: 'Pedro Ayala', rol: 'Ayudante', grupo: 'A', cedula: 'V-27.111.222', con: 'José Hernández', docs: '0/2', estado: 'Anotado por su técnico', bg: '#FFF1E8', fg: '#9A3412' },
+        { nombre: 'Kevin Suárez', rol: 'Técnico', grupo: s.alta ? s.grupo : '—', cedula: 'V-25.123.456', con: '—', docs: Object.values(s.docs).filter(Boolean).length + '/6',
+          estado: s.alta ? 'Alta' : 'Pendiente de alta', bg: s.alta ? '#E7F6EE' : '#FFF1E8', fg: s.alta ? '#0F5132' : '#9A3412' },
+        { nombre: 'Ricardo Pérez', rol: 'Técnico', grupo: 'Retén', cedula: 'V-12.012.339', con: 'Valentina Morales', docs: '6/6', estado: 'Alta', bg: '#E7F6EE', fg: '#0F5132' },
+      ],
+      semana: dias.map((dia, i) => ({ dia, g: 'ABC'[i % 3], bg: i === 0 ? '#21244D' : '#FFFFFF', fg: i === 0 ? '#FFFFFF' : '#1A1C3D' })),
+      escuadras: [
+        escuadra('A', ['José Hernández', 'Luis Rodríguez', 'Pedro Silva'], ['Daniel Pérez', 'Carmen Rojas', 'Rafael Mendoza'], ['2 órdenes hoy', '1 orden hoy', '1 orden hoy']),
+        escuadra('B', ['Andrea Medina', 'Carlos Rivas', 'Ana Torres'], ['Luisa Romero', 'Andrés Guzmán', 'Patricia Vargas'], ['—', '—', '—']),
+        escuadra('C', ['Miguel Castillo', 'Rosa Díaz', 'Jorge Suárez'], ['Héctor Blanco', 'Gabriela Flores', 'Ricardo Herrera'], ['—', '—', '—']),
+      ],
+      retenOn: s.reten, retenOff: !s.reten, toggleReten: () => this.setState({ reten: !s.reten }),
+      metodos: ['Pago móvil', 'Efectivo en bolívares', 'Efectivo en dólares', 'Zelle', 'Punto de venta'],
+      tarifas: ['Nevera', 'Lavadora', 'Secadora', 'Aire acondicionado', 'Cocina', 'Televisor', 'Otro artículo'],
+      incidencias: INC.map(([k, titulo, detalle]) => ({ titulo, detalle, abierta: !s.resueltas[k], resuelta: !!s.resueltas[k],
+        toggle: () => this.setState({ resueltas: Object.assign({}, s.resueltas, { [k]: true }) }) })),
+      roles: [
+        { rol: 'Superadministrador', n: '1', puede: 'Todo: tiendas, tarifas, usuarios y bitácora completa', ve: 'Todas las tiendas y órdenes' },
+        { rol: 'Equipo supervisor', n: '1', puede: 'Reasignar, activar retén, altas, incidencias, crear agentes y técnicos', ve: 'Todas las tiendas' },
+        { rol: 'Técnico supervisor', n: '1', puede: 'Recibe cada orden nueva; reasigna, altas y expedientes de su tienda', ve: 'Solo su tienda' },
+        { rol: 'Agente en caja', n: '1', puede: 'Crear órdenes, marcar instalación, cobrar y mostrar el QR', ve: 'Órdenes de su tienda' },
+        { rol: 'Técnico', n: '10', puede: 'Confirmar cita, retiro con QR, checklist, fotos y cierre; anotar ayudantes', ve: 'Sus órdenes' },
+        { rol: 'Ayudante', n: '11', puede: 'Ver la orden y reportar incidencias', ve: 'Órdenes donde sale' },
+        { rol: 'Cliente', n: '—', puede: 'Seguir su pedido, reprogramar, cancelar y calificar', ve: 'Sus pedidos; foto y nombre de la cuadrilla' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
