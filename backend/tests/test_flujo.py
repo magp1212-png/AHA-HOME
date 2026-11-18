@@ -309,7 +309,7 @@ def test_varios_articulos_instalacion_pagada_en_caja(client):
 
 
 def test_metodos_de_pago(client):
-    assert [m["id"] for m in client.get("/metodos-pago").json()] == ["pago_movil", "efectivo_bs", "efectivo_usd", "zelle"]
+    assert [m["id"] for m in client.get("/metodos-pago").json()] == ["pago_movil", "efectivo_bs", "efectivo_usd", "zelle", "punto_de_venta"]
     agente = login(client, "agente@ahahome.test")
-    r = client.post("/ordenes", json=ORDEN | {"pago": {"metodo": "punto_de_venta"}}, headers=agente)
-    assert r.status_code == 422
+    assert client.post("/ordenes", json=ORDEN | {"pago": {"metodo": "punto_de_venta", "referencia": "lote 0042"}}, headers=agente).status_code == 200
+    assert client.post("/ordenes", json=ORDEN | {"pago": {"metodo": "cheque"}}, headers=agente).status_code == 422
