@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import current_user, require
-from ..models import TIPOS_EQUIPO, TIPOS_SERVICIO, ZONAS, Orden, Tienda, User, orden_ayudantes
+from ..models import METODOS_PAGO, TIPOS_EQUIPO, ZONAS, Articulo, Orden, Tarifa, Tienda, User, ahora, orden_ayudantes
 from ..security import new_qr_token
 from .auth import limpiar_tel
 
@@ -34,6 +34,43 @@ def tiendas(db: Session = Depends(get_db)):
             for t in db.scalars(select(Tienda).order_by(Tienda.id))]
 
 
+class ArticuloIn(BaseModel):
+    tipo: str
+    descripcion: str = Field(default="", max_length=120)  # ej. "Juego de comedor 6 puestos"
+    marca: str = Field(default="", max_length=60)
+    modelo: str = Field(default="", max_length=80)
+    serial: str = Field(default="", max_length=80)
+    garantia: str = Field(default="", max_length=60)
+    instalar: bool = False  # el cliente lo elige en caja y lo paga en ese momento
+
+    @field_validator("tipo")
+    @classmethod
+    def _tipo(cls, v):
+        if v not in TIPOS_EQUIPO:
+            raise ValueError("Tipo de artículo inválido")
+        return v
+
+
+class PagoIn(BaseModel):
+    metodo: str
+    referencia: str = Field(default="", max_length=60)
+
+    @field_validator("metodo")
+    @classmethod
+    def _metodo(cls, v):
+        if v not in METODOS_PAGO:
+            raise ValueError("Método de pago inválido")
+        return v
+
+
+@router.get("/tarifas")
+def tarifas(db: Session = Depends(get_db)):
+    """Precios de instalación vigentes (los usa la caja para cobrar)."""
+    from ..models import TIPO_EQUIPO_TEXTO
+    return [{"tipo": x.tipo, "tipo_texto": TIPO_EQUIPO_TEXTO.get(x.tipo, x.tipo), "precio": svc.dinero(x.precio_centavos)}
+            for x in db.scalars(select(Tarifa).where(Tarifa.activa.is_(True)).order_by(Tarifa.tipo))]
+
+
 class NuevaOrden(BaseModel):
     cliente_nombre: str = Field(min_length=2, max_length=120)
     cliente_telefono: str = Field(min_length=7, max_length=30)
@@ -42,13 +79,11 @@ class NuevaOrden(BaseModel):
     lat: float | None = None
     lng: float | None = None
     zona: str
-    tipo_servicio: str = "traslado_instalacion"  # traslado | instalacion | traslado_instalacion
-    tipo_equipo: str
-    marca: str = Field(min_length=1, max_length=60)
-    modelo: str = Field(min_length=1, max_length=80)
-    serial: str = Field(default="", max_length=80)
+    articulos: list[ArticuloIn] = Field(min_length=1, max_length=30)
+    solo_instalacion: bool = False  # el cliente ya tiene los artículos en casa: no hay traslado
+    pago: PagoIn | None = None      # obligatorio si hay artículos para instalar
+    numero_factura: str = Field(default="", max_length=40)
     fecha_compra: str = Field(default="", max_length=10)
-    garantia: str = Field(default="", max_length=60)
     factura: str | None = Field(default=None, max_length=200)
     fecha: dt.date
     franja: str
@@ -60,20 +95,6 @@ class NuevaOrden(BaseModel):
     def _zona(cls, v):
         if v not in ZONAS:
             raise ValueError("Zona inválida (Oeste, Central o Este)")
-        return v
-
-    @field_validator("tipo_servicio")
-    @classmethod
-    def _servicio(cls, v):
-        if v not in TIPOS_SERVICIO:
-            raise ValueError("Tipo de servicio inválido (traslado, instalacion o traslado_instalacion)")
-        return v
-
-    @field_validator("tipo_equipo")
-    @classmethod
-    def _tipo(cls, v):
-        if v not in TIPOS_EQUIPO:
-            raise ValueError("Tipo de equipo inválido")
         return v
 
     @field_validator("franja")
@@ -98,7 +119,8 @@ def obtener(db: Session, orden_id: int, user: User) -> Orden:
 
 
 @router.post("/ordenes")
-def crear(body: NuevaOrden, user: User = Depends(require("agente", "cliente", "supervisor")), db: Session = Depends(get_db)):
+def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")), db: Session = Depends(get_db)):
+    """Se crea en la caja Damasco. Traslado de todo lo comprado; instalación solo de lo que el cliente elige y paga ahí mismo."""
     if not body.acepta_terminos:
         raise HTTPException(422, "Debe aceptar los términos del servicio")
     if body.fecha < dt.date.today() - dt.timedelta(days=1):
@@ -107,19 +129,40 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "cliente", "s
     tienda = db.get(Tienda, tienda_id) if tienda_id else None
     if not tienda:
         raise HTTPException(422, "Indica la tienda Damasco donde se compró el equipo")
+    # Tipo de servicio según lo que el cliente pidió
+    a_instalar = [a for a in body.articulos if a.instalar]
+    if body.solo_instalacion:
+        if len(a_instalar) != len(body.articulos):
+            raise HTTPException(422, "En «solo instalación» todos los artículos deben ser para instalar")
+        tipo_servicio = "instalacion"
+    else:
+        tipo_servicio = "traslado_instalacion" if a_instalar else "traslado"
+    precios = {x.tipo: x.precio_centavos for x in db.scalars(select(Tarifa).where(Tarifa.activa.is_(True)))}
+    sin_tarifa = sorted({a.tipo for a in a_instalar if a.tipo not in precios})
+    if sin_tarifa:
+        raise HTTPException(422, f"No hay tarifa de instalación para: {', '.join(sin_tarifa)}")
+    total = sum(precios[a.tipo] for a in a_instalar)
+    if total and not body.pago:
+        raise HTTPException(422, "Registra el pago de la instalación en caja")
+
     tel = limpiar_tel(body.cliente_telefono)
-    cliente = user if user.rol == "cliente" else db.scalar(select(User).where(User.telefono == tel, User.rol == "cliente"))
+    cliente = db.scalar(select(User).where(User.telefono == tel, User.rol == "cliente"))
     o = Orden(codigo=svc.nuevo_codigo(db), cliente_id=cliente.id if cliente else None,
               cliente_nombre=body.cliente_nombre.strip(), cliente_telefono=tel, direccion=body.direccion.strip(),
-              referencia=body.referencia.strip(), lat=body.lat, lng=body.lng, zona=body.zona,
-              tipo_equipo=body.tipo_equipo, marca=body.marca.strip(), modelo=body.modelo.strip(), serial=body.serial.strip(),
-              tipo_servicio=body.tipo_servicio, fecha_compra=body.fecha_compra, garantia=body.garantia, factura=body.factura,
-              fecha=body.fecha.isoformat(), franja=body.franja, tienda_id=tienda.id,
+              referencia=body.referencia.strip(), lat=body.lat, lng=body.lng, zona=body.zona, tipo_servicio=tipo_servicio,
+              numero_factura=body.numero_factura.strip(), fecha_compra=body.fecha_compra, factura=body.factura,
+              monto_instalacion_centavos=total, fecha=body.fecha.isoformat(), franja=body.franja, tienda_id=tienda.id,
               agente_id=user.id if user.rol == "agente" else None, qr_token=new_qr_token(), checklist={}, fotos={})
+    if total:
+        o.pago_metodo, o.pago_referencia, o.pagado_en, o.cobrado_por = body.pago.metodo, body.pago.referencia.strip(), ahora(), user.id
+    o.articulos = [Articulo(tipo=a.tipo, descripcion=a.descripcion.strip(), marca=a.marca.strip(), modelo=a.modelo.strip(),
+                            serial=a.serial.strip(), garantia=a.garantia.strip(), instalar=a.instalar,
+                            precio_instalacion_centavos=precios.get(a.tipo, 0) if a.instalar else 0) for a in body.articulos]
     db.add(o)
     db.flush()
     o.tienda = tienda
-    svc.registrar(db, o, "solicitud_enviada", user, f"Registrada en {tienda.nombre}")
+    pago = f" · instalación cobrada USD {svc.dinero(total)} ({o.pago_metodo})" if total else ""
+    svc.registrar(db, o, "solicitud_enviada", user, f"Registrada en {tienda.nombre}: {len(o.articulos)} artículo(s){pago}")
     svc.asignar(db, o, user)
     svc.avisar_nueva_orden(db, o)
     db.commit()

@@ -27,7 +27,11 @@ TIPOS_SERVICIO = ("traslado", "instalacion", "traslado_instalacion")
 TIPO_SERVICIO_TEXTO = {"traslado": "Traslado", "instalacion": "Instalación", "traslado_instalacion": "Traslado e instalación"}
 ZONAS = ("Oeste", "Central", "Este")
 GRUPOS = ("A", "B", "C", "RETEN")
-TIPOS_EQUIPO = ("nevera", "lavadora", "secadora", "aire_acondicionado")
+# Categorías de artículo. Todos se pueden trasladar; se instala solo lo que tiene tarifa de instalación activa.
+TIPOS_EQUIPO = ("nevera", "lavadora", "secadora", "aire_acondicionado", "cocina", "televisor", "otro")
+TIPO_EQUIPO_TEXTO = {"nevera": "Nevera", "lavadora": "Lavadora", "secadora": "Secadora", "aire_acondicionado": "Aire acondicionado",
+                     "cocina": "Cocina", "televisor": "Televisor", "otro": "Otro artículo"}
+METODOS_PAGO = ("efectivo_usd", "efectivo_bs", "punto_de_venta", "pago_movil", "zelle", "transferencia")
 
 # Línea de tiempo que ve el cliente (spec, pantalla 4)
 ESTADOS = ("solicitud_enviada", "tecnico_asignado", "cita_confirmada", "en_ruta", "en_progreso", "completado")
@@ -42,21 +46,27 @@ ESTADO_TEXTO = {
     "cancelado": "Cancelado",
 }
 
-# Checklist digital obligatorio (spec, pasos 6 y 7), según el tipo de servicio
-CHECKLIST_TRASLADO = ("entrega_sin_danos", "ubicado_en_sitio")
+# Checklist digital obligatorio (spec, pasos 6 y 7), según el tipo de servicio.
+# Traslado: se entrega tal cual sale de la tienda, en su caja; no se desembala ni se retiran residuos.
+CHECKLIST_TRASLADO = ("entrega_en_empaque_original", "ubicado_en_sitio")
 CHECKLIST_INSTALACION = ("conexion_electrica", "conexion_hidraulica", "nivelacion", "prueba_encendido")
 CHECKLIST_RESIDUOS = ("cajas", "anime", "plasticos", "flejes", "precintos")
 FOTOS_CIERRE = ("instalacion", "espacio_limpio", "entrega")
 
 
-def checklist_de(tipo_servicio: str) -> tuple[str, ...]:
+def checklist_de(tipo_servicio: str, hay_sin_instalar: bool = False) -> tuple[str, ...]:
+    """Traslado: solo entrega. Con instalación: instalación + residuos, y la entrega de lo que va sin instalar."""
     if tipo_servicio == "traslado":
         return CHECKLIST_TRASLADO
-    return CHECKLIST_INSTALACION + CHECKLIST_RESIDUOS
+    extra = CHECKLIST_TRASLADO if tipo_servicio == "traslado_instalacion" and hay_sin_instalar else ()
+    return extra + CHECKLIST_INSTALACION + CHECKLIST_RESIDUOS
 
 
-def fotos_de(tipo_servicio: str) -> tuple[str, ...]:
-    return ("entrega",) if tipo_servicio == "traslado" else ("instalacion", "espacio_limpio")
+def fotos_de(tipo_servicio: str, hay_sin_instalar: bool = False) -> tuple[str, ...]:
+    if tipo_servicio == "traslado":
+        return ("entrega",)
+    extra = ("entrega",) if tipo_servicio == "traslado_instalacion" and hay_sin_instalar else ()
+    return extra + ("instalacion", "espacio_limpio")
 
 
 def con_retiro(tipo_servicio: str) -> bool:
@@ -144,14 +154,17 @@ class Orden(Base):
     lng: Mapped[float | None] = mapped_column(Float)
     zona: Mapped[str] = mapped_column(String(20))
 
-    # equipo
-    tipo_equipo: Mapped[str] = mapped_column(String(30))
-    marca: Mapped[str] = mapped_column(String(60))
-    modelo: Mapped[str] = mapped_column(String(80))
-    serial: Mapped[str] = mapped_column(String(80), default="")
-    fecha_compra: Mapped[str] = mapped_column(String(10), default="")
-    garantia: Mapped[str] = mapped_column(String(60), default="")
+    # compra
     factura: Mapped[str | None] = mapped_column(String(200))
+    numero_factura: Mapped[str] = mapped_column(String(40), default="")
+    fecha_compra: Mapped[str] = mapped_column(String(10), default="")
+
+    # pago de la instalación (se cobra en caja al solicitarla)
+    monto_instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    pago_metodo: Mapped[str | None] = mapped_column(String(20))
+    pago_referencia: Mapped[str] = mapped_column(String(60), default="")
+    pagado_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    cobrado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
 
     # cita
     fecha: Mapped[str] = mapped_column(String(10))  # AAAA-MM-DD
@@ -173,6 +186,7 @@ class Orden(Base):
     tienda: Mapped[Tienda] = relationship()
     tecnico: Mapped[Tecnico | None] = relationship()
     ayudantes: Mapped[list[Tecnico]] = relationship(secondary=orden_ayudantes)
+    articulos: Mapped[list["Articulo"]] = relationship(back_populates="orden", order_by="Articulo.id", cascade="all, delete-orphan")
     eventos: Mapped[list["Evento"]] = relationship(back_populates="orden", order_by="Evento.id")
 
 
@@ -239,3 +253,28 @@ class Documento(Base):
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
 
     tecnico: Mapped[Tecnico] = relationship(back_populates="documentos")
+
+
+class Articulo(Base):
+    """Cada artículo del pedido. Todos van en el traslado; el cliente marca en caja cuáles se instalan."""
+    __tablename__ = "articulos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"), index=True)
+    tipo: Mapped[str] = mapped_column(String(30))
+    descripcion: Mapped[str] = mapped_column(String(120), default="")
+    marca: Mapped[str] = mapped_column(String(60), default="")
+    modelo: Mapped[str] = mapped_column(String(80), default="")
+    serial: Mapped[str] = mapped_column(String(80), default="")
+    garantia: Mapped[str] = mapped_column(String(60), default="")
+    instalar: Mapped[bool] = mapped_column(Boolean, default=False)
+    precio_instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)
+
+    orden: Mapped[Orden] = relationship(back_populates="articulos")
+
+
+class Tarifa(Base):
+    """Precio de instalación por tipo de artículo (lo fija el superadmin). Sin tarifa activa, ese tipo no se instala."""
+    __tablename__ = "tarifas"
+    tipo: Mapped[str] = mapped_column(String(30), primary_key=True)
+    precio_centavos: Mapped[int] = mapped_column(Integer)
+    activa: Mapped[bool] = mapped_column(Boolean, default=True)

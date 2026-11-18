@@ -6,11 +6,10 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from . import asignacion
-from .models import (ESTADO_CANCELADO, ESTADO_TEXTO, ESTADOS, TIPO_SERVICIO_TEXTO, Evento, Orden, Tecnico, User, ahora,
-                     checklist_de, con_retiro, fotos_de)
+from .models import (ESTADO_CANCELADO, ESTADO_TEXTO, ESTADOS, TIPO_EQUIPO_TEXTO, TIPO_SERVICIO_TEXTO, Articulo, Evento, Orden,
+                     Tecnico, User, ahora, checklist_de, con_retiro, fotos_de)
 from .notificar import notificar
 
-TIPO_TEXTO = {"nevera": "nevera", "lavadora": "lavadora", "secadora": "secadora", "aire_acondicionado": "aire acondicionado"}
 ROLES_SEGUIMIENTO = ("supervisor", "superadmin")
 
 
@@ -24,8 +23,48 @@ def registrar(db: Session, orden: Orden, estado: str, actor: User | None, nota: 
     db.add(Evento(orden_id=orden.id, estado=estado, nota=nota, actor_id=actor.id if actor else None))
 
 
+def nombre_articulo(a: Articulo) -> str:
+    return a.descripcion or " ".join(x for x in (TIPO_EQUIPO_TEXTO.get(a.tipo, a.tipo), a.marca) if x)
+
+
 def descripcion(orden: Orden) -> str:
-    return f"{TIPO_SERVICIO_TEXTO.get(orden.tipo_servicio, orden.tipo_servicio)} de {TIPO_TEXTO.get(orden.tipo_equipo, orden.tipo_equipo)}"
+    """Ej.: «Traslado e instalación · Nevera Samsung (instalar), Cocina Mabe»"""
+    arts = ", ".join(nombre_articulo(a) + (" (instalar)" if a.instalar and orden.tipo_servicio != "instalacion" else "")
+                     for a in orden.articulos)
+    return f"{TIPO_SERVICIO_TEXTO.get(orden.tipo_servicio, orden.tipo_servicio)} · {arts}"
+
+
+def hay_sin_instalar(orden: Orden) -> bool:
+    return any(not a.instalar for a in orden.articulos)
+
+
+def requeridos(orden: Orden) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    sin = hay_sin_instalar(orden)
+    return checklist_de(orden.tipo_servicio, sin), fotos_de(orden.tipo_servicio, sin)
+
+
+def dinero(centavos: int) -> str:
+    return f"{centavos / 100:.2f}"
+
+
+def estado_articulo(orden: Orden, a: Articulo) -> str:
+    e = orden.estado
+    if e == "cancelado":
+        return "Cancelado"
+    if e == "completado":
+        return "Instalado" if a.instalar else "Entregado"
+    if e == "en_progreso":
+        return "Instalando" if a.instalar else "Entregado"
+    if e == "en_ruta":
+        return "En camino"
+    return "En tu casa, por instalar" if orden.tipo_servicio == "instalacion" else "Por retirar en tienda"
+
+
+def articulos_vista(orden: Orden) -> list[dict]:
+    return [{"id": a.id, "tipo": a.tipo, "tipo_texto": TIPO_EQUIPO_TEXTO.get(a.tipo, a.tipo), "nombre": nombre_articulo(a),
+             "descripcion": a.descripcion, "marca": a.marca, "modelo": a.modelo, "serial": a.serial, "garantia": a.garantia,
+             "instalar": a.instalar, "precio_instalacion": dinero(a.precio_instalacion_centavos),
+             "estado": estado_articulo(orden, a)} for a in orden.articulos]
 
 
 def nombres_cuadrilla(orden: Orden) -> str:
@@ -94,8 +133,9 @@ def exigir_estado(orden: Orden, *permitidos: str) -> None:
 def faltantes_cierre(orden: Orden) -> list[str]:
     hechos = orden.checklist or {}
     fotos = orden.fotos or {}
-    falta = [k for k in checklist_de(orden.tipo_servicio) if not hechos.get(k)]
-    falta += [f"foto_{k}" for k in fotos_de(orden.tipo_servicio) if not fotos.get(k)]
+    chk, fts = requeridos(orden)
+    falta = [k for k in chk if not hechos.get(k)]
+    falta += [f"foto_{k}" for k in fts if not fotos.get(k)]
     return falta
 
 
@@ -136,13 +176,16 @@ def vista(orden: Orden, rol: str) -> dict:
         "con_retiro_en_tienda": con_retiro(orden.tipo_servicio),
         "cliente": {"nombre": orden.cliente_nombre, "telefono": orden.cliente_telefono, "direccion": orden.direccion,
                     "referencia": orden.referencia, "lat": orden.lat, "lng": orden.lng, "zona": orden.zona},
-        "equipo": {"tipo": orden.tipo_equipo, "marca": orden.marca, "modelo": orden.modelo, "serial": orden.serial,
-                   "fecha_compra": orden.fecha_compra, "garantia": orden.garantia, "factura": orden.factura},
+        "articulos": articulos_vista(orden),
+        "compra": {"factura": orden.factura, "numero_factura": orden.numero_factura, "fecha_compra": orden.fecha_compra},
+        "pago_instalacion": {"monto": dinero(orden.monto_instalacion_centavos), "moneda": "USD", "metodo": orden.pago_metodo,
+                             "referencia": orden.pago_referencia, "pagado": orden.pagado_en is not None,
+                             "pagado_en": _iso(orden.pagado_en)},
         "fecha": orden.fecha, "franja": orden.franja,
         "tienda": {"id": orden.tienda.id, "nombre": orden.tienda.nombre, "direccion": orden.tienda.direccion,
                    "lat": orden.tienda.lat, "lng": orden.tienda.lng},
         "linea_de_tiempo": linea_de_tiempo(orden),
-        "checklist_requerido": list(checklist_de(orden.tipo_servicio)), "fotos_requeridas": list(fotos_de(orden.tipo_servicio)),
+        "checklist_requerido": list(requeridos(orden)[0]), "fotos_requeridas": list(requeridos(orden)[1]),
         "retirado_en": _iso(orden.retirado_en), "completado_en": _iso(orden.completado_en),
         "checklist": orden.checklist or {}, "fotos": orden.fotos or {},
         "calificacion": orden.calificacion, "comentario": orden.comentario,
@@ -167,10 +210,13 @@ def vista(orden: Orden, rol: str) -> dict:
 
 def cancelar(db: Session, orden: Orden, actor: User, motivo: str) -> None:
     exigir_estado(orden, "solicitud_enviada", "tecnico_asignado", "cita_confirmada")
-    registrar(db, orden, ESTADO_CANCELADO, actor, motivo or "Cancelada")
+    nota = motivo or "Cancelada"
+    if orden.pagado_en:
+        nota += f" · REEMBOLSO PENDIENTE de la instalación: USD {dinero(orden.monto_instalacion_centavos)}"
+    registrar(db, orden, ESTADO_CANCELADO, actor, nota)
     for t in ([orden.tecnico] if orden.tecnico else []) + list(orden.ayudantes):
         notificar(db, t.user_id, f"{orden.codigo} cancelada", motivo or "La orden fue cancelada", orden.id)
-    avisar_seguimiento(db, orden, f"{orden.codigo} cancelada", f"{actor.nombre}: {motivo or 'sin motivo'}")
+    avisar_seguimiento(db, orden, f"{orden.codigo} cancelada", f"{actor.nombre}: {nota}")
 
 
 def marcar_completada(db: Session, orden: Orden, actor: User) -> None:
@@ -178,7 +224,7 @@ def marcar_completada(db: Session, orden: Orden, actor: User) -> None:
     if falta:
         raise HTTPException(422, {"mensaje": "Completa el checklist y las fotos antes de cerrar", "faltan": falta})
     orden.completado_en = ahora()
-    nota = "Entrega completada" if orden.tipo_servicio == "traslado" else "Instalación y retiro de embalaje completados"
+    nota = "Entrega en empaque original completada" if orden.tipo_servicio == "traslado" else "Instalación y retiro de embalaje completados"
     registrar(db, orden, "completado", actor, nota)
     notificar(db, orden.cliente_id, "¡Servicio completado!", f"{orden.codigo}: cuéntanos cómo te fue y califica el servicio.", orden.id)
     avisar_seguimiento(db, orden, f"{orden.codigo} completada", f"{descripcion(orden)} · {nombres_cuadrilla(orden)}")

@@ -72,7 +72,13 @@ docker compose exec api python seed.py   # opcional: datos de demostración
   3. Si no hay, la **Guardia Retén** activada por el supervisor.
   4. Si tampoco hay, se avisa al supervisor.
 - **Retiro en almacén:** solo el técnico asignado y verificado puede escanear el QR. Queda registrado quién retiró, qué producto y serial, de qué sucursal y a qué hora. En ese momento el cliente recibe la ficha de seguridad del técnico.
-- **Cierre:** no se puede completar la orden sin los 4 puntos de instalación, los 5 de residuos (cajas, anime, plásticos, flejes y precintos) y las 2 fotos (equipo instalado y espacio limpio).
+- **Pedido con varios artículos:** todos los artículos van en el traslado. En caja, el cliente marca cuáles quiere instalar y paga esa instalación en el momento. El precio sale de la tarifa por tipo de artículo, que fija el superadmin (`PUT /admin/tarifas/{tipo}`). Los precios que trae `seed.py` son **de prueba**.
+- **Tipo de servicio:** se calcula solo según lo que pide el cliente.
+  - **Traslado:** ningún artículo se instala. Se entrega tal cual sale de la tienda, en su caja, sin desembalar ni retirar residuos.
+  - **Traslado e instalación:** algún artículo se instala.
+  - **Instalación:** el cliente ya tiene los artículos en casa y no hay retiro en almacén.
+- **Cierre:** con instalación, se exigen los 4 puntos de instalación, los 5 de residuos (cajas, anime, plásticos, flejes y precintos) y 2 fotos (equipo instalado y espacio limpio). Si además hay artículos sin instalar, se confirma su entrega en empaque original con foto.
+- **Cancelación de una orden ya pagada:** queda anotado «REEMBOLSO PENDIENTE» con el monto.
 - **Alta del técnico:** sube foto de rostro, selfie con la cédula y su PIN. El supervisor verifica la identidad antes de que pueda recibir órdenes.
 
 ### Pendientes conocidos

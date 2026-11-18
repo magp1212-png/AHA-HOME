@@ -12,7 +12,7 @@ from .. import asignacion
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import require
-from ..models import Incidencia, Orden, Tecnico, Tienda, User, ahora, checklist_de, con_retiro, fotos_de, orden_ayudantes
+from ..models import Incidencia, Orden, Tecnico, Tienda, User, ahora, con_retiro, orden_ayudantes
 from ..notificar import notificar
 from ..security import hash_password, make_token
 from .auth import limpiar_tel, perfil
@@ -227,7 +227,7 @@ def _salida(db: Session, o: Orden, user: User, nota: str) -> None:
 
 class Retiro(BaseModel):
     qr: str = Field(max_length=200)
-    serial: str = Field(default="", max_length=80)  # si en caja no se escaneó, se completa aquí
+    seriales: dict[int, str] = {}  # id del artículo → serial, si en caja no se escaneó
 
 
 @router.post("/retiro")
@@ -241,10 +241,12 @@ def retiro_en_almacen(body: Retiro, user: User = Depends(solo_tecnico), db: Sess
     if o.tecnico_id != t.id:
         raise HTTPException(403, "Esta orden está asignada a otro técnico. Contacta a tu supervisor.")
     svc.exigir_estado(o, "tecnico_asignado", "cita_confirmada")
-    if body.serial and not o.serial:
-        o.serial = body.serial.strip()
+    for a in o.articulos:
+        if body.seriales.get(a.id) and not a.serial:
+            a.serial = body.seriales[a.id].strip()[:80]
     o.retirado_en = ahora()
-    _salida(db, o, user, f"Retiro en almacén: {svc.nombres_cuadrilla(o)} · {o.marca} {o.modelo} serial {o.serial or 's/n'} · {o.tienda.nombre}")
+    lista = "; ".join(f"{svc.nombre_articulo(a)} {a.modelo} serial {a.serial or 's/n'}".strip() for a in o.articulos)
+    _salida(db, o, user, f"Retiro en almacén: {svc.nombres_cuadrilla(o)} · {len(o.articulos)} artículo(s): {lista} · {o.tienda.nombre}")
     db.commit()
     return svc.vista(o, "tecnico")
 
@@ -281,7 +283,7 @@ class Checklist(BaseModel):
 def checklist(orden_id: int, body: Checklist, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
     o = obtener(db, orden_id, user)
     svc.exigir_estado(o, "en_progreso")
-    validos = set(checklist_de(o.tipo_servicio))
+    validos = set(svc.requeridos(o)[0])
     malos = [k for k in body.items if k not in validos]
     if malos:
         raise HTTPException(422, f"Puntos que no aplican a este servicio: {', '.join(malos)}")
@@ -298,7 +300,7 @@ class Fotos(BaseModel):
 def fotos(orden_id: int, body: Fotos, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
     o = obtener(db, orden_id, user)
     svc.exigir_estado(o, "en_progreso")
-    malos = [k for k in body.fotos if k not in fotos_de(o.tipo_servicio)]
+    malos = [k for k in body.fotos if k not in svc.requeridos(o)[1]]
     if malos:
         raise HTTPException(422, f"Fotos que no aplican a este servicio: {', '.join(malos)}")
     o.fotos = {**(o.fotos or {}), **body.fotos}

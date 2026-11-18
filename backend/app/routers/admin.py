@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import require
-from ..models import ESTADOS, ZONAS, Orden, Tienda, User
+from ..models import ESTADOS, TIPO_EQUIPO_TEXTO, TIPOS_EQUIPO, ZONAS, Orden, Tarifa, Tienda, User
 from .auth import perfil
 
 router = APIRouter(prefix="/admin", tags=["superadmin"])
@@ -127,3 +127,29 @@ def activar_usuario(user_id: int, body: Activo, user: User = Depends(solo_supera
     u.activo = body.activo
     db.commit()
     return perfil(u) | {"activo": u.activo}
+
+
+# ---------- Tarifas de instalación (se cobran en caja) ----------
+
+@router.get("/tarifas")
+def ver_tarifas(user: User = Depends(seguimiento_roles), db: Session = Depends(get_db)):
+    actuales = {x.tipo: x for x in db.scalars(select(Tarifa))}
+    return [{"tipo": k, "tipo_texto": TIPO_EQUIPO_TEXTO[k],
+             "precio": svc.dinero(actuales[k].precio_centavos) if k in actuales else None,
+             "activa": actuales[k].activa if k in actuales else False} for k in TIPOS_EQUIPO]
+
+
+class TarifaIn(BaseModel):
+    precio: float = Field(ge=0, le=10000)  # USD
+    activa: bool = True
+
+
+@router.put("/tarifas/{tipo}")
+def fijar_tarifa(tipo: str, body: TarifaIn, user: User = Depends(solo_superadmin), db: Session = Depends(get_db)):
+    if tipo not in TIPOS_EQUIPO:
+        raise HTTPException(404, "Tipo de artículo desconocido")
+    x = db.get(Tarifa, tipo) or Tarifa(tipo=tipo, precio_centavos=0)
+    x.precio_centavos, x.activa = round(body.precio * 100), body.activa
+    db.add(x)
+    db.commit()
+    return {"tipo": tipo, "precio": svc.dinero(x.precio_centavos), "activa": x.activa}

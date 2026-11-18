@@ -12,7 +12,7 @@ Para replicar en otra tienda después del piloto: POST /admin/tiendas y crear su
 from sqlalchemy import select
 
 from app.db import Base, SessionLocal, engine
-from app.models import Tecnico, Tienda, User, ahora
+from app.models import Tarifa, Tecnico, Tienda, User, ahora
 from app.security import hash_password
 
 TIENDA = ("Damasco Santa Mónica", "Central", "Santa Mónica, Caracas (dirección exacta por confirmar)", 10.4790, -66.8870)
@@ -58,6 +58,9 @@ def run():
         db.flush()
         db.add(Tecnico(user_id=a.id, tienda_id=t.id, grupo=grupo, es_ayudante=True, jefe_id=tec.id, pin_hash=pin,
                        verificado=True, alta_en=ahora(), **DEMO_FOTOS))
+    # PRECIOS DE PRUEBA para la demostración: el superadmin pone los reales en PUT /admin/tarifas/{tipo}
+    for tipo in ("nevera", "lavadora", "secadora", "aire_acondicionado", "cocina", "televisor"):
+        db.add(Tarifa(tipo=tipo, precio_centavos=100, activa=True))
     db.commit()
     print(f"Listo: piloto {nombre} con 10 técnicos, 10 ayudantes, agente, técnico supervisor, supervisor, superadmin "
           f"y una clienta. Clave: {CLAVE}")

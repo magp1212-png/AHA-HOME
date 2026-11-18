@@ -14,11 +14,20 @@ LUNES = "2026-11-23"  # guardia del Grupo A
 ORDEN = {
     "cliente_nombre": "María González", "cliente_telefono": "0414-123-4567",
     "direccion": "Calle Santa Mónica, Res. Los Pinos, piso 4", "lat": 10.481, "lng": -66.885, "zona": "Central",
-    "tipo_servicio": "traslado_instalacion", "tipo_equipo": "nevera", "marca": "Samsung", "modelo": "RT38K5932SL",
+    "articulos": [
+        {"tipo": "nevera", "marca": "Samsung", "modelo": "RT38K5932SL", "instalar": True},
+        {"tipo": "otro", "descripcion": "Juego de comedor 6 puestos", "marca": "Muebles Caracas"},
+    ],
+    "pago": {"metodo": "pago_movil", "referencia": "123456"},
     "fecha": LUNES, "franja": "10:00 - 12:00", "acepta_terminos": True,
 }
 INSTALACION = {k: True for k in ("conexion_electrica", "conexion_hidraulica", "nivelacion", "prueba_encendido",
                                  "cajas", "anime", "plasticos", "flejes", "precintos")}
+
+
+SOLO_TRASLADO = {"articulos": [{"tipo": "nevera", "marca": "Samsung"}, {"tipo": "otro", "descripcion": "Colchón matrimonial"}],
+                 "pago": None}
+SOLO_INSTALACION = {"articulos": [{"tipo": "lavadora", "marca": "LG", "instalar": True}], "solo_instalacion": True}
 
 
 def nueva(client, h, **cambios):
@@ -67,7 +76,7 @@ def test_traslado_e_instalacion_completo(client):
     client.post(f"/tecnico/ordenes/{o['id']}/confirmar", headers=tecnico)
     # el ayudante no puede retirar ni cerrar
     assert client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=ayudante).status_code == 403
-    r = client.post("/tecnico/retiro", json={"qr": o["qr"], "serial": "0B5R4AAN300125"}, headers=tecnico)
+    r = client.post("/tecnico/retiro", json={"qr": o["qr"], "seriales": {str(o["articulos"][0]["id"]): "0B5R4AAN300125"}}, headers=tecnico)
     assert r.json()["estado"] == "en_ruta"
     v = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
     assert set(v["tecnico"]) == {"nombre", "foto", "rol"} and set(v["ayudantes"][0]) == {"nombre", "foto", "rol"}
@@ -79,6 +88,12 @@ def test_traslado_e_instalacion_completo(client):
     client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": INSTALACION}, headers=tecnico)
     client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {"instalacion": "/archivos/a.jpg", "espacio_limpio": "/archivos/b.jpg"}},
                headers=tecnico)
+    # el juego de comedor va sin instalar: falta confirmar su entrega en empaque original
+    r = client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico).json()
+    assert r["detail"]["faltan"] == ["entrega_en_empaque_original", "ubicado_en_sitio", "foto_entrega"]
+    client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {"entrega_en_empaque_original": True, "ubicado_en_sitio": True}},
+               headers=tecnico)
+    client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {"entrega": "/archivos/e.jpg"}}, headers=tecnico)
     assert client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico).json()["estado"] == "completado"
     client.post(f"/ordenes/{o['id']}/calificar", json={"estrellas": 5}, headers=cliente)
 
@@ -93,20 +108,22 @@ def test_traslado_e_instalacion_completo(client):
 
 def test_solo_traslado(client):
     agente = login(client, "agente@ahahome.test")
-    o = nueva(client, agente, tipo_servicio="traslado")
-    assert o["checklist_requerido"] == ["entrega_sin_danos", "ubicado_en_sitio"] and o["fotos_requeridas"] == ["entrega"]
+    o = nueva(client, agente, **SOLO_TRASLADO)
+    assert o["tipo_servicio"] == "traslado" and o["pago_instalacion"]["monto"] == "0.00"
+    assert o["checklist_requerido"] == ["entrega_en_empaque_original", "ubicado_en_sitio"] and o["fotos_requeridas"] == ["entrega"]
     tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
     client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico)
     client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
     assert client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {"anime": True}}, headers=tecnico).status_code == 422
-    client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {"entrega_sin_danos": True, "ubicado_en_sitio": True}}, headers=tecnico)
+    client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {"entrega_en_empaque_original": True, "ubicado_en_sitio": True}}, headers=tecnico)
     client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {"entrega": "/archivos/e.jpg"}}, headers=tecnico)
     assert client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico).json()["estado"] == "completado"
 
 
 def test_solo_instalacion_sin_almacen(client):
     agente = login(client, "agente@ahahome.test")
-    o = nueva(client, agente, tipo_servicio="instalacion")
+    o = nueva(client, agente, **SOLO_INSTALACION)
+    assert o["tipo_servicio"] == "instalacion" and o["articulos"][0]["estado"] == "En tu casa, por instalar"
     assert "qr" not in o and o["con_retiro_en_tienda"] is False
     assert client.get(f"/ordenes/{o['id']}/qr.png", headers=agente).status_code == 404
     tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
@@ -248,3 +265,43 @@ def test_tecnico_anota_sus_ayudantes(client):
                                                 "email": "pedro@correo.com", "password": "clave123", "pin": "5555",
                                                 "rol": "ayudante", "tienda_id": tienda_id})
     assert r.status_code == 200 and r.json()["usuario"]["tecnico"]["id"] == nuevo_id
+
+
+def test_varios_articulos_instalacion_pagada_en_caja(client):
+    agente = login(client, "agente@ahahome.test")
+    superadmin = login(client, "superadmin@ahahome.test")
+    client.put("/admin/tarifas/nevera", json={"precio": 35}, headers=superadmin)
+    client.put("/admin/tarifas/aire_acondicionado", json={"precio": 60}, headers=superadmin)
+    assert client.put("/admin/tarifas/nevera", json={"precio": 1}, headers=agente).status_code == 403
+
+    arts = [{"tipo": "nevera", "marca": "Samsung", "instalar": True},
+            {"tipo": "aire_acondicionado", "marca": "LG", "instalar": True},
+            {"tipo": "televisor", "marca": "Sony"},
+            {"tipo": "otro", "descripcion": "Ropero 3 puertas"}]
+    # sin pago no se crea si hay instalación
+    r = client.post("/ordenes", json=ORDEN | {"articulos": arts, "pago": None}, headers=agente)
+    assert r.status_code == 422 and "pago" in r.json()["detail"]
+    # un artículo sin tarifa no se puede instalar
+    r = client.post("/ordenes", json=ORDEN | {"articulos": [{"tipo": "otro", "descripcion": "Ropero", "instalar": True}]}, headers=agente)
+    assert r.status_code == 422 and "tarifa" in r.json()["detail"]
+
+    o = nueva(client, agente, articulos=arts)
+    assert o["tipo_servicio"] == "traslado_instalacion" and len(o["articulos"]) == 4
+    assert o["pago_instalacion"] == o["pago_instalacion"] | {"monto": "95.00", "metodo": "pago_movil", "pagado": True}
+    assert [a["instalar"] for a in o["articulos"]] == [True, True, False, False]
+    # lo que va sin instalar se entrega en su caja; residuos solo por lo instalado
+    assert o["checklist_requerido"][:2] == ["entrega_en_empaque_original", "ubicado_en_sitio"] and "anime" in o["checklist_requerido"]
+    assert o["fotos_requeridas"] == ["entrega", "instalacion", "espacio_limpio"]
+    assert "Ropero 3 puertas" in client.get("/notificaciones", headers=login(client, "tecsup@ahahome.test")).json()[0]["texto"]
+
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico)
+    client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
+    cliente = login(client, "maria@ahahome.test")
+    estados = [a["estado"] for a in client.get(f"/ordenes/{o['id']}", headers=cliente).json()["articulos"]]
+    assert estados == ["Instalando", "Instalando", "Entregado", "Entregado"]
+
+    # cancelar una orden pagada deja anotado el reembolso
+    o2 = nueva(client, agente, articulos=arts[:1])
+    r = client.post(f"/ordenes/{o2['id']}/cancelar", json={"motivo": "Cambio de opinión"}, headers=agente).json()
+    assert "REEMBOLSO PENDIENTE" in r["eventos"][-1]["nota"] and "35.00" in r["eventos"][-1]["nota"]
