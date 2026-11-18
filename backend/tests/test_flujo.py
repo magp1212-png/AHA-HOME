@@ -306,3 +306,10 @@ def test_varios_articulos_instalacion_pagada_en_caja(client):
     o2 = nueva(client, agente, articulos=arts[:1])
     r = client.post(f"/ordenes/{o2['id']}/cancelar", json={"motivo": "Cambio de opinión"}, headers=agente).json()
     assert "REEMBOLSO PENDIENTE" in r["eventos"][-1]["nota"] and "35.00" in r["eventos"][-1]["nota"]
+
+
+def test_metodos_de_pago(client):
+    assert [m["id"] for m in client.get("/metodos-pago").json()] == ["pago_movil", "efectivo_bs", "efectivo_usd", "zelle"]
+    agente = login(client, "agente@ahahome.test")
+    r = client.post("/ordenes", json=ORDEN | {"pago": {"metodo": "punto_de_venta"}}, headers=agente)
+    assert r.status_code == 422

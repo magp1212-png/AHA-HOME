@@ -31,7 +31,9 @@ GRUPOS = ("A", "B", "C", "RETEN")
 TIPOS_EQUIPO = ("nevera", "lavadora", "secadora", "aire_acondicionado", "cocina", "televisor", "otro")
 TIPO_EQUIPO_TEXTO = {"nevera": "Nevera", "lavadora": "Lavadora", "secadora": "Secadora", "aire_acondicionado": "Aire acondicionado",
                      "cocina": "Cocina", "televisor": "Televisor", "otro": "Otro artículo"}
-METODOS_PAGO = ("efectivo_usd", "efectivo_bs", "punto_de_venta", "pago_movil", "zelle", "transferencia")
+METODOS_PAGO = ("pago_movil", "efectivo_bs", "efectivo_usd", "zelle")
+METODO_PAGO_TEXTO = {"pago_movil": "Pago móvil", "efectivo_bs": "Efectivo en bolívares", "efectivo_usd": "Efectivo en dólares",
+                     "zelle": "Zelle"}
 
 # Línea de tiempo que ve el cliente (spec, pantalla 4)
 ESTADOS = ("solicitud_enviada", "tecnico_asignado", "cita_confirmada", "en_ruta", "en_progreso", "completado")

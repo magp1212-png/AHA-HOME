@@ -63,6 +63,12 @@ class PagoIn(BaseModel):
         return v
 
 
+@router.get("/metodos-pago")
+def metodos_pago():
+    from ..models import METODO_PAGO_TEXTO
+    return [{"id": k, "texto": METODO_PAGO_TEXTO[k]} for k in METODOS_PAGO]
+
+
 @router.get("/tarifas")
 def tarifas(db: Session = Depends(get_db)):
     """Precios de instalación vigentes (los usa la caja para cobrar)."""
