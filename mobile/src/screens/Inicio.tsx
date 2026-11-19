@@ -7,7 +7,7 @@ import { useNav } from "../nav";
 import { Boton, C, Logo } from "../ui";
 
 const PASOS: { icono: React.ComponentProps<typeof Ionicons>["name"]; titulo: string; detalle: string }[] = [
-  { icono: "storefront-outline", titulo: "Retiramos tu compra", detalle: "en Tiendas Damasco" },
+  { icono: "storefront-outline", titulo: "Retiramos tu compra", detalle: "en la tienda" },
   { icono: "car-outline", titulo: "La llevamos a tu casa", detalle: "con seguimiento en vivo" },
   { icono: "construct-outline", titulo: "Desembalamos e instalamos", detalle: "técnicos verificados" },
   { icono: "trash-outline", titulo: "Nos llevamos los desechos", detalle: "cajas, anime y plásticos" },
