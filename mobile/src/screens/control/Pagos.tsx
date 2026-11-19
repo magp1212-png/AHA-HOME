@@ -7,6 +7,8 @@ import { useSession } from "../../session";
 import type { CuentaPago, Presupuesto } from "../../types";
 import { Aviso, Boton, C, Campo, Cargando, Pantalla, Seccion, Tarjeta, Texto } from "../../ui";
 
+type Penalidad = { orden_id: number; codigo: string; cliente: string; tecnico: string | null; estado: string; motivo: string;
+                  monto: string; por_definir: boolean; metodo: string | null; referencia: string };
 type Propina = { orden_id: number; codigo: string; monto: string; metodo: string; referencia: string; tecnico: string | null; cuenta_tecnico: CuentaPago | null };
 
 function Cuenta({ c }: { c?: CuentaPago | null }) {
@@ -27,12 +29,14 @@ export default function Pagos() {
   const esSuper = perfil?.rol === "superadmin";
   const [ps, setPs] = useState<Presupuesto[] | null>(null);
   const [props, setProps] = useState<Propina[]>([]);
+  const [pens, setPens] = useState<Penalidad[]>([]);
   const [refs, setRefs] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     try {
       setPs(await api<Presupuesto[]>("/supervisor/presupuestos"));
+      setPens(await api<Penalidad[]>("/supervisor/penalidades"));
       if (perfil?.rol !== "tecnico_supervisor") setProps(await api<Propina[]>("/supervisor/propinas-pendientes"));
       setError(null);
     } catch (e: any) { setError(e.message); }
@@ -102,6 +106,26 @@ export default function Pagos() {
               <Boton titulo="Propina transferida" deshabilitado={ref(`p${p.orden_id}`).trim().length < 2}
                 onPress={() => hacer(`/supervisor/ordenes/${p.orden_id}/propina-entregada`, { referencia: ref(`p${p.orden_id}`) })} />
             </>
+          ) : null}
+        </Tarjeta>
+      ))}
+
+      {pens.length ? <Seccion>PENALIDADES POR ENTREGA FALLIDA ({pens.length})</Seccion> : null}
+      {pens.map((x) => (
+        <Tarjeta key={x.orden_id}>
+          <Texto negrita>{x.codigo} · {x.cliente} · {x.tecnico ?? ""}</Texto>
+          <Texto gris size={13}>{x.motivo} · {x.estado === "pago_registrado" ? `pagó USD ${x.monto} por ${x.metodo} ${x.referencia}` : x.por_definir ? "monto por definir" : `USD ${x.monto} por cobrar`}</Texto>
+          {perfil?.rol !== "tecnico_supervisor" ? (
+            x.estado === "pago_registrado" ? <Boton titulo="Confirmar pago de la penalidad" onPress={() => hacer(`/supervisor/ordenes/${x.orden_id}/penalidad/confirmar`)} /> : (
+              <>
+                <Campo etiqueta="Monto del servicio completo (USD)" value={ref(`pen${x.orden_id}`)} onChangeText={setRef(`pen${x.orden_id}`)} keyboardType="decimal-pad" />
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <View style={{ flex: 1 }}><Boton titulo="Fijar monto" deshabilitado={!(Number(ref(`pen${x.orden_id}`).replace(",", ".")) > 0)}
+                    onPress={() => hacer(`/supervisor/ordenes/${x.orden_id}/penalidad/monto`, { monto: Number(ref(`pen${x.orden_id}`).replace(",", ".")) })} /></View>
+                  <View style={{ flex: 1 }}><Boton titulo="Exonerar" tipo="secundario" onPress={() => hacer(`/supervisor/ordenes/${x.orden_id}/penalidad/monto`, { monto: 0 })} /></View>
+                </View>
+              </>
+            )
           ) : null}
         </Tarjeta>
       ))}

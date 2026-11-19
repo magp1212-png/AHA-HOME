@@ -33,4 +33,6 @@ WEB_DIR = pathlib.Path(os.environ.get("AHAHOME_WEB_DIR", BASE_DIR.parent / "mobi
 UTC_OFFSET_HOURS = -4
 
 # Una orden en pausa por inspección avisa al control si pasa este tiempo sin quedar lista para retirar.
+# El cliente puede reprogramar sin costo hasta estas horas antes del inicio de su franja (y antes del retiro).
+REPROGRAMAR_HORAS_ANTES = int(os.environ.get("AHAHOME_REPROGRAMAR_HORAS", "3"))
 PAUSA_INSPECCION_HORAS = int(os.environ.get("AHAHOME_PAUSA_INSPECCION_HORAS", "48"))

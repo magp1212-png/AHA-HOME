@@ -619,3 +619,41 @@ def test_materiales_los_compra_el_cliente(client):
     v = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
     assert v["listo_para_instalar"] and not v["pausa"]["activa"]
     assert any("Tubería de cobre" in n["texto"] for n in client.get("/notificaciones", headers=cliente).json())
+
+
+def test_reprogramar_con_anticipacion_y_penalidad_por_entrega_fallida(client):
+    """Reprogramar sin costo solo antes del retiro y con anticipación; si salieron y no se pudo entregar, penalidad."""
+    from app.models import Orden
+    agente = login(client, "agente@ahahome.test")
+    cliente = login(client, "maria@ahahome.test")
+    o = nueva(client, agente)
+    assert o["reprogramar"]["puede"]
+    # a menos de 3 horas de su franja, el cliente ya no puede reprogramar solo (el control sí)
+    with SessionLocal() as db:
+        x = db.get(Orden, o["id"])
+        ahora_cc = dt.datetime.utcnow() - dt.timedelta(hours=4) + dt.timedelta(hours=1)
+        x.fecha, x.franja = ahora_cc.date().isoformat(), f"{ahora_cc.hour:02d}:00-{(ahora_cc.hour + 2) % 24:02d}:00"
+        db.commit()
+    r = client.post(f"/ordenes/{o['id']}/reprogramar", json={"fecha": LUNES, "franja": "13:00 - 15:00"}, headers=cliente)
+    assert r.status_code == 409 and "3 h" in r.json()["detail"]
+    assert client.post(f"/ordenes/{o['id']}/reprogramar", json={"fecha": LUNES, "franja": "13:00 - 15:00"},
+                       headers=login(client, "supervisor@ahahome.test")).status_code == 200
+    o = client.get(f"/ordenes/{o['id']}", headers=agente).json()
+    # retiran, salen y no pueden entregar: penalidad por el servicio completo
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    client.post(f"/tecnico/ordenes/{o['id']}/confirmar", headers=tecnico)
+    client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico)
+    assert client.post(f"/ordenes/{o['id']}/reprogramar", json={"fecha": LUNES, "franja": "15:00 - 17:00"}, headers=cliente).status_code == 409
+    r = client.post(f"/tecnico/ordenes/{o['id']}/entrega-fallida", json={"motivo": "El cliente no estaba en casa"}, headers=tecnico).json()
+    assert r["estado"] == "entrega_fallida" and r["penalidad"]["estado"] == "pendiente"
+    assert "No pudimos entregar tu compra" in titulos(client, cliente)
+    # sin pagar la penalidad no se reprograma
+    assert client.post(f"/ordenes/{o['id']}/reprogramar", json={"fecha": LUNES, "franja": "15:00 - 17:00"}, headers=cliente).status_code == 409
+    sup = login(client, "supervisor@ahahome.test")
+    assert any(p["orden_id"] == o["id"] for p in client.get("/supervisor/penalidades", headers=sup).json())
+    client.post(f"/supervisor/ordenes/{o['id']}/penalidad/monto", json={"monto": 25}, headers=sup)
+    assert client.post(f"/ordenes/{o['id']}/penalidad/pago", json={"metodo": "pago_movil", "referencia": "5544"}, headers=cliente).status_code == 200
+    r = client.post(f"/supervisor/ordenes/{o['id']}/penalidad/confirmar", headers=sup).json()
+    assert r["penalidad"]["estado"] == "pagada" and r["reprogramar"]["puede"]
+    r = client.post(f"/ordenes/{o['id']}/reprogramar", json={"fecha": LUNES, "franja": "15:00 - 17:00"}, headers=cliente)
+    assert r.status_code == 200 and r.json()["estado"] in ("tecnico_asignado", "solicitud_enviada")

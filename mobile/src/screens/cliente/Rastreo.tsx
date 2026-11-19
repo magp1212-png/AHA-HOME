@@ -110,12 +110,13 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
   const f = fases(o);
   const enCamino = ["en_ruta", "en_progreso", "completado"].includes(o.estado);
   const puedeCambiar = ["solicitud_enviada", "tecnico_asignado", "cita_confirmada"].includes(o.estado);
-  const estadoCorto = o.estado === "cancelado" ? "Cancelado" : o.estado === "completado" ? "Completado"
+  const estadoCorto = o.estado === "cancelado" ? "Cancelado" : o.estado === "completado" ? "Completado" : o.estado === "entrega_fallida" ? "No entregado"
     : o.pausa?.activa ? "En pausa" : f.find((x) => x.actual)?.texto ?? "Completado";
-  const colorEstado = o.estado === "completado" ? C.ok : o.estado === "cancelado" ? C.error : C.naranja;
+  const colorEstado = o.estado === "completado" ? C.ok : ["cancelado", "entrega_fallida"].includes(o.estado) ? C.error : C.naranja;
   const p = o.presupuesto;
   // botón principal naranja según el momento: pagar presupuesto lo resuelve la tarjeta de inspección; aquí, programar
-  const mostrarProgramar = puedeCambiar && !o.pausa?.activa;
+  const mostrarProgramar = (puedeCambiar && !o.pausa?.activa) || (o.estado === "entrega_fallida" && o.reprogramar?.puede);
+  const pen = o.penalidad;
 
   return marco(
     <>
@@ -136,6 +137,19 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
             {o.pausa.vencida ? " Ya pasó el tiempo previsto: AHA HOME te contactará." : ""}
           </Text>
         </View>
+      ) : null}
+      {o.estado === "entrega_fallida" && pen ? (
+        <Tarjeta style={{ borderColor: "#F3C9AE", backgroundColor: C.naranjaSuave }}>
+          <Texto negrita size={16}>No pudimos entregar tu compra</Texto>
+          <Texto gris size={14}>{pen.motivo}. La cuadrilla ya había retirado tu compra y salió hacia tu casa, así que regresó a la tienda y se cobra el servicio completo como penalidad.</Texto>
+          {pen.estado === "pendiente" && pen.por_definir ? <Aviso tono="info" texto="AHA HOME está confirmando el monto de la penalidad. Te avisamos en breve." /> : null}
+          {pen.estado === "pendiente" && !pen.por_definir ? (
+            <FormPago titulo={`PENALIDAD USD ${pen.monto}`} boton={`Pagar USD ${pen.monto}`}
+              onEnviar={async (d) => { await api(`/ordenes/${id}/penalidad/pago`, { body: d }); cargar(); }} />
+          ) : null}
+          {pen.estado === "pago_registrado" ? <Aviso tono="info" texto="Registraste el pago. AHA HOME lo confirma y podrás reprogramar." /> : null}
+          {pen.estado === "pagada" || pen.estado === "exonerada" ? <Aviso tono="ok" texto={pen.estado === "pagada" ? "Penalidad pagada. Ya puedes reprogramar tu servicio." : "AHA HOME exoneró la penalidad. Ya puedes reprogramar."} /> : null}
+        </Tarjeta>
       ) : null}
       <InspeccionCliente o={o} recargar={cargar} />
 
@@ -219,7 +233,8 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
       ) : null}
 
       <Aviso texto={error} />
-      {mostrarProgramar ? (
+      {puedeCambiar && !o.pausa?.activa && !o.reprogramar?.puede && o.reprogramar?.motivo ? <Aviso tono="info" texto={o.reprogramar.motivo} /> : null}
+      {mostrarProgramar && o.reprogramar?.puede ? (
         <Boton titulo={o.tipo_servicio === "traslado" ? "PROGRAMAR ENTREGA" : "PROGRAMAR INSTALACIÓN"} tipo="naranja" icono="calendar-outline"
           onPress={() => nav.push("reprogramar", { id: o.id })} />
       ) : null}

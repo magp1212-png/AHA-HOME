@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from . import config
 from .db import Base, engine
-from .routers import admin, archivos, auth, legal, ordenes, presupuestos, supervisor, tecnico
+from .routers import admin, archivos, auth, legal, ordenes, penalidad, presupuestos, supervisor, tecnico
 
 log = logging.getLogger("ahahome")
 app = FastAPI(title="AHA HOME API", version=config.APP_VERSION)
@@ -32,7 +32,7 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router):
+for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router):
     app.include_router(r)
 
 

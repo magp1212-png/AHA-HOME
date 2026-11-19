@@ -58,7 +58,7 @@ def seguimiento(desde: dt.date | None = None, hasta: dt.date | None = None, tien
     califs = [o["calificacion"] for o in salida if o["calificacion"]]
     return {
         "total": len(salida),
-        "por_estado": {s: sum(1 for o in salida if o["estado"] == s) for s in ESTADOS + ("cancelado",)},
+        "por_estado": {s: sum(1 for o in salida if o["estado"] == s) for s in ESTADOS + ("cancelado", "entrega_fallida")},
         "calificacion_promedio": round(sum(califs) / len(califs), 2) if califs else None,
         "ordenes": salida,
     }

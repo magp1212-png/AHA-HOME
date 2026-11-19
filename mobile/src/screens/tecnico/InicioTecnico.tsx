@@ -171,6 +171,12 @@ function TarjetaOrden({ o, activa, ancho, esAyudante, cargando, accion, retirar 
     ...(!o.inspeccion.requerida && o.articulos.some((a) => a.instalar) && antes
       ? [{ icono: "pause-circle-outline" as const, texto: "Pausar: hace falta inspección", onPress: () => accion(`/ordenes/${o.id}/inspeccion`) }] : []),
     { icono: "call-outline" as const, texto: "Llamar al cliente", onPress: () => Linking.openURL(`tel:${o.cliente.telefono}`) },
+    ...(["en_ruta", "en_progreso"].includes(o.estado) ? [
+      { icono: "return-up-back-outline" as const, texto: "No se pudo entregar: cliente ausente", peligro: true,
+        onPress: () => accion(`/tecnico/ordenes/${o.id}/entrega-fallida`, { motivo: "El cliente no estaba en casa" }) },
+      { icono: "close-circle-outline" as const, texto: "No se pudo entregar: no recibió", peligro: true,
+        onPress: () => accion(`/tecnico/ordenes/${o.id}/entrega-fallida`, { motivo: "El cliente no recibió la compra" }) },
+    ] : []),
   ];
   return (
     <View style={{ width: ancho, backgroundColor: C.blanco, borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: C.linea, opacity: activa ? 1 : 0.92 }}>

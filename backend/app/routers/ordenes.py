@@ -243,7 +243,16 @@ class Reprogramar(BaseModel):
 def reprogramar(orden_id: int, body: Reprogramar, user: User = Depends(require("cliente", "agente", "supervisor")),
                 db: Session = Depends(get_db)):
     o = obtener(db, orden_id, user)
-    svc.exigir_estado(o, "solicitud_enviada", "tecnico_asignado", "cita_confirmada")
+    from .penalidad import info_reprogramar
+    info = info_reprogramar(o)
+    if o.estado == "entrega_fallida":
+        if not info["puede"]:
+            raise HTTPException(409, info["motivo"])
+        o.retirado_en = None
+    else:
+        svc.exigir_estado(o, "solicitud_enviada", "tecnico_asignado", "cita_confirmada")
+        if user.rol == "cliente" and not info["puede"]:
+            raise HTTPException(409, info["motivo"])
     anteriores = ([o.tecnico] if o.tecnico else []) + list(o.ayudantes)
     o.fecha, o.franja = body.fecha.isoformat(), body.franja
     svc.registrar(db, o, "solicitud_enviada", user, f"Reprogramada para {o.fecha} {o.franja}")

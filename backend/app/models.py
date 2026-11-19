@@ -46,7 +46,9 @@ ESTADO_TEXTO = {
     "en_progreso": "Servicio en progreso",
     "completado": "Servicio completado",
     "cancelado": "Cancelado",
+    "entrega_fallida": "No se pudo entregar · penalidad",
 }
+ESTADO_FALLIDA = "entrega_fallida"
 
 # Checklist digital obligatorio (spec, pasos 6 y 7), según el tipo de servicio.
 # Traslado: se entrega tal cual sale de la tienda, en su caja; no se desembala ni se retiran residuos.
@@ -209,6 +211,14 @@ class Orden(Base):
     # Servicio en pausa ("time out") mientras se hace la inspección y se aprueba/paga el presupuesto
     pausa_desde: Mapped[dt.datetime | None] = mapped_column(DateTime)
     pausa_aviso_en: Mapped[dt.datetime | None] = mapped_column(DateTime)  # aviso de pausa vencida ya enviado
+    # Entrega fallida: la cuadrilla retiró y salió, pero no pudo entregar y regresó: se cobra el servicio completo
+    penalidad_estado: Mapped[str] = mapped_column(String(20), default="")  # "" | pendiente | pago_registrado | pagada | exonerada
+    penalidad_motivo: Mapped[str] = mapped_column(String(300), default="")
+    penalidad_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    penalidad_metodo: Mapped[str | None] = mapped_column(String(20))
+    penalidad_referencia: Mapped[str] = mapped_column(String(60), default="")
+    penalidad_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    penalidad_pagada_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
     calificacion: Mapped[int | None] = mapped_column(Integer)
     # Propina del cliente al cerrar el servicio (va al técnico y su cuadrilla)
     propina_centavos: Mapped[int] = mapped_column(Integer, default=0)

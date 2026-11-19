@@ -207,6 +207,9 @@ def vista(orden: Orden, rol: str) -> dict:
     d["presupuesto"] = vista_presupuesto(p, rol) if p else None
     d["listo_para_instalar"] = listo_para_instalar(orden)
     d["pausa"] = info_pausa(orden)
+    from .routers.penalidad import info_penalidad, info_reprogramar
+    d["reprogramar"] = info_reprogramar(orden)
+    d["penalidad"] = info_penalidad(orden)
     en_camino = orden.estado in ("en_ruta", "en_progreso", "completado")
     if rol == "cliente":
         d["tecnico"] = ficha_cliente(orden.tecnico) if en_camino else None
