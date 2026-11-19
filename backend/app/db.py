@@ -34,3 +34,30 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def agregar_columnas_nuevas(eng) -> list[str]:
+    """Migración sencilla: agrega a las tablas existentes las columnas nuevas del modelo (con su valor por defecto)."""
+    from sqlalchemy import inspect, text
+    insp = inspect(eng)
+    hechas = []
+    with eng.begin() as c:
+        for tabla in Base.metadata.sorted_tables:
+            if not insp.has_table(tabla.name):
+                continue
+            existentes = {col["name"] for col in insp.get_columns(tabla.name)}
+            for col in tabla.columns:
+                if col.name in existentes:
+                    continue
+                tipo = col.type.compile(dialect=eng.dialect)
+                defecto = ""
+                d = col.default.arg if col.default is not None and not callable(col.default.arg) else None
+                if isinstance(d, bool):
+                    defecto = f" DEFAULT {'TRUE' if d else 'FALSE'}" if eng.dialect.name != "sqlite" else f" DEFAULT {int(d)}"
+                elif isinstance(d, (int, float)):
+                    defecto = f" DEFAULT {d}"
+                elif isinstance(d, str):
+                    defecto = " DEFAULT '" + d.replace("'", "''") + "'"
+                c.execute(text(f'ALTER TABLE {tabla.name} ADD COLUMN {col.name} {tipo}{defecto}'))
+                hechas.append(f"{tabla.name}.{col.name}")
+    return hechas

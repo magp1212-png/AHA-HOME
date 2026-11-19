@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import QRCode from "qrcode";
 import React, { useMemo } from "react";
 import {
-  ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleProp, Text, TextInput, TextInputProps, View, ViewStyle,
+  ActivityIndicator, Image, Modal, Pressable, RefreshControl, ScrollView, StyleProp, Text, TextInput, TextInputProps, View, ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { G, Path, Rect } from "react-native-svg";
@@ -15,6 +15,7 @@ export const C = {
   marino: "#21244D", marinoOscuro: "#1A1C3D", marinoSuave: "#2E3266", lima: "#CFD72A", limaSuave: "#F1F3D4",
   fondo: "#F4F7FB", blanco: "#FFFFFF", texto: "#1A1C3D", gris: "#4A5568", linea: "#E2E8F0", borde: "#CBD5E1",
   ok: "#167A45", okSuave: "#E7F6EE", alerta: "#C2410C", alertaSuave: "#FFF1E8", error: "#B42318", errorSuave: "#FDECEC",
+  naranja: "#C8461B", naranjaSuave: "#FFF4EC",
 };
 
 export type Icono = React.ComponentProps<typeof Ionicons>["name"];
@@ -34,9 +35,9 @@ export function Logo({ size = 48, conFondo = true }: { size?: number; conFondo?:
 }
 
 /** Pantalla con encabezado azul marino, botón de volver y contenido desplazable. */
-export function Pantalla({ titulo, subtitulo, children, volver = true, derecha, onRefresh, refrescando, pie, fondo = C.fondo }: {
-  titulo: string; subtitulo?: string; children: React.ReactNode; volver?: boolean; derecha?: React.ReactNode;
-  onRefresh?: () => void; refrescando?: boolean; pie?: React.ReactNode; fondo?: string;
+export function Pantalla({ titulo, subtitulo, children, volver = true, derecha, izquierda, onRefresh, refrescando, pie, abajo, fondo = C.fondo }: {
+  titulo: string; subtitulo?: string; children: React.ReactNode; volver?: boolean; derecha?: React.ReactNode; izquierda?: React.ReactNode;
+  onRefresh?: () => void; refrescando?: boolean; pie?: React.ReactNode; abajo?: React.ReactNode; fondo?: string;
 }) {
   const nav = useNav();
   const insets = useSafeAreaInsets();
@@ -47,7 +48,8 @@ export function Pantalla({ titulo, subtitulo, children, volver = true, derecha, 
           <Pressable accessibilityRole="button" accessibilityLabel="Volver" onPress={nav.back} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
             <Ionicons name="chevron-back" size={26} color={C.blanco} />
           </Pressable>
-        ) : <View style={{ width: 44, alignItems: "center" }}><Logo size={30} conFondo={false} /></View>}
+        ) : izquierda ? <View style={{ minWidth: 44, alignItems: "center" }}>{izquierda}</View>
+          : <View style={{ width: 44, alignItems: "center" }}><Logo size={30} conFondo={false} /></View>}
         <View style={{ flex: 1, alignItems: "center" }}>
           <Text style={{ color: C.blanco, fontSize: 19, fontWeight: "800", letterSpacing: 0.3 }} numberOfLines={1}>{titulo}</Text>
           {subtitulo ? <Text style={{ color: "#DCDEF0", fontSize: 13, marginTop: 2 }} numberOfLines={1}>{subtitulo}</Text> : null}
@@ -55,13 +57,14 @@ export function Pantalla({ titulo, subtitulo, children, volver = true, derecha, 
         <View style={{ minWidth: 44, alignItems: "center", flexDirection: "row", justifyContent: "flex-end" }}>{derecha}</View>
       </View>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 + insets.bottom, gap: 14 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: (abajo ? 16 : 32 + insets.bottom), gap: 14 }}
         keyboardShouldPersistTaps="handled"
         refreshControl={onRefresh ? <RefreshControl refreshing={!!refrescando} onRefresh={onRefresh} /> : undefined}
       >
         {children}
       </ScrollView>
-      {pie ? <View style={{ padding: 16, paddingBottom: 16 + insets.bottom, borderTopWidth: 1, borderTopColor: C.linea, backgroundColor: C.blanco }}>{pie}</View> : null}
+      {pie ? <View style={{ padding: 16, paddingBottom: (abajo ? 16 : 16 + insets.bottom), borderTopWidth: 1, borderTopColor: C.linea, backgroundColor: C.blanco }}>{pie}</View> : null}
+      {abajo ? <View style={{ paddingBottom: insets.bottom, backgroundColor: C.blanco, borderTopWidth: 1, borderTopColor: C.linea }}>{abajo}</View> : null}
     </View>
   );
 }
@@ -86,7 +89,7 @@ export function Texto({ children, gris, negrita, size = 15, color }: { children:
 }
 
 export function Boton({ titulo, onPress, tipo = "principal", icono, cargando, deshabilitado }: {
-  titulo: string; onPress: () => void; tipo?: "principal" | "secundario" | "peligro" | "lima" | "exito"; icono?: Icono;
+  titulo: string; onPress: () => void; tipo?: "principal" | "secundario" | "peligro" | "lima" | "exito" | "naranja"; icono?: Icono;
   cargando?: boolean; deshabilitado?: boolean;
 }) {
   const estilos = {
@@ -95,6 +98,7 @@ export function Boton({ titulo, onPress, tipo = "principal", icono, cargando, de
     peligro: { bg: C.blanco, fg: C.error, borde: C.borde },
     lima: { bg: C.lima, fg: C.marino, borde: C.lima },
     exito: { bg: C.ok, fg: C.blanco, borde: C.ok },
+    naranja: { bg: C.naranja, fg: C.blanco, borde: C.naranja },
   }[tipo];
   const off = deshabilitado || cargando;
   return (
@@ -271,4 +275,66 @@ export function BotonCuenta() {
       <Ionicons name="person-circle-outline" size={26} color={C.blanco} />
     </Pressable>
   );
+}
+
+/** Menú fijo abajo (Inicio, Pedidos/Órdenes, Avisos/Mapa, Cuenta/Perfil). */
+export function MenuInferior({ items }: { items: { icono: Icono; texto: string; activo?: boolean; onPress: () => void; aviso?: number }[] }) {
+  return (
+    <View accessibilityRole="tablist" style={{ flexDirection: "row", height: 62 }}>
+      {items.map((it) => (
+        <Pressable key={it.texto} accessibilityRole="tab" accessibilityState={{ selected: !!it.activo }} accessibilityLabel={it.texto} onPress={it.onPress}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 2 }}>
+          <View>
+            <Ionicons name={it.icono} size={24} color={it.activo ? C.marino : "#6B7789"} />
+            {it.aviso ? <View style={{ position: "absolute", top: -4, right: -10, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: C.lima,
+              alignItems: "center", justifyContent: "center", paddingHorizontal: 4 }}>
+              <Text style={{ fontSize: 11, fontWeight: "900", color: C.marino }}>{it.aviso > 9 ? "9+" : it.aviso}</Text></View> : null}
+          </View>
+          <Text style={{ fontSize: 11.5, fontWeight: it.activo ? "800" : "500", color: it.activo ? C.marino : "#6B7789" }}>{it.texto}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+/** Menú ☰ del encabezado: abre una lista de opciones. */
+export function MenuHamburguesa({ opciones, icono = "menu", etiqueta = "Menú" }: {
+  opciones: { icono: Icono; texto: string; onPress: () => void; peligro?: boolean }[]; icono?: Icono; etiqueta?: string;
+}) {
+  const [abierto, setAbierto] = React.useState(false);
+  const insets = useSafeAreaInsets();
+  return (
+    <>
+      <Pressable accessibilityRole="button" accessibilityLabel={etiqueta} onPress={() => setAbierto(true)}
+        style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name={icono} size={icono === "menu" ? 28 : 22} color={C.blanco} />
+      </Pressable>
+      <Modal visible={abierto} transparent animationType="fade" onRequestClose={() => setAbierto(false)}>
+        <Pressable accessibilityLabel="Cerrar menú" onPress={() => setAbierto(false)} style={{ flex: 1, backgroundColor: "rgba(16,18,40,0.45)" }}>
+          <View style={{ marginTop: insets.top + 8, marginHorizontal: 12, backgroundColor: C.blanco, borderRadius: 16, paddingVertical: 6, maxWidth: 360 }}>
+            {opciones.map((o) => (
+              <Pressable key={o.texto} accessibilityRole="button" onPress={() => { setAbierto(false); o.onPress(); }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 50, paddingHorizontal: 16 }}>
+                <Ionicons name={o.icono} size={22} color={o.peligro ? C.error : C.marino} />
+                <Text style={{ fontSize: 16, fontWeight: "700", color: o.peligro ? C.error : C.texto }}>{o.texto}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
+
+/** Cantidad de avisos sin leer (para la campana o el menú de abajo). */
+export function useAvisos() {
+  const [n, setN] = React.useState(0);
+  React.useEffect(() => {
+    let vivo = true;
+    const ver = () => { require("./api").api("/notificaciones").then((l: { leida: boolean }[]) => vivo && setN(l.filter((x) => !x.leida).length)).catch(() => {}); };
+    ver();
+    const t = setInterval(ver, 30000);
+    return () => { vivo = false; clearInterval(t); };
+  }, []);
+  return n;
 }

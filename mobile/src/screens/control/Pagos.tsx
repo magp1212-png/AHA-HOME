@@ -70,7 +70,8 @@ export default function Pagos() {
       <Seccion>PAGOS DEL CLIENTE POR CONFIRMAR ({grupo("pago_registrado").length})</Seccion>
       {grupo("pago_registrado").map((p) => (
         <Tarjeta key={p.id}>
-          <Texto negrita>{p.codigo} · USD {p.total} · {p.pago.metodo} · ref. {p.pago.referencia}</Texto>
+          <Texto negrita>{p.codigo} · USD {p.a_pagar} · {p.pago.metodo} · ref. {p.pago.referencia}</Texto>
+          {p.materiales_compra === "cliente" && Number(p.materiales) > 0 ? <Texto gris size={13}>Materiales a cargo del cliente: al confirmar, queda listo para instalar.</Texto> : null}
           {perfil?.rol !== "tecnico_supervisor" ? <Boton titulo="Confirmar que llegó el pago" onPress={() => hacer(`/supervisor/presupuestos/${p.id}/confirmar-pago`)} /> : null}
         </Tarjeta>
       ))}
@@ -106,7 +107,9 @@ export default function Pagos() {
       ))}
 
       <Seccion>LISTOS PARA INSTALAR ({grupo("materiales_pagados").length})</Seccion>
-      {grupo("materiales_pagados").slice(0, 10).map((p) => <Texto key={p.id} gris>{p.codigo} · {p.tecnico} · USD {p.total}</Texto>)}
+      {grupo("materiales_pagados").slice(0, 10).map((p) => (
+        <Texto key={p.id} gris>{p.codigo} · {p.tecnico} · USD {p.a_pagar}{p.materiales_compra === "cliente" && Number(p.materiales) > 0 ? " · materiales los compra el cliente" : ""}</Texto>
+      ))}
     </Pantalla>
   );
 }

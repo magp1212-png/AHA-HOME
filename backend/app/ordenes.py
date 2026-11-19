@@ -151,8 +151,15 @@ def ficha_cliente(tec: Tecnico | None) -> dict | None:
     """El cliente solo ve la foto (y el nombre) del técnico y del ayudante asignados: nada de cédula ni teléfono."""
     if not tec:
         return None
-    return {"nombre": tec.user.nombre, "foto": tec.foto_perfil or tec.foto_rostro,
-            "rol": "ayudante" if tec.es_ayudante else "tecnico"}
+    d = {"nombre": tec.user.nombre, "foto": tec.foto_perfil or tec.foto_rostro,
+         "rol": "ayudante" if tec.es_ayudante else "tecnico"}
+    if not tec.es_ayudante:
+        from sqlalchemy.orm import object_session
+        prom, n = object_session(tec).execute(select(func.avg(Orden.calificacion), func.count(Orden.calificacion))
+                                              .where(Orden.tecnico_id == tec.id, Orden.calificacion.is_not(None))).one()
+        d["calificacion"] = round(float(prom), 1) if prom is not None else None
+        d["calificaciones"] = n
+    return d
 
 
 def _iso(x: dt.datetime | None) -> str | None:

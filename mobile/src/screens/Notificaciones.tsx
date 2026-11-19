@@ -5,6 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import { api } from "../api";
 import { useNav } from "../nav";
 import { useSession } from "../session";
+import { MenuCliente, MenuTecnico } from "../menus";
 import { Aviso, C, Cargando, Pantalla, Texto } from "../ui";
 
 type N = { id: number; titulo: string; texto: string; orden_id: number | null; leida: boolean; fecha: string };
@@ -29,7 +30,7 @@ export default function Notificaciones() {
   }
 
   return (
-    <Pantalla titulo="Notificaciones" onRefresh={cargar}>
+    <Pantalla titulo="Notificaciones" onRefresh={cargar} abajo={perfil?.rol === "cliente" ? <MenuCliente activo="avisos" /> : (perfil?.rol === "tecnico" || perfil?.rol === "ayudante") ? <MenuTecnico activo="inicio" /> : undefined}>
       <Aviso texto={error} />
       {lista === null ? <Cargando /> : null}
       {lista?.length === 0 ? <Texto gris>No tienes avisos todavía.</Texto> : null}

@@ -116,6 +116,7 @@ def vista_presupuesto(p: Presupuesto, rol: str) -> dict:
     d = {"id": p.id, "orden_id": p.orden_id, "codigo": p.orden.codigo, "estado": p.estado, "estado_texto": ESTADO_PRESUPUESTO_TEXTO.get(p.estado),
          "items": [{**i, "precio": dinero(i["precio_centavos"]), "subtotal": dinero(i["precio_centavos"] * i["cantidad"])} for i in p.items],
          "materiales": dinero(p.materiales_centavos), "mano_obra": dinero(p.mano_obra_centavos), "total": dinero(p.total_centavos),
+         "materiales_compra": p.materiales_compra, "a_pagar": dinero(p.a_pagar_centavos),
          "notas": p.notas, "fotos": p.fotos, "motivo_rechazo": p.motivo_rechazo, "tecnico": p.tecnico.user.nombre,
          "cliente_acepto": p.cliente_acepto_en is not None, "admin_aprobo": p.admin_aprobo_en is not None,
          "pago": {"metodo": p.pago_metodo, "referencia": p.pago_referencia, "registrado_en": _iso(p.pago_registrado_en),
@@ -184,8 +185,12 @@ class Item(BaseModel):
         return v
 
 
+COMPRA = ("tecnico", "cliente")
+
+
 class NuevoPresupuesto(BaseModel):
     items: list[Item] = Field(min_length=1, max_length=60)
+    materiales_compra: str = "tecnico"  # sugerencia del técnico; el cliente decide al aceptar
     notas: str = Field(default="", max_length=2000)
     fotos: list[str] = Field(default_factory=list, max_length=10)
 
@@ -198,14 +203,16 @@ def enviar_presupuesto(orden_id: int, body: NuevoPresupuesto, user: User = Depen
     svc.exigir_estado(o, *ANTES_DE_SALIR)
     if vigente(o):
         raise HTTPException(409, "Ya hay un presupuesto en curso para esta orden")
+    if body.materiales_compra not in COMPRA:
+        raise HTTPException(422, "materiales_compra debe ser tecnico o cliente")
     t = user.tecnico
     items = [{"tipo": i.tipo, "descripcion": i.descripcion.strip(), "cantidad": i.cantidad, "precio_centavos": round(i.precio * 100)} for i in body.items]
     mat = round(sum(i["precio_centavos"] * i["cantidad"] for i in items if i["tipo"] == "material"))
     mo = round(sum(i["precio_centavos"] * i["cantidad"] for i in items if i["tipo"] == "mano_obra"))
-    if mat and not cuenta_tecnico(t)["registrada"]:
+    if mat and body.materiales_compra == "tecnico" and not cuenta_tecnico(t)["registrada"]:
         raise HTTPException(422, "Tu cuenta de pago no está registrada: pásala por la oficina de AHA HOME para poder presupuestar materiales")
     p = Presupuesto(orden_id=o.id, tecnico_id=t.id, items=items, notas=body.notas.strip(), fotos=body.fotos,
-                    materiales_centavos=mat, mano_obra_centavos=mo)
+                    materiales_centavos=mat, mano_obra_centavos=mo, materiales_compra=body.materiales_compra)
     db.add(p)
     db.flush()
     svc.registrar(db, o, o.estado, user, f"Presupuesto enviado: USD {dinero(p.total_centavos)} (materiales {dinero(mat)}, mano de obra {dinero(mo)})")
@@ -221,6 +228,7 @@ def enviar_presupuesto(orden_id: int, body: NuevoPresupuesto, user: User = Depen
 class Respuesta(BaseModel):
     acepta: bool
     motivo: str = Field(default="", max_length=300)
+    materiales_compra: str | None = None  # el cliente elige al aceptar quién compra los materiales
 
 
 def _rechazar(db: Session, p: Presupuesto, quien: str, motivo: str, actor: User) -> None:
@@ -234,7 +242,7 @@ def _quizas_aprobado(db: Session, p: Presupuesto, actor: User) -> None:
     if p.cliente_acepto_en and p.admin_aprobo_en and p.estado == "enviado":
         p.estado = "aprobado"
         svc.registrar(db, p.orden, p.orden.estado, actor, "Presupuesto aprobado por el cliente y el superadmin")
-        notificar(db, p.orden.cliente_id, "Presupuesto aprobado", f"{p.orden.codigo}: registra el pago de USD {dinero(p.total_centavos)} en la app.", p.orden_id)
+        notificar(db, p.orden.cliente_id, "Presupuesto aprobado", f"{p.orden.codigo}: registra el pago de USD {dinero(p.a_pagar_centavos)} en la app.", p.orden_id)
         notificar(db, p.tecnico.user_id, "Presupuesto aprobado", f"{p.orden.codigo}: espera la confirmación del pago para instalar.", p.orden_id)
 
 
@@ -245,8 +253,15 @@ def cliente_responde(orden_id: int, body: Respuesta, user: User = Depends(requir
     if not p or p.estado != "enviado":
         raise HTTPException(409, "No hay un presupuesto esperando tu respuesta")
     if body.acepta:
+        if body.materiales_compra:
+            if body.materiales_compra not in COMPRA:
+                raise HTTPException(422, "materiales_compra debe ser tecnico o cliente")
+            if body.materiales_compra == "tecnico" and p.materiales_centavos and not cuenta_tecnico(p.tecnico)["registrada"]:
+                raise HTTPException(422, "El técnico no tiene cuenta de pago registrada: elige comprar tú los materiales")
+            p.materiales_compra = body.materiales_compra
         p.cliente_acepto_en = ahora()
-        svc.registrar(db, o, o.estado, user, "El cliente aceptó el presupuesto")
+        quien = "el cliente" if p.compra_cliente else "el técnico"
+        svc.registrar(db, o, o.estado, user, f"El cliente aceptó el presupuesto (materiales los compra {quien}; a pagar USD {dinero(p.a_pagar_centavos)})")
         _avisar(db, _control(db, o, solo_superadmin=True), "Cliente aceptó el presupuesto", f"{o.codigo}: falta tu aprobación.", o.id)
         _quizas_aprobado(db, p, user)
     else:
@@ -294,7 +309,7 @@ def registrar_pago(orden_id: int, body: Pago, user: User = Depends(require("clie
         raise HTTPException(409, "El presupuesto todavía no está aprobado por ambas partes")
     p.pago_metodo, p.pago_referencia, p.pago_registrado_en, p.estado = body.metodo, body.referencia.strip(), ahora(), "pago_registrado"
     svc.registrar(db, o, o.estado, user, f"Pago del presupuesto registrado: {body.metodo} ref. {p.pago_referencia}")
-    _avisar(db, _control(db, o), "Pago por confirmar", f"{o.codigo}: USD {dinero(p.total_centavos)} por {body.metodo}, ref. {p.pago_referencia}", o.id)
+    _avisar(db, _control(db, o), "Pago por confirmar", f"{o.codigo}: USD {dinero(p.a_pagar_centavos)} por {body.metodo}, ref. {p.pago_referencia}", o.id)
     db.commit()
     return vista_presupuesto(p, user.rol)
 
@@ -305,8 +320,9 @@ def confirmar_pago(pres_id: int, user: User = Depends(require("supervisor")), db
     if not p or p.estado != "pago_registrado":
         raise HTTPException(409, "No hay un pago por confirmar en este presupuesto")
     p.pago_confirmado_en = ahora()
-    if p.materiales_centavos == 0:  # sin materiales: listo de una vez
-        p.estado, p.materiales_pagados_en, p.materiales_referencia = "materiales_pagados", ahora(), "sin materiales"
+    if p.materiales_centavos == 0 or p.compra_cliente:  # sin materiales que pagarle al técnico: listo de una vez
+        ref = "los compra el cliente" if p.compra_cliente else "sin materiales"
+        p.estado, p.materiales_pagados_en, p.materiales_referencia = "materiales_pagados", ahora(), ref
         _listo(db, p, user)
     else:
         p.estado = "pagado"
@@ -327,11 +343,14 @@ class PagoMateriales(BaseModel):
 
 def _listo(db: Session, p: Presupuesto, actor: User) -> None:
     p.orden.pausa_desde = None  # termina la pausa por inspección: pasa a confirmación de retiro
-    svc.registrar(db, p.orden, p.orden.estado, actor, f"Materiales pagados al técnico ({p.materiales_referencia}): listo para instalar")
+    nota = "materiales a cargo del cliente" if p.compra_cliente else f"materiales pagados al técnico ({p.materiales_referencia})"
+    svc.registrar(db, p.orden, p.orden.estado, actor, f"Pago confirmado, {nota}: listo para instalar")
     notificar(db, p.tecnico.user_id, "¡Listo para instalar!", f"{p.orden.codigo}: ya puedes retirar e instalar.", p.orden_id)
     for a in p.orden.ayudantes:
         notificar(db, a.user_id, "¡Listo para instalar!", f"{p.orden.codigo}: sales con {p.tecnico.user.nombre}.", p.orden_id)
-    notificar(db, p.orden.cliente_id, "Pago confirmado", f"{p.orden.codigo}: tu instalación está confirmada.", p.orden_id)
+    lista = ", ".join(i["descripcion"] for i in p.items if i["tipo"] == "material")
+    extra = f" Recuerda tener los materiales listos: {lista}." if p.compra_cliente else ""
+    notificar(db, p.orden.cliente_id, "Pago confirmado", f"{p.orden.codigo}: tu instalación está confirmada.{extra}", p.orden_id)
 
 
 @router.post("/supervisor/presupuestos/{pres_id}/pagar-materiales")

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { api, subirFoto } from "../../api";
-import { DetallePresupuesto } from "../../components";
+import { DetallePresupuesto, QuienCompra } from "../../components";
 import { useNav } from "../../nav";
 import { tomarFoto } from "../../photo";
 import type { Orden } from "../../types";
@@ -19,6 +19,7 @@ export default function PresupuestoTecnico({ id }: { id: number }) {
   const [o, setO] = useState<Orden | null>(null);
   const [items, setItems] = useState<Item[]>([vacio("material"), vacio("mano_obra")]);
   const [notas, setNotas] = useState("");
+  const [compra, setCompra] = useState<"tecnico" | "cliente">("tecnico");
   const [fotos, setFotos] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -40,7 +41,8 @@ export default function PresupuestoTecnico({ id }: { id: number }) {
     setCargando(true); setError(null);
     try {
       await api(`/tecnico/ordenes/${id}/presupuesto`, { body: {
-        items: validos.map((x) => ({ tipo: x.tipo, descripcion: x.descripcion, cantidad: num(x.cantidad), precio: num(x.precio) })), notas, fotos } });
+        items: validos.map((x) => ({ tipo: x.tipo, descripcion: x.descripcion, cantidad: num(x.cantidad), precio: num(x.precio) })), notas, fotos,
+        materiales_compra: compra } });
       nav.back();
     } catch (e: any) { setError(e.message); }
     setCargando(false);
@@ -87,6 +89,15 @@ export default function PresupuestoTecnico({ id }: { id: number }) {
         <Boton titulo={`Agregar foto (${fotos.length})`} tipo="secundario" icono="camera" onPress={foto} />
         <Text style={{ color: C.gris }}>Materiales USD {mat.toFixed(2)} · Mano de obra USD {(total - mat).toFixed(2)}</Text>
       </Tarjeta>
+      {mat > 0 ? (
+        <Tarjeta>
+          <QuienCompra valor={compra} onCambiar={setCompra} paraTecnico />
+          <Texto gris size={13}>Es una sugerencia: el cliente puede cambiarla al aceptar.</Texto>
+          <Text style={{ fontWeight: "800", color: C.texto }}>
+            El cliente paga USD {(compra === "cliente" ? total - mat : total).toFixed(2)}{compra === "cliente" ? " (solo mano de obra)" : ""}
+          </Text>
+        </Tarjeta>
+      ) : null}
       <Aviso texto={error} />
     </Pantalla>
   );

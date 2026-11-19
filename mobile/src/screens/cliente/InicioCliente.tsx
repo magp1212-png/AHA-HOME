@@ -5,12 +5,15 @@ import { Pressable, Text, View } from "react-native";
 import { api } from "../../api";
 import { useNav } from "../../nav";
 import { useSession } from "../../session";
+import { HamburguesaCliente, MenuCliente } from "../../menus";
 import type { Orden } from "../../types";
-import { BotonCuenta, Campana, Aviso, C, Cargando, Etiqueta, Pantalla, Texto, Titulo, tonoEstado } from "../../ui";
+import { Campana, Aviso, C, Cargando, Etiqueta, Pantalla, Texto, Titulo, tonoEstado } from "../../ui";
+import Rastreo from "./Rastreo";
 
-export default function InicioCliente() {
+/** Inicio del cliente: si tiene un pedido en curso, muestra directo su rastreo. Con `lista`, es «Mis pedidos». */
+export default function InicioCliente({ lista }: { lista?: boolean }) {
   const nav = useNav();
-  const { perfil, salir, recargar } = useSession();
+  const { perfil, recargar } = useSession();
   const [msg, setMsg] = useState<string | null>(null);
   const horas = perfil?.verificacion_vence ? Math.max(0, Math.ceil((new Date(perfil.verificacion_vence).getTime() - Date.now()) / 3600000)) : null;
 
@@ -33,14 +36,19 @@ export default function InicioCliente() {
 
   const activas = (ordenes ?? []).filter((o) => !["completado", "cancelado"].includes(o.estado));
   const pasadas = (ordenes ?? []).filter((o) => ["completado", "cancelado"].includes(o.estado));
+  if (!lista && perfil?.email_verificado && activas.length) return <Rastreo id={activas[0].id} inicio />;
 
   return (
-    <Pantalla titulo="AHA HOME" subtitulo="Rastreo de pedido e instalación" volver={false} onRefresh={() => { setRefrescando(true); cargar(); }} refrescando={refrescando}
-      derecha={<><Campana /><BotonCuenta /></>}>
-      <View>
-        <Texto gris>Hola,</Texto>
-        <Titulo>{perfil?.nombre}</Titulo>
-      </View>
+    <Pantalla titulo={lista ? "Mis pedidos" : "AHA HOME"} subtitulo={lista ? undefined : "Rastreo de pedido e instalación"} volver={!!lista}
+      izquierda={lista ? undefined : <HamburguesaCliente />}
+      onRefresh={() => { setRefrescando(true); cargar(); }} refrescando={refrescando}
+      derecha={<Campana />} abajo={<MenuCliente activo={lista ? "pedidos" : "inicio"} />}>
+      {!lista ? (
+        <View>
+          <Texto gris>Hola,</Texto>
+          <Titulo>{perfil?.nombre}</Titulo>
+        </View>
+      ) : null}
       {perfil && !perfil.email_verificado ? (
         <View style={{ backgroundColor: C.alertaSuave, borderRadius: 16, padding: 14, gap: 10 }}>
           <Text style={{ fontWeight: "800", color: "#9A3412", fontSize: 15 }}>Verifica tu correo{horas !== null ? ` · te quedan ${horas} h` : ""}</Text>

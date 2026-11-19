@@ -337,6 +337,7 @@ class Presupuesto(Base):
     fotos: Mapped[list] = mapped_column(JSON, default=list)
     materiales_centavos: Mapped[int] = mapped_column(Integer, default=0)
     mano_obra_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    materiales_compra: Mapped[str] = mapped_column(String(10), default="tecnico")  # quién compra los materiales: tecnico | cliente
     estado: Mapped[str] = mapped_column(String(30), default="enviado")
     motivo_rechazo: Mapped[str] = mapped_column(String(300), default="")
     cliente_acepto_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
@@ -356,3 +357,12 @@ class Presupuesto(Base):
     @property
     def total_centavos(self) -> int:
         return self.materiales_centavos + self.mano_obra_centavos
+
+    @property
+    def compra_cliente(self) -> bool:
+        return self.materiales_compra == "cliente" and self.materiales_centavos > 0
+
+    @property
+    def a_pagar_centavos(self) -> int:
+        """Lo que paga el cliente: si él compra los materiales, solo la mano de obra."""
+        return self.mano_obra_centavos if self.compra_cliente else self.total_centavos

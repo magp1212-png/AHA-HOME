@@ -7,7 +7,7 @@ export type Perfil = {
               onboarding_completo: boolean; es_ayudante: boolean; jefe: string | null };
 };
 
-export type Persona = { id?: number; nombre: string; foto?: string | null; rol: "tecnico" | "ayudante"; cedula?: string | null; telefono?: string | null; grupo?: string | null };
+export type Persona = { id?: number; nombre: string; foto?: string | null; rol: "tecnico" | "ayudante"; calificacion?: number | null; calificaciones?: number; cedula?: string | null; telefono?: string | null; grupo?: string | null };
 
 export type Articulo = { id: number; tipo: string; tipo_texto: string; nombre: string; marca: string; modelo: string; serial: string;
                          instalar: boolean; precio_instalacion: string; estado: string };
@@ -38,7 +38,7 @@ export type CuentaPago = { banco: string; tipo: string; numero: string; titular:
 export type Presupuesto = {
   id: number; orden_id: number; codigo: string; estado: string; estado_texto: string;
   items: { tipo: "material" | "mano_obra"; descripcion: string; cantidad: number; precio: string; subtotal: string }[];
-  materiales: string; mano_obra: string; total: string; notas: string; motivo_rechazo: string; tecnico: string;
+  materiales: string; mano_obra: string; total: string; materiales_compra: "tecnico" | "cliente"; a_pagar: string; notas: string; motivo_rechazo: string; tecnico: string;
   cliente_acepto: boolean; admin_aprobo: boolean; pago: { metodo: string | null; referencia: string };
   cuenta_tecnico?: CuentaPago; cliente?: string;
 };

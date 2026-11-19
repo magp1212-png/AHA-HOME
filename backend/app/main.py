@@ -39,6 +39,10 @@ for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.
 @app.on_event("startup")
 def crear_tablas() -> None:
     Base.metadata.create_all(engine)
+    from .db import agregar_columnas_nuevas
+    nuevas = agregar_columnas_nuevas(engine)
+    if nuevas:
+        log.info("columnas nuevas agregadas: %s", ", ".join(nuevas))
     if os.environ.get("AHAHOME_PURGA", "1") == "1":
         threading.Thread(target=_purga_periodica, daemon=True).start()
 

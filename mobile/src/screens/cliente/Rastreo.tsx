@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -5,20 +6,22 @@ import { Pressable, Text, View } from "react-native";
 import { api } from "../../api";
 import { useNav } from "../../nav";
 import { FormPago, InspeccionCliente } from "../../components";
+import { HamburguesaCliente, MenuCliente } from "../../menus";
 import type { Orden, Persona } from "../../types";
-import { Aviso, Avatar, Boton, C, Cargando, Etiqueta, Pantalla, Tarjeta, Texto, Titulo } from "../../ui";
+import { Aviso, Avatar, Boton, C, Campana, Cargando, Etiqueta, Pantalla, Tarjeta, Texto, Titulo } from "../../ui";
 
 const ICONO: Record<string, React.ComponentProps<typeof Ionicons>["name"]> = {
   nevera: "snow-outline", lavadora: "water-outline", secadora: "sunny-outline", aire_acondicionado: "thermometer-outline",
   cocina: "flame-outline", televisor: "tv-outline", otro: "cube-outline",
 };
 
+type Fase = { texto: string; hecha: boolean; actual: boolean; pausa?: boolean };
+
 /** Las fases que ve el cliente según el tipo de servicio. Si pidió inspección, va primero
  *  «Inspección» (el servicio queda en pausa hasta aprobar y pagar el presupuesto); si no, se salta directo a «Confirmado». */
-function fases(o: Orden): { texto: string; hecha: boolean; actual: boolean; pausa?: boolean }[] {
-  const e = o.estado;
+function fases(o: Orden): Fase[] {
   const orden = ["solicitud_enviada", "tecnico_asignado", "cita_confirmada", "en_ruta", "en_progreso", "completado"];
-  const i = orden.indexOf(e);
+  const i = orden.indexOf(o.estado);
   const base = o.tipo_servicio === "traslado" ? ["Confirmado", "En camino", "Entregado"]
     : o.tipo_servicio === "instalacion" ? ["Confirmado", "En camino", "Instalación"]
     : ["Confirmado", "En camino", "Entregado", "Instalación"];
@@ -30,56 +33,109 @@ function fases(o: Orden): { texto: string; hecha: boolean; actual: boolean; paus
   return nombres.map((texto, k) => ({ texto, hecha: k < hechas, actual: k === hechas, pausa: conInspeccion && k === 0 && !!o.pausa?.activa }));
 }
 
-export default function Rastreo({ id }: { id: number }) {
+/** Rastreador a colores: verde con ✓ lo terminado, naranja lo que está pasando ahora, gris lo que falta. */
+function Rastreador({ f }: { f: Fase[] }) {
+  return (
+    <Tarjeta style={{ paddingHorizontal: 8 }}>
+      <View style={{ flexDirection: "row" }} accessibilityRole="progressbar"
+        accessibilityLabel={`Estado: ${f.find((x) => x.actual)?.texto ?? "completado"}`}>
+        {f.map((x, k) => {
+          const linea = x.hecha ? C.ok : x.actual ? C.naranja : C.borde;
+          return (
+            <View key={x.texto} style={{ flex: 1, alignItems: "center", gap: 8, zIndex: f.length - k }}>
+              {k > 0 ? <View style={{ position: "absolute", top: 13, right: "50%", width: "100%", height: 4, backgroundColor: linea }} /> : null}
+              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", zIndex: 1,
+                backgroundColor: x.hecha ? C.ok : x.actual ? C.naranja : C.borde }}>
+                {x.hecha ? <Ionicons name="checkmark" size={18} color={C.blanco} />
+                  : x.pausa ? <Ionicons name="pause" size={15} color={C.blanco} />
+                  : x.actual ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.blanco }} /> : null}
+              </View>
+              <Text style={{ fontSize: f.length > 4 ? 10.5 : 12, fontWeight: "700", color: x.hecha || x.actual ? C.texto : "#6B7789",
+                textAlign: "center", paddingHorizontal: 1 }}>{x.texto}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </Tarjeta>
+  );
+}
+
+function Estrellas({ valor, size = 16 }: { valor: number; size?: number }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 1 }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Ionicons key={n} size={size} color="#E8A317" name={valor >= n ? "star" : valor >= n - 0.5 ? "star-half" : "star-outline"} />
+      ))}
+    </View>
+  );
+}
+
+/** Rastreo del pedido. Con `inicio`, es la pantalla de inicio del cliente (menú ☰ arriba y menú fijo abajo). */
+export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }) {
   const nav = useNav();
   const [o, setO] = useState<Orden | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [estrellas, setEstrellas] = useState(0);
   const [msg, setMsg] = useState<string | null>(null);
+  const [sinPropina, setSinPropina] = useState(false);
+  const claveOmitir = `ahahome.propina.omitida.${id}`;
 
   const cargar = useCallback(async () => {
     try { const r = await api<Orden>(`/ordenes/${id}`); setO(r); setEstrellas(r.calificacion ?? 0); } catch (e: any) { setError(e.message); }
   }, [id]);
   useEffect(() => { cargar(); const t = setInterval(cargar, 20000); return () => clearInterval(t); }, [cargar]);
+  useEffect(() => { AsyncStorage.getItem(claveOmitir).then((v) => setSinPropina(v === "1")).catch(() => {}); }, [claveOmitir]);
 
   async function calificar(n: number) {
     setEstrellas(n);
     try { await api(`/ordenes/${id}/calificar`, { body: { estrellas: n } }); setMsg("¡Gracias por calificar el servicio!"); } catch (e: any) { setError(e.message); }
   }
-
   async function cancelar() {
     try { setO(await api<Orden>(`/ordenes/${id}/cancelar`, { body: { motivo: "Cancelado por el cliente desde la app" } })); } catch (e: any) { setError(e.message); }
   }
+  function omitirPropina() {
+    setSinPropina(true);
+    AsyncStorage.setItem(claveOmitir, "1").catch(() => {});
+  }
 
-  if (!o) return <Pantalla titulo="AHA HOME" subtitulo="Rastreo de pedido e instalación">{error ? <Aviso texto={error} /> : <Cargando />}</Pantalla>;
+  const marco = (hijos: React.ReactNode) => (
+    <Pantalla titulo="AHA HOME" subtitulo="Rastreo de pedido e instalación" volver={!inicio}
+      izquierda={inicio ? <HamburguesaCliente /> : undefined} derecha={<Campana />}
+      abajo={<MenuCliente activo={inicio ? "inicio" : "pedidos"} />}>
+      {hijos}
+    </Pantalla>
+  );
+  if (!o) return marco(error ? <Aviso texto={error} /> : <Cargando />);
+
   const f = fases(o);
   const enCamino = ["en_ruta", "en_progreso", "completado"].includes(o.estado);
   const puedeCambiar = ["solicitud_enviada", "tecnico_asignado", "cita_confirmada"].includes(o.estado);
-  const estadoCorto = o.estado === "cancelado" ? "Cancelado" : f.find((x) => x.actual)?.texto ?? "Completado";
+  const estadoCorto = o.estado === "cancelado" ? "Cancelado" : o.estado === "completado" ? "Completado"
+    : o.pausa?.activa ? "En pausa" : f.find((x) => x.actual)?.texto ?? "Completado";
+  const colorEstado = o.estado === "completado" ? C.ok : o.estado === "cancelado" ? C.error : C.naranja;
+  const p = o.presupuesto;
+  // botón principal naranja según el momento: pagar presupuesto lo resuelve la tarjeta de inspección; aquí, programar
+  const mostrarProgramar = puedeCambiar && !o.pausa?.activa;
 
-  return (
-    <Pantalla titulo="AHA HOME" subtitulo="Rastreo de pedido e instalación">
+  return marco(
+    <>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <Titulo>Rastreador de estado</Titulo>
-        <Etiqueta texto={o.estado === "completado" ? "Completado" : estadoCorto} tono={o.estado === "completado" ? "ok" : "lima"} />
+        <Text style={{ fontSize: 14, fontWeight: "900", color: colorEstado }}>{estadoCorto}</Text>
       </View>
-      <Tarjeta>
-        <View style={{ flexDirection: "row" }}>
-          {f.map((x, k) => (
-            <View key={x.texto} style={{ flex: 1, alignItems: "center", gap: 8, zIndex: f.length - k }}>
-              {k > 0 ? <View style={{ position: "absolute", top: 15, right: "50%", width: "100%", height: 4, backgroundColor: x.hecha || x.actual ? C.marino : C.linea }} /> : null}
-              <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", zIndex: 1,
-                backgroundColor: x.hecha ? C.ok : x.actual ? C.marino : C.blanco, borderWidth: x.hecha ? 0 : x.actual ? 4 : 3, borderColor: x.actual ? C.lima : C.borde }}>
-                {x.hecha ? <Ionicons name="checkmark" size={18} color={C.blanco} /> : x.pausa ? <Ionicons name="pause" size={16} color={C.lima} /> : null}
-              </View>
-              <Text style={{ fontSize: f.length > 4 ? 10.5 : 12, fontWeight: "700", color: x.hecha || x.actual ? C.texto : "#6B7789", textAlign: "center", paddingHorizontal: 2 }}>{x.texto}</Text>
-            </View>
-          ))}
-        </View>
-      </Tarjeta>
+      <Rastreador f={f} />
+      <Text style={{ fontSize: 12.5, color: C.gris, marginTop: -6 }}>{o.codigo} · {o.tipo_servicio_texto}</Text>
 
       {o.pausa?.activa ? (
-        <Aviso tono="info" texto={`Tu servicio está en pausa por la inspección. Cuando apruebes y pagues el presupuesto, seguimos con la confirmación del retiro.${o.pausa.vencida ? " Ya pasó el tiempo previsto: AHA HOME te contactará." : ""}`} />
+        <View style={{ backgroundColor: C.naranjaSuave, borderRadius: 14, borderWidth: 1, borderColor: "#F3C9AE", padding: 12, flexDirection: "row", gap: 10 }}>
+          <Ionicons name="pause-circle" size={22} color={C.naranja} />
+          <Text style={{ flex: 1, color: C.texto, fontSize: 14 }}>
+            <Text style={{ fontWeight: "800" }}>Tu servicio está en pausa por la inspección. </Text>
+            {p ? "Revisa el presupuesto: cuando lo apruebes y pagues, seguimos con la confirmación del retiro."
+              : "El técnico te visitará y te enviará el presupuesto aquí."}
+            {o.pausa.vencida ? " Ya pasó el tiempo previsto: AHA HOME te contactará." : ""}
+          </Text>
+        </View>
       ) : null}
       <InspeccionCliente o={o} recargar={cargar} />
 
@@ -88,22 +144,22 @@ export default function Rastreo({ id }: { id: number }) {
         {o.articulos.map((a) => {
           const listo = ["Entregado", "Instalado"].includes(a.estado);
           return (
-            <View key={a.id} style={{ flexBasis: "47%", flexGrow: 1, backgroundColor: C.blanco, borderRadius: 16, borderWidth: 1, borderColor: C.linea, padding: 12, alignItems: "center", gap: 6 }}>
+            <View key={a.id} style={{ flexBasis: "47%", flexGrow: 1, backgroundColor: C.blanco, borderRadius: 16, borderWidth: 1, borderColor: C.linea, padding: 12, alignItems: "center", gap: 5 }}>
               {listo ? <View style={{ position: "absolute", top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: C.ok, alignItems: "center", justifyContent: "center" }}>
                 <Ionicons name="checkmark" size={15} color={C.blanco} /></View> : null}
               <View style={{ width: 84, height: 76, borderRadius: 14, backgroundColor: C.limaSuave, alignItems: "center", justifyContent: "center" }}>
-                <Ionicons name={ICONO[a.tipo] ?? "cube-outline"} size={40} color={C.marino} />
+                <Ionicons name={ICONO[a.tipo] ?? "cube-outline"} size={42} color={C.marino} />
               </View>
               <Text style={{ fontSize: 14, fontWeight: "800", color: C.texto, textAlign: "center" }}>{a.nombre}</Text>
               {a.modelo ? <Text style={{ fontSize: 12, color: C.gris }}>{a.modelo}</Text> : null}
-              <Text style={{ fontSize: 13, fontWeight: "800", color: listo ? C.ok : C.marino }}>{a.estado}</Text>
+              <Text style={{ fontSize: 13, fontWeight: "800", color: listo ? C.ok : C.naranja }}>{a.estado}</Text>
               {a.instalar ? <Etiqueta texto="Con instalación" tono="lima" /> : <Etiqueta texto="En su caja" />}
             </View>
           );
         })}
       </View>
 
-      <Titulo>Tu técnico de instalación</Titulo>
+      <Titulo>{o.tipo_servicio === "traslado" ? "Tu técnico de entrega" : "Tu técnico de instalación"}</Titulo>
       <Tarjeta>
         {enCamino && o.tecnico ? (
           <>
@@ -112,8 +168,8 @@ export default function Rastreo({ id }: { id: number }) {
           </>
         ) : (
           <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-            <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: C.limaSuave, alignItems: "center", justifyContent: "center" }}>
-              <Ionicons name="shield-checkmark-outline" size={26} color={C.marino} />
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: C.limaSuave, alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="shield-checkmark-outline" size={28} color={C.marino} />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Texto negrita>{o.tecnico_asignado ? "Técnico asignado" : "Asignando técnico…"}</Texto>
@@ -138,17 +194,24 @@ export default function Rastreo({ id }: { id: number }) {
               </Pressable>
             ))}
           </View>
+          <Texto gris size={13}>Tu calificación ayuda a premiar a los mejores técnicos.</Texto>
           <Aviso texto={msg} tono="ok" />
         </Tarjeta>
       ) : null}
 
-      {o.estado === "completado" ? (
+      {o.estado === "completado" && (o.propina.dada || !sinPropina) ? (
         <Tarjeta>
           {o.propina.dada ? <Aviso tono="ok" texto={`¡Gracias! Le diste USD ${o.propina.monto} de propina a la cuadrilla.`} /> : (
             <>
-              <Texto negrita size={16}>¿Quieres dar propina a la cuadrilla?</Texto>
-              <Texto gris size={14}>Es opcional. Va completa al técnico y su ayudante.</Texto>
-              <FormPago titulo="PROPINA" boton="Dar propina" conMonto
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Texto negrita size={16}>Propina para la cuadrilla</Texto>
+                <Etiqueta texto="OPCIONAL" />
+              </View>
+              <Texto gris size={14}>
+                Si quieres, puedes agradecer a {o.tecnico?.nombre?.split(" ")[0] ?? "la cuadrilla"}
+                {o.ayudantes[0] ? ` y a ${o.ayudantes[0].nombre.split(" ")[0]}` : ""}. No es obligatoria.
+              </Texto>
+              <FormPago titulo="¿CUÁNTO?" boton="Dar propina" conMonto onOmitir={omitirPropina}
                 onEnviar={async (d) => { await api(`/ordenes/${id}/propina`, { body: d }); cargar(); }} />
             </>
           )}
@@ -156,24 +219,40 @@ export default function Rastreo({ id }: { id: number }) {
       ) : null}
 
       <Aviso texto={error} />
-      {puedeCambiar ? (
-        <>
-          <Boton titulo="PROGRAMAR INSTALACIÓN" onPress={() => nav.push("reprogramar", { id: o.id })} />
-          <Boton titulo="Cancelar pedido" tipo="peligro" onPress={cancelar} />
-        </>
+      {mostrarProgramar ? (
+        <Boton titulo={o.tipo_servicio === "traslado" ? "PROGRAMAR ENTREGA" : "PROGRAMAR INSTALACIÓN"} tipo="naranja" icono="calendar-outline"
+          onPress={() => nav.push("reprogramar", { id: o.id })} />
       ) : null}
-    </Pantalla>
+      {puedeCambiar ? <Boton titulo="Cancelar pedido" tipo="peligro" onPress={cancelar} /> : null}
+    </>
   );
 }
 
 function PersonaFila({ p, principal }: { p: Persona; principal?: boolean }) {
+  if (!principal) {
+    return (
+      <View style={{ flexDirection: "row", gap: 12, alignItems: "center", backgroundColor: C.fondo, borderRadius: 12, padding: 8 }}>
+        <Avatar nombre={p.nombre} foto={p.foto} size={44} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, fontWeight: "800", color: C.texto }}>{p.nombre}</Text>
+          <Text style={{ fontSize: 12.5, color: C.gris }}>Ayudante · verificado por AHA HOME</Text>
+        </View>
+      </View>
+    );
+  }
   return (
     <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-      <Avatar nombre={p.nombre} foto={p.foto} size={principal ? 68 : 46} borde={principal ? C.lima : undefined} />
+      <Avatar nombre={p.nombre} foto={p.foto} size={68} borde={C.lima} />
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ fontSize: principal ? 18 : 15, fontWeight: "800", color: C.texto }}>{p.nombre}</Text>
-        <Text style={{ fontSize: 13, color: C.gris }}>{p.rol === "ayudante" ? "Ayudante asignado" : "Técnico asignado"} · verificado por AHA HOME</Text>
+        <Text style={{ fontSize: 18, fontWeight: "800", color: C.texto }}>{p.nombre}</Text>
+        {p.calificacion != null ? (
+          <>
+            <Text style={{ fontSize: 13, color: C.gris }}>Calificación {p.calificacion.toFixed(1)} ({p.calificaciones})</Text>
+            <Estrellas valor={p.calificacion} />
+          </>
+        ) : <Text style={{ fontSize: 13, color: C.gris }}>Técnico verificado por AHA HOME</Text>}
       </View>
+      <Ionicons name="thumbs-up" size={26} color={C.naranja} accessibilityLabel="Técnico recomendado" />
     </View>
   );
 }
