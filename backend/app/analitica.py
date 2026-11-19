@@ -134,7 +134,7 @@ def calcular(db: Session, desde: dt.date, hasta: dt.date, tienda_id: int | None 
         "calor": {"dias": DIAS, "horas": HORAS, "valores": calor},
         "articulos": sorted([{"tipo": k, "texto": TIPO_EQUIPO_TEXTO.get(k, k), "total": v, "instalados": arts_inst[k]} for k, v in arts_total.items()],
                             key=lambda x: -x["total"]),
-        "tiempos_promedio_min": {k: round(sum(v) / len(v)) for k, v in fases.items()},
+        "tiempos_promedio_min": {k: round(sum(v) / len(v)) for k, v in fases.items() if v},
         "cumplimiento": {
             "llegada_en_franja": pct(llegadas_ok, llegadas),
             "cierre_con_evidencia": 100 if hechas else None,  # el servidor no deja cerrar sin fotos

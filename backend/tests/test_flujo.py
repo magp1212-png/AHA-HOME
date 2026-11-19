@@ -585,3 +585,11 @@ def test_pausa_por_inspeccion_vence_y_se_puede_quitar(client):
     tecnico = login_pin(client, tel_de(r["tecnico"]["id"]))
     r = client.post(f"/ordenes/{o['id']}/inspeccion", json={}, headers=tecnico).json()
     assert r["pausa"]["activa"]
+
+
+def test_analitica_sin_servicios_completados(client):
+    """Con órdenes abiertas pero ninguna completada, la analítica no debe fallar."""
+    agente = login(client, "agente@ahahome.test")
+    nueva(client, agente)
+    r = client.get("/supervisor/analitica", headers=login(client, "superadmin@ahahome.test"))
+    assert r.status_code == 200, r.text
