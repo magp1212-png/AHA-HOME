@@ -157,6 +157,7 @@ export default function Control() {
                   </View>
                 </View>
               ) : null}
+              <Boton titulo="Ver chat de la orden" tipo="secundario" icono="chatbubble-ellipses-outline" onPress={() => nav.push("chat", { id: o.id })} />
               {["solicitud_enviada", "tecnico_asignado", "cita_confirmada"].includes(o.estado) ? (
                 <Boton titulo={o.tecnico ? "Reasignar automáticamente" : "Buscar técnico"} tipo="secundario" icono="shuffle" onPress={() => hacer(`/supervisor/ordenes/${o.id}/reasignar`)} />
               ) : null}

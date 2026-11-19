@@ -376,3 +376,22 @@ class Presupuesto(Base):
     def a_pagar_centavos(self) -> int:
         """Lo que paga el cliente: si él compra los materiales, solo la mano de obra."""
         return self.mano_obra_centavos if self.compra_cliente else self.total_centavos
+
+
+class Mensaje(Base):
+    """Chat de una orden: cliente ↔ técnico y ayudante, supervisado por el centro de control."""
+    __tablename__ = "mensajes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"), index=True)
+    autor_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))  # None = mensaje del sistema
+    texto: Mapped[str] = mapped_column(String(1000), default="")
+    foto: Mapped[str] = mapped_column(String(200), default="")
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
+
+
+class ChatLectura(Base):
+    """Hasta qué mensaje leyó cada persona el chat de cada orden."""
+    __tablename__ = "chat_lecturas"
+    orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), primary_key=True)
+    ultimo_id: Mapped[int] = mapped_column(Integer, default=0)

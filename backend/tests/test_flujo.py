@@ -657,3 +657,28 @@ def test_reprogramar_con_anticipacion_y_penalidad_por_entrega_fallida(client):
     assert r["penalidad"]["estado"] == "pagada" and r["reprogramar"]["puede"]
     r = client.post(f"/ordenes/{o['id']}/reprogramar", json={"fecha": LUNES, "franja": "15:00 - 17:00"}, headers=cliente)
     assert r.status_code == 200 and r.json()["estado"] in ("tecnico_asignado", "solicitud_enviada")
+
+
+def test_chat_supervisado(client):
+    """Cliente y técnico conversan; el centro de control ve todo y puede escribir; terceros no entran."""
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente)
+    cliente = login(client, "maria@ahahome.test")
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    r = client.post(f"/ordenes/{o['id']}/chat", json={"texto": "Buenos días, ¿a qué hora llegan?"}, headers=cliente)
+    assert r.status_code == 200 and r.json()["mio"]
+    assert client.get(f"/ordenes/{o['id']}/chat?solo_resumen=1", headers=tecnico).json()["no_leidos"] == 1
+    assert any(t.startswith("Mensaje de María") for t in titulos(client, tecnico))
+    chat = client.get(f"/ordenes/{o['id']}/chat", headers=tecnico).json()
+    assert chat["mensajes"][0]["rol"] == "cliente" and chat["abierto"]
+    assert client.get(f"/ordenes/{o['id']}/chat?solo_resumen=1", headers=tecnico).json()["no_leidos"] == 0
+    client.post(f"/ordenes/{o['id']}/chat", json={"texto": "Llego a las 10:40"}, headers=tecnico)
+    # el centro de control supervisa: ve el chat, escribe y queda el aviso de que se unió
+    sup = login(client, "supervisor@ahahome.test")
+    assert any(c["orden_id"] == o["id"] for c in client.get("/supervisor/chats", headers=sup).json())
+    client.post(f"/ordenes/{o['id']}/chat", json={"texto": "Seguimos tu servicio en vivo"}, headers=sup)
+    ms = client.get(f"/ordenes/{o['id']}/chat", headers=cliente).json()["mensajes"]
+    assert [m["sistema"] for m in ms] == [False, False, True, False] and ms[-1]["control"]
+    # otra clienta o la caja no pueden leerlo
+    assert client.get(f"/ordenes/{o['id']}/chat", headers=agente).status_code == 404
+    assert client.get("/supervisor/chats", headers=cliente).status_code == 403

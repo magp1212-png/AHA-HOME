@@ -6,6 +6,7 @@ import { api } from "../../api";
 import { confirmarIdentidad, biometriaDisponible } from "../../biometria";
 import { useGpsEnVivo } from "../../gps";
 import { HamburguesaTecnico, MenuTecnico } from "../../menus";
+import { BotonChat } from "../cliente/InicioActivo";
 import { useNav } from "../../nav";
 import { useSession } from "../../session";
 import type { Orden, Persona } from "../../types";
@@ -167,6 +168,7 @@ function TarjetaOrden({ o, activa, ancho, esAyudante, cargando, accion, retirar 
   const nav = useNav();
   const antes = ["tecnico_asignado", "cita_confirmada"].includes(o.estado);
   const opciones = [
+    { icono: "chatbubble-ellipses-outline" as const, texto: "Chat con el cliente", onPress: () => nav.push("chat", { id: o.id }) },
     { icono: "warning-outline" as const, texto: "Reportar incidencia", onPress: () => nav.push("incidencia", { id: o.id }), peligro: true },
     ...(!o.inspeccion.requerida && o.articulos.some((a) => a.instalar) && antes
       ? [{ icono: "pause-circle-outline" as const, texto: "Pausar: hace falta inspección", onPress: () => accion(`/ordenes/${o.id}/inspeccion`) }] : []),
@@ -190,9 +192,12 @@ function TarjetaOrden({ o, activa, ancho, esAyudante, cargando, accion, retirar 
       </View>
       <View style={{ padding: 12, gap: 8 }}>
         <Etiqueta texto={o.estado_texto} tono={o.estado === "en_ruta" || o.estado === "en_progreso" ? "alerta" : "lima"} />
-        <View>
-          <Text style={{ color: C.gris, fontSize: 12 }}>Cliente</Text>
-          <Text style={{ color: C.texto, fontWeight: "800", fontSize: 15 }}>{o.cliente.nombre} · {o.cliente.telefono}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: C.gris, fontSize: 12 }}>Cliente</Text>
+            <Text style={{ color: C.texto, fontWeight: "800", fontSize: 15 }}>{o.cliente.nombre} · {o.cliente.telefono}</Text>
+          </View>
+          <BotonChat id={o.id} n={0} />
         </View>
         <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
           <View style={{ flex: 1 }}>

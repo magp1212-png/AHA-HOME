@@ -8,7 +8,7 @@ import { useSession } from "../../session";
 import { HamburguesaCliente, MenuCliente } from "../../menus";
 import type { Orden } from "../../types";
 import { Campana, Aviso, C, Cargando, Etiqueta, Pantalla, Texto, Titulo, tonoEstado } from "../../ui";
-import Rastreo from "./Rastreo";
+import InicioActivo from "./InicioActivo";
 
 /** Inicio del cliente: si tiene un pedido en curso, muestra directo su rastreo. Con `lista`, es «Mis pedidos». */
 export default function InicioCliente({ lista }: { lista?: boolean }) {
@@ -36,7 +36,11 @@ export default function InicioCliente({ lista }: { lista?: boolean }) {
 
   const activas = (ordenes ?? []).filter((o) => !["completado", "cancelado"].includes(o.estado));
   const pasadas = (ordenes ?? []).filter((o) => ["completado", "cancelado"].includes(o.estado));
-  if (!lista && perfil?.email_verificado && activas.length) return <Rastreo id={activas[0].id} inicio />;
+  if (!lista && ordenes && perfil?.email_verificado) {
+    // el pedido en curso, o el último completado sin calificar, para que pueda calificar y dar propina
+    const sinCalificar = pasadas.find((x) => x.estado === "completado" && !x.calificacion);
+    return <InicioActivo o={activas[0] ?? sinCalificar ?? null} onRefrescar={cargar} />;
+  }
 
   return (
     <Pantalla titulo={lista ? "Mis pedidos" : "AHA HOME"} subtitulo={lista ? undefined : "Rastreo de pedido e instalación"} volver={!!lista}

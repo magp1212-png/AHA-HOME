@@ -13,6 +13,8 @@ import InicioCaja from "./src/screens/agente/InicioCaja";
 import NuevaOrden from "./src/screens/agente/NuevaOrden";
 import OrdenCaja from "./src/screens/agente/OrdenCaja";
 import InicioCliente from "./src/screens/cliente/InicioCliente";
+import MisEquipos from "./src/screens/cliente/MisEquipos";
+import ChatOrden from "./src/screens/Chat";
 import Rastreo from "./src/screens/cliente/Rastreo";
 import Reprogramar from "./src/screens/cliente/Reprogramar";
 import Inicio from "./src/screens/Inicio";
@@ -61,6 +63,8 @@ function Router() {
           case "miCuenta": return <MiCuenta />;
           case "cliente": return <InicioCliente />;
           case "misPedidos": return <InicioCliente lista />;
+          case "misEquipos": return <MisEquipos />;
+          case "chat": return <ChatOrden id={p.id} />;
           case "rastreo": return <Rastreo id={p.id} />;
           case "reprogramar": return <Reprogramar id={p.id} />;
           case "caja": return <InicioCaja />;
