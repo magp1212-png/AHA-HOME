@@ -212,6 +212,10 @@ def vista(orden: Orden, rol: str) -> dict:
     d["penalidad"] = info_penalidad(orden)
     en_camino = orden.estado in ("en_ruta", "en_progreso", "completado")
     if rol == "cliente":
+        t = orden.tecnico
+        # GPS de la cuadrilla solo mientras va en camino o está en su casa
+        d["tecnico_gps"] = ({"lat": t.lat_actual, "lng": t.lng_actual, "en": _iso(t.ubicacion_en)}
+                            if t and orden.estado in ("en_ruta", "en_progreso") and t.lat_actual else None)
         d["tecnico"] = ficha_cliente(orden.tecnico) if en_camino else None
         d["ayudantes"] = [ficha_cliente(a) for a in orden.ayudantes] if en_camino else []
         d["tecnico_asignado"] = orden.tecnico is not None

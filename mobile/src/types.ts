@@ -19,7 +19,8 @@ export type Orden = {
   con_retiro_en_tienda: boolean;
   cliente: { nombre: string; telefono: string; direccion: string; referencia: string; zona: string; lat: number | null; lng: number | null };
   articulos: Articulo[]; fecha: string; franja: string;
-  tienda: { id: number; nombre: string; direccion: string };
+  tienda: { id: number; nombre: string; direccion: string; lat?: number | null; lng?: number | null };
+  tecnico_gps?: { lat: number; lng: number; en: string | null } | null;
   linea_de_tiempo: Paso[];
   tecnico: Persona | null; ayudantes: Persona[]; tecnico_asignado?: boolean;
   checklist_requerido: string[]; fotos_requeridas: string[]; checklist: Record<string, boolean>; fotos: Record<string, string>;

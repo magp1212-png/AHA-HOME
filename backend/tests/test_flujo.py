@@ -682,3 +682,20 @@ def test_chat_supervisado(client):
     # otra clienta o la caja no pueden leerlo
     assert client.get(f"/ordenes/{o['id']}/chat", headers=agente).status_code == 404
     assert client.get("/supervisor/chats", headers=cliente).status_code == 403
+
+
+def test_banners_de_aliados_desde_el_centro_de_control(client):
+    cliente = login(client, "maria@ahahome.test")
+    sa = login(client, "superadmin@ahahome.test")
+    r = client.get("/banners", headers=cliente).json()
+    assert len(r["aha"]) == 3 and len(r["aliados"]) == 2  # los de fábrica
+    assert client.post("/admin/banners", json={"titulo": "x"}, headers=cliente).status_code == 403
+    b = client.post("/admin/banners", json={"tipo": "aliado", "etiqueta": "ALIADO", "titulo": "Pinturas Caracas 10% OFF", "boton": "VER OFERTA",
+                                            "enlace": "https://ejemplo.com/oferta", "color": "verde", "orden": -1}, headers=sa).json()
+    assert client.post("/admin/banners", json={"titulo": "Mal", "enlace": "javascript:alert(1)"}, headers=sa).status_code == 422
+    aliados = client.get("/banners", headers=cliente).json()["aliados"]
+    assert aliados[0]["titulo"] == "Pinturas Caracas 10% OFF"
+    client.post(f"/banners/{b['id']}/clic", headers=cliente)
+    client.put(f"/admin/banners/{b['id']}", json=b | {"activo": False}, headers=sa)
+    assert all(x["id"] != b["id"] for x in client.get("/banners", headers=cliente).json()["aliados"])
+    assert [x["clics"] for x in client.get("/admin/banners", headers=sa).json() if x["id"] == b["id"]] == [1]

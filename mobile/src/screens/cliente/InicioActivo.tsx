@@ -2,12 +2,13 @@
 // seguimiento plegable con chat, mensajes de AHA HOME, banners de aliados y menú flotante.
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
-import { Linking, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { Image, Linking, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, G, Path, Rect } from "react-native-svg";
 
-import { api } from "../../api";
+import { api, fileUrl } from "../../api";
 import { Calendario, Camion, Campana, Equipos } from "../../ilustraciones";
+import MapaReal, { type PuntoMapa, type RutaMapa } from "../../MapaReal";
 import { MenuFlotanteCliente } from "../../menus";
 import { useNav } from "../../nav";
 import { useSession } from "../../session";
@@ -27,16 +28,20 @@ const DESCRIPCION: Record<string, string> = {
   traslado_instalacion: "Retiramos tu compra en la tienda, la llevamos a tu casa, la desembalamos, la instalamos y nos llevamos las cajas.",
 };
 
-// Mensajes propios de AHA HOME y espacios para aliados (por ahora fijos; luego se cargan desde el centro de control).
-const MENSAJES = [
-  { titulo: "Instalación + retiro de cajas", texto: "Todo incluido desde la caja de tu tienda" },
-  { titulo: "Inspección antes de instalar", texto: "Pídela y te damos el presupuesto sin compromiso" },
-  { titulo: "Califica a tu técnico", texto: "Tu opinión premia a los mejores" },
-];
-const ALIADOS = [
-  { etiqueta: "ALIADO · PRÓXIMAMENTE", titulo: "Tu marca aquí", boton: "VER BENEFICIO", fondo: C.lima, texto: C.marino },
-  { etiqueta: "ALIADO · PRÓXIMAMENTE", titulo: "Promoción de la tienda", boton: "VER MÁS", fondo: "#2A78D6", texto: C.blanco },
-];
+// Mensajes de AHA HOME y publicidad de aliados: los administra el superadmin desde el centro de control.
+export type Banner = { id: number; tipo: "aha" | "aliado"; etiqueta: string; titulo: string; texto: string; boton: string; enlace: string;
+                       imagen: string | null; color: "lima" | "azul" | "marino" | "naranja" | "verde" };
+export const COLOR_BANNER: Record<Banner["color"], { fondo: string; texto: string; boton: string; botonTexto: string }> = {
+  lima: { fondo: C.lima, texto: C.marino, boton: C.marino, botonTexto: C.lima },
+  azul: { fondo: "#2A78D6", texto: C.blanco, boton: C.blanco, botonTexto: "#1B4F95" },
+  marino: { fondo: C.marino, texto: C.blanco, boton: C.lima, botonTexto: C.marino },
+  naranja: { fondo: C.naranja, texto: C.blanco, boton: C.blanco, botonTexto: C.naranja },
+  verde: { fondo: "#1E8A4C", texto: C.blanco, boton: C.blanco, botonTexto: "#1E8A4C" },
+};
+function abrirBanner(b: Banner) {
+  api(`/banners/${b.id}/clic`, { body: {} }).catch(() => {});
+  if (b.enlace) Linking.openURL(b.enlace);
+}
 
 function Mapa({ o }: { o: Orden }) {
   // Mapa esquemático: la estrella es la tienda donde compró; el pin verde, su casa; el camión, la cuadrilla.
@@ -45,6 +50,21 @@ function Mapa({ o }: { o: Orden }) {
     ? "M70 70 C110 70 130 112 175 112 S250 100 292 58" : "";
   const estado = o.estado === "en_ruta" ? "En camino a tu casa" : o.estado === "en_progreso" ? "La cuadrilla está en tu casa"
     : o.estado === "completado" ? "Servicio completado" : o.con_retiro_en_tienda ? `Por retirar · ${o.franja.replace("-", " – ")}` : `Cita · ${o.franja.replace("-", " – ")}`;
+  // Mapa real (OpenStreetMap) cuando hay coordenadas de la tienda y de la casa; si no, el esquema dibujado.
+  const t = o.tienda, cl = o.cliente;
+  const real = t.lat && t.lng && cl.lat && cl.lng ? (() => {
+    const tienda: [number, number] = [t.lat!, t.lng!], casa: [number, number] = [cl.lat!, cl.lng!];
+    const camion: [number, number] | null = o.tecnico_gps ? [o.tecnico_gps.lat, o.tecnico_gps.lng]
+      : o.estado === "en_progreso" || o.estado === "completado" ? casa : o.estado === "en_ruta" ? tienda : null;
+    const puntos: PuntoMapa[] = [
+      { lat: tienda[0], lng: tienda[1], tipo: "tienda", titulo: `★ ${t.nombre}`, detalle: "Donde compraste", destacado: true },
+      { lat: casa[0], lng: casa[1], tipo: "casa", titulo: "Tu casa", detalle: cl.direccion },
+      ...(camion ? [{ lat: camion[0], lng: camion[1], tipo: "camion" as const, titulo: "Tu cuadrilla" }] : []),
+    ];
+    const rutas: RutaMapa[] = [{ desde: tienda, hasta: casa }];
+    if (o.estado === "en_ruta" && camion) rutas.push({ desde: tienda, hasta: camion, hecho: true });
+    return { puntos, rutas };
+  })() : null;
   function verMapa() {
     const destino = o.cliente.lat && o.cliente.lng ? `${o.cliente.lat},${o.cliente.lng}` : `${o.cliente.direccion}, Caracas`;
     const origen = `${o.tienda.direccion || o.tienda.nombre}, Caracas`;
@@ -52,6 +72,19 @@ function Mapa({ o }: { o: Orden }) {
       : `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origen)}&destination=${encodeURIComponent(destino)}`);
   }
   return (
+    <>
+    {real ? (
+      <View style={{ borderRadius: 24, overflow: "hidden", ...vidrio }}>
+        <MapaReal alto={220} interactivo={false} puntos={real.puntos} rutas={real.rutas} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Ver la ruta en el mapa" onPress={verMapa}
+          style={{ position: "absolute", left: 10, right: 10, bottom: 10, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.94)",
+            flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14 }}>
+          <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: C.naranja }} />
+          <Text style={{ flex: 1, fontSize: 13.5, color: C.texto, fontWeight: "600" }} numberOfLines={1}>{estado}</Text>
+          <Text style={{ fontWeight: "800", color: C.marino }}>Ver mapa ›</Text>
+        </Pressable>
+      </View>
+    ) : (
     <Pressable accessibilityRole="button" accessibilityLabel="Ver la ruta en el mapa" onPress={verMapa}
       style={{ borderRadius: 24, overflow: "hidden", ...vidrio }}>
       <Svg width="100%" height={190} viewBox="0 0 358 190" preserveAspectRatio="xMidYMid slice">
@@ -91,6 +124,8 @@ function Mapa({ o }: { o: Orden }) {
         <Text style={{ fontWeight: "800", color: C.marino }}>Ver mapa ›</Text>
       </View>
     </Pressable>
+    )}
+    </>
   );
 }
 
@@ -233,6 +268,8 @@ export default function InicioActivo({ o, onRefrescar }: { o: Orden | null; onRe
   const { perfil } = useSession();
   const avisos = useAvisos();
   const [chatNuevos, setChatNuevos] = useState(0);
+  const [banners, setBanners] = useState<{ aha: Banner[]; aliados: Banner[] }>({ aha: [], aliados: [] });
+  useEffect(() => { api<{ aha: Banner[]; aliados: Banner[] }>("/banners").then(setBanners).catch(() => {}); }, []);
   useEffect(() => {
     if (!o) return;
     let vivo = true;
@@ -312,8 +349,8 @@ export default function InicioActivo({ o, onRefrescar }: { o: Orden | null; onRe
 
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }} snapToInterval={Math.min(width, 520) - 22} decelerationRate="fast">
-          {MENSAJES.map((m) => (
-            <View key={m.titulo} style={{ width: Math.min(width, 520) - 32, borderRadius: 22, backgroundColor: C.marino, padding: 14,
+          {banners.aha.map((m) => (
+            <Pressable key={m.id} disabled={!m.enlace} onPress={() => abrirBanner(m)} style={{ width: Math.min(width, 520) - 32, borderRadius: 22, backgroundColor: C.marino, padding: 14,
               flexDirection: "row", alignItems: "center", gap: 12 }}>
               <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" }}>
                 <Logo size={30} conFondo={false} />
@@ -322,31 +359,39 @@ export default function InicioActivo({ o, onRefrescar }: { o: Orden | null; onRe
                 <Text style={{ color: C.lima, fontWeight: "900", fontSize: 16 }}>{m.titulo}</Text>
                 <Text style={{ color: "#DCDEF0", fontSize: 13.5 }}>{m.texto}</Text>
               </View>
-            </View>
+            </Pressable>
           ))}
         </ScrollView>
 
-        <Text style={{ fontSize: 20, fontWeight: "800", color: C.texto, marginTop: 4 }}>Alianzas y beneficios</Text>
+        {banners.aliados.length ? <Text style={{ fontSize: 20, fontWeight: "800", color: C.texto, marginTop: 4 }}>Alianzas y beneficios</Text> : null}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
           snapToInterval={anchoBanner + 12} decelerationRate="fast">
-          {ALIADOS.map((a) => (
-            <View key={a.titulo} style={{ width: anchoBanner, height: 150, borderRadius: 22, backgroundColor: a.fondo, padding: 16, overflow: "hidden" }}>
-              <Text style={{ color: a.texto, fontSize: 11, fontWeight: "900", letterSpacing: 0.6, opacity: 0.85 }}>{a.etiqueta}</Text>
-              <Text style={{ color: a.texto, fontSize: 21, fontWeight: "800", marginTop: 6, maxWidth: "62%" }}>{a.titulo}</Text>
-              <View style={{ position: "absolute", left: 16, bottom: 16, borderRadius: 15, paddingHorizontal: 14, height: 30, justifyContent: "center",
-                backgroundColor: a.texto === C.marino ? C.marino : C.blanco }}>
-                <Text style={{ fontSize: 12, fontWeight: "900", color: a.texto === C.marino ? C.lima : "#1B4F95" }}>{a.boton}</Text>
-              </View>
-              <View style={{ position: "absolute", right: 16, top: 33, width: 84, height: 84, borderRadius: 22, borderWidth: 2, borderStyle: "dashed",
-                borderColor: a.texto === C.marino ? "rgba(33,36,77,0.45)" : "rgba(255,255,255,0.75)", alignItems: "center", justifyContent: "center",
-                backgroundColor: "rgba(255,255,255,0.18)" }}>
-                <Text style={{ fontSize: 11, fontWeight: "800", color: a.texto, textAlign: "center" }}>LOGO DEL{"\n"}ALIADO</Text>
-              </View>
-            </View>
-          ))}
+          {banners.aliados.map((a) => <TarjetaAliado key={a.id} a={a} ancho={anchoBanner} />)}
         </ScrollView>
       </ScrollView>
       <MenuFlotanteCliente activo="inicio" onCentro={() => (o ? nav.push("rastreo", { id: o.id }) : nav.push("misPedidos"))} />
     </View>
+  );
+}
+
+export function TarjetaAliado({ a, ancho }: { a: Banner; ancho: number }) {
+  const col = COLOR_BANNER[a.color] ?? COLOR_BANNER.lima;
+  return (
+    <Pressable accessibilityRole={a.enlace ? "link" : undefined} disabled={!a.enlace} onPress={() => abrirBanner(a)}
+      style={{ width: ancho, height: 150, borderRadius: 22, backgroundColor: col.fondo, padding: 16, overflow: "hidden" }}>
+      {a.etiqueta ? <Text style={{ color: col.texto, fontSize: 11, fontWeight: "900", letterSpacing: 0.6, opacity: 0.85 }}>{a.etiqueta}</Text> : null}
+      <Text style={{ color: col.texto, fontSize: 20, fontWeight: "800", marginTop: 6, maxWidth: "62%" }} numberOfLines={2}>{a.titulo}</Text>
+      {a.texto ? <Text style={{ color: col.texto, fontSize: 12.5, maxWidth: "62%", opacity: 0.9 }} numberOfLines={2}>{a.texto}</Text> : null}
+      {a.boton ? (
+        <View style={{ position: "absolute", left: 16, bottom: 16, borderRadius: 15, paddingHorizontal: 14, height: 30, justifyContent: "center", backgroundColor: col.boton }}>
+          <Text style={{ fontSize: 12, fontWeight: "900", color: col.botonTexto }}>{a.boton}</Text>
+        </View>
+      ) : null}
+      <View style={{ position: "absolute", right: 16, top: 33, width: 84, height: 84, borderRadius: 22, overflow: "hidden", alignItems: "center", justifyContent: "center",
+        borderWidth: a.imagen ? 0 : 2, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.6)", backgroundColor: a.imagen ? C.blanco : "rgba(255,255,255,0.18)" }}>
+        {a.imagen ? <Image source={{ uri: fileUrl(a.imagen) ?? undefined }} style={{ width: 84, height: 84 }} resizeMode="contain" />
+          : <Text style={{ fontSize: 11, fontWeight: "800", color: col.texto, textAlign: "center" }}>LOGO DEL{"\n"}ALIADO</Text>}
+      </View>
+    </Pressable>
   );
 }

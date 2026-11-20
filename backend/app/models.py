@@ -395,3 +395,23 @@ class ChatLectura(Base):
     orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), primary_key=True)
     ultimo_id: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Banner(Base):
+    """Mensajes de AHA HOME y publicidad de aliados en el inicio del cliente. Los administra el superadmin."""
+    __tablename__ = "banners"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tipo: Mapped[str] = mapped_column(String(10), default="aliado")  # aha | aliado
+    etiqueta: Mapped[str] = mapped_column(String(40), default="")
+    titulo: Mapped[str] = mapped_column(String(80))
+    texto: Mapped[str] = mapped_column(String(160), default="")
+    boton: Mapped[str] = mapped_column(String(30), default="")
+    enlace: Mapped[str] = mapped_column(String(300), default="")
+    imagen: Mapped[str] = mapped_column(String(200), default="")  # logo del aliado (subido a /archivos)
+    color: Mapped[str] = mapped_column(String(10), default="lima")  # lima | azul | marino | naranja | verde
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    desde: Mapped[str] = mapped_column(String(10), default="")  # AAAA-MM-DD, vacío = siempre
+    hasta: Mapped[str] = mapped_column(String(10), default="")
+    clics: Mapped[int] = mapped_column(Integer, default=0)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)

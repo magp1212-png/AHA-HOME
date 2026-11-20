@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
 
 import { api } from "../../api";
+import MapaReal from "../../MapaReal";
 import { MenuTecnico } from "../../menus";
 import { Aviso, Boton, C, Cargando, Pantalla, Tarjeta } from "../../ui";
 import { MiniMapa, navegarA, type Hoy } from "./InicioTecnico";
@@ -19,6 +20,16 @@ export default function MapaTecnico() {
     <Pantalla titulo="Mi ruta de hoy" subtitulo={hoy?.tienda} onRefresh={cargar} abajo={<MenuTecnico activo="mapa" />}>
       <Aviso texto={error} />
       {!hoy ? <Cargando /> : lista.length === 0 ? <Aviso tono="info" texto="No tienes paradas pendientes hoy." /> : null}
+      {lista.length ? (
+        <View style={{ borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: C.linea }}>
+          <MapaReal alto={300} puntos={[
+            ...(lista[0].tienda.lat && lista[0].tienda.lng ? [{ lat: lista[0].tienda.lat!, lng: lista[0].tienda.lng!, tipo: "tienda" as const, titulo: lista[0].tienda.nombre, destacado: true }] : []),
+            ...lista.filter((o) => o.cliente.lat && o.cliente.lng).map((o, i) => ({ lat: o.cliente.lat!, lng: o.cliente.lng!, tipo: "casa" as const,
+              titulo: `${i + 1}. ${o.codigo} · ${o.franja}`, detalle: o.cliente.direccion })),
+          ]} rutas={lista.filter((o) => o.cliente.lat && o.cliente.lng && o.tienda.lat && o.tienda.lng).slice(0, 1)
+            .map((o) => ({ desde: [o.tienda.lat!, o.tienda.lng!] as [number, number], hasta: [o.cliente.lat!, o.cliente.lng!] as [number, number] }))} />
+        </View>
+      ) : null}
       {lista.map((o, i) => (
         <Tarjeta key={o.id} style={{ gap: 8 }}>
           <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
