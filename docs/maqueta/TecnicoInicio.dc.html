@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>AHA HOME — Inicio del técnico</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+
+:root{--marino:#21244D;--marino2:#1A1C3D;--lima:#CFD72A;--limaS:#F1F3D4;--naranja:#C8461B;--verde:#1E8A4C;--gris:#5B6474;--linea:#E2E8F0;--fondo:#F4F7FB}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,"Helvetica Neue",Arial,sans-serif;color:#1A1C3D;background:#E9EDF3}
+.lamina{width:1600px;padding:40px 48px;background:#fff}
+h1{margin:0;font-size:34px;color:var(--marino)} .sub{color:var(--gris);font-size:17px;margin:6px 0 26px}
+.cols{display:flex;gap:36px;align-items:flex-start}
+.col{display:flex;flex-direction:column;align-items:center;gap:12px}
+.tag{font-weight:800;font-size:16px;letter-spacing:.5px;padding:6px 14px;border-radius:20px}
+.hoy{background:#EEF2F7;color:#334155}.prop{background:var(--lima);color:var(--marino)}
+.tel{width:390px;height:844px;border-radius:44px;border:10px solid #15172E;overflow:hidden;position:relative;background:var(--fondo);box-shadow:0 18px 40px rgba(20,24,60,.25)}
+.tel img{width:100%;display:block}
+.mejoras{width:520px;flex:0 0 auto;align-self:stretch;display:flex;flex-direction:column;gap:12px;padding-top:42px}
+.mejoras h2{margin:0 0 4px;font-size:22px;color:var(--marino)}
+.m{display:flex;gap:12px;align-items:flex-start;background:var(--fondo);border-radius:14px;padding:12px 14px;font-size:15.5px;line-height:1.4}
+.n{flex:0 0 30px;height:30px;border-radius:15px;background:var(--marino);color:var(--lima);font-weight:800;display:flex;align-items:center;justify-content:center}
+.flecha{align-self:center;font-size:54px;color:var(--lima);font-weight:900;-webkit-text-stroke:2px var(--marino)}
+/* ---- maqueta de la propuesta ---- */
+.p{height:100%;display:flex;flex-direction:column;font-size:14px}
+.cab{background:var(--marino);color:#fff;padding:14px 16px 12px;display:flex;align-items:center;gap:12px}
+.cab .t{flex:1;text-align:center}.cab b{display:block;font-size:20px}.cab span{font-size:12.5px;color:#DCDEF0}
+.cuerpo{flex:1;overflow:hidden;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.tit{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:17px}
+.est{font-size:13px;font-weight:800;color:var(--naranja)}
+.card{background:#fff;border:1px solid var(--linea);border-radius:14px;padding:10px 12px;box-shadow:0 2px 6px rgba(20,24,60,.06)}
+.pasos{display:flex;position:relative;padding-top:2px}
+.paso{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:10px;font-weight:700;text-align:center;position:relative}
+.paso .c{position:relative;z-index:2;width:26px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px}
+.paso .l{z-index:0;position:absolute;top:11px;right:50%;width:100%;height:4px}
+.ok{background:var(--verde)}.hecho{background:var(--naranja)}.pend{background:#CBD5E1}
+.arts{display:flex;gap:8px}
+.art{flex:1;background:#fff;border:1px solid var(--linea);border-radius:14px;padding:8px;text-align:center;position:relative}
+.art .ilu{height:70px;display:flex;align-items:center;justify-content:center}
+.art b{display:block;font-size:12.5px}.art small{font-weight:700;font-size:12px}
+.chk{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:10px;background:var(--verde);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+.tec{display:flex;gap:12px;align-items:center}
+.av{width:56px;height:56px;border-radius:28px;background:#DCE7F5;flex:0 0 56px;overflow:hidden;border:3px solid var(--lima)}
+.estrellas{color:#E8A317;font-size:15px;letter-spacing:1px}
+.btn{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-weight:800;font-size:14px;letter-spacing:.3px}
+.naranja{background:var(--naranja)}.verde{background:var(--verde)}.marino{background:var(--marino)}
+.tabs{height:62px;background:#fff;border-top:1px solid var(--linea);display:flex;justify-content:space-around;align-items:center;font-size:11px;color:#6B7789}
+.tabs div{display:flex;flex-direction:column;align-items:center;gap:3px}.tabs .on{color:var(--marino);font-weight:800}
+.ico{width:22px;height:22px}
+.guardia{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.punto{display:inline-block;width:10px;height:10px;border-radius:5px;background:var(--verde);margin-right:5px}
+.carrusel{display:flex;gap:8px;overflow:hidden}
+.orden{flex:0 0 330px;background:#fff;border-radius:14px;overflow:hidden;border:1px solid var(--linea);box-shadow:0 3px 10px rgba(20,24,60,.1)}
+.orden .h{background:var(--marino);color:#fff;text-align:center;padding:8px}.orden .h b{font-size:17px}.orden .h div{font-size:12.5px;color:#DCDEF0}
+.orden .b{padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.lbl{color:var(--gris);font-size:11.5px}
+.mapa{width:64px;height:54px;border-radius:8px;background:linear-gradient(135deg,#E3EEDB,#D4E4F3);position:relative;flex:0 0 64px;border:1px solid var(--linea)}
+.pend-l{display:flex;flex-direction:column;gap:6px}
+.pi{background:#fff;border:1px solid var(--linea);border-radius:12px;padding:8px 10px;font-size:12.5px}
+.pi b{font-size:13px}
+
+</style>
+</helmet>
+<div class="tel" style="width:390px;height:844px;border:0;border-radius:0;box-shadow:none;margin:0"><div class="p">
+  <div class="cab"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+   <div class="t"><b>AHA HOME Técnico</b><span>Damasco San Martín</span></div>
+   <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></div>
+  <div class="cuerpo">
+   <div class="tit" style="font-size:19px">Resumen y contacto</div>
+   <div class="card guardia"><div><div class="lbl">Guardia de hoy</div><b style="color:var(--verde);white-space:nowrap"><span class="punto"></span>ACTIVA · Grupo C</b></div>
+    <div class="btn naranja" style="height:40px;border-radius:10px;padding:0 10px;font-size:11.5px;white-space:nowrap">📞 SUPERVISOR</div></div>
+   <div class="carrusel">
+    <div class="orden"><div class="h"><b>ORDEN ACTIVA: WO-4921</b><div>Hora: 10:00 – 12:00 · Traslado e instalación</div></div>
+     <div class="b">
+      <div><span class="lbl">Cliente</span><br><b>María González</b> · 0414-1234567</div>
+      <div style="display:flex;gap:10px;align-items:center"><div style="flex:1"><span class="lbl">Dirección</span><br>Av. San Martín, Res. Los Pinos, piso 4</div>
+       <div class="mapa"><svg width="64" height="54" viewBox="0 0 64 54"><path d="M0 34 C20 30 40 40 64 30" stroke="#fff" stroke-width="5" fill="none"/><path d="M32 12c-6 0-9 4-9 8 0 6 9 14 9 14s9-8 9-14c0-4-3-8-9-8z" fill="#D93025"/><circle cx="32" cy="20" r="3" fill="#fff"/></svg></div></div>
+      <div style="border-top:1px solid var(--linea);padding-top:6px"><b>Nevera Samsung RT38K5932SL</b> — instalar<br>Juego de comedor — entregar en su caja<br><span class="lbl">Ayudante: Héctor Blanco</span></div>
+      <div class="btn naranja">➤ NAVEGAR</div>
+      <div class="btn verde">☑ CHECKLIST DE INSTALACIÓN</div>
+      <div class="btn marino" style="height:38px;font-size:12.5px">▦ RETIRO EN ALMACÉN: ESCANEAR QR</div>
+     </div></div>
+    <div class="orden" style="opacity:.6"><div class="h"><b>WO-4922</b><div>12:00 – 14:00</div></div></div>
+   </div>
+   <div class="tit" style="font-size:15px">ÓRDENES PENDIENTES <span style="font-weight:500;color:var(--gris);font-size:13px">(hoy)</span></div>
+   <div class="pend-l">
+    <div class="pi"><b>WO-4922 · Lavadora LG</b><br>12:00 – 14:00 · Propatria, calle 4</div>
+    <div class="pi"><b>WO-4923 · Aire acondicionado</b><br>14:30 – 16:00 · La Pastora</div>
+   </div>
+  </div>
+  <div class="tabs"><div class="on"><svg class="ico" viewBox="0 0 24 24" fill="#21244D"><path d="M12 3 2 11h3v9h5v-6h4v6h5v-9h3z"/></svg>Inicio</div>
+   <div><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#6B7789" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>Órdenes</div>
+   <div><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#6B7789" stroke-width="2"><path d="M12 21s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>Mapa</div>
+   <div><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#6B7789" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 15-5 16 0"/></svg>Perfil</div></div>
+ </div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Copia este archivo como config.yml después de crear el túnel:
+#   cloudflared tunnel login
+#   cloudflared tunnel create aha-home
+#   cloudflared tunnel route dns aha-home api.ahahome.app
+#   cloudflared tunnel route dns aha-home www.ahahome.app
+tunnel: aha-home
+credentials-file: C:\Users\Administrator\.cloudflared\ID-DEL-TUNEL.json
+ingress:
+  - hostname: api.ahahome.app
+    service: http://127.0.0.1:8096
+  - hostname: www.ahahome.app
+    service: http://127.0.0.1:8096
+  - service: http_status:404

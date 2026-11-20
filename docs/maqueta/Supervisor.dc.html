@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>AHA HOME — Panel del supervisor</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#21244D}a:hover{color:#1A1C3D}
+</style>
+</helmet>
+<div style="min-height: 1040px; background: #F4F7FB; font-family: Inter, system-ui, sans-serif; color: #1A1C3D">
+
+
+
+</div>
+<main style="max-width: 1280px; margin: 0 auto; box-sizing: border-box; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 20px; position: absolute; left: 0px; top: -23px; right: auto; bottom: auto; margin: 0px; box-sizing: border-box; width: 1280px;">
+<p style="margin: 0; font-size: 13px; color: #4A5568">Datos de ejemplo para la maqueta.</p>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #4A5568">Órdenes de hoy</span><strong style="font-size: 30px; font-family: 'Space Grotesk', Inter, sans-serif">6</strong></div>
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #4A5568">En ruta / instalando</span><strong style="font-size: 30px; font-family: 'Space Grotesk', Inter, sans-serif">2</strong></div>
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #4A5568">Completadas</span><strong style="font-size: 30px; font-family: 'Space Grotesk', Inter, sans-serif; color: #167A45">2</strong></div>
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #4A5568">Incidencias abiertas</span><strong style="font-size: 30px; font-family: 'Space Grotesk', Inter, sans-serif; color: #C2410C">1</strong></div>
+</div>
+
+<dc-import name="MapaCaracas" hint-size="100%,620px"></dc-import>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section style="flex: 999 1 560px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Órdenes · todas las zonas</h2>
+<div style="overflow-x: auto">
+<table style="width: 100%; min-width: 640px; border-collapse: collapse; font-size: 14px">
+<thead>
+<tr style="text-align: left; color: #4A5568; font-size: 12px; letter-spacing: 0.4px">
+<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; font-weight: 700">ORDEN</th>
+<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; font-weight: 700">EQUIPO</th>
+<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; font-weight: 700">ZONA</th>
+<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; font-weight: 700">TÉCNICO</th>
+<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; font-weight: 700">FRANJA</th>
+<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; font-weight: 700">ESTADO</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{ordenes}}" as="o" hint-placeholder-count="6">
+<tr>
+<td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7; font-weight: 700">{{o.wo}}</td>
+<td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7">{{o.equipo}}</td>
+<td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7">{{o.zona}}</td>
+<td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7">{{o.tec}}</td>
+<td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7">{{o.franja}}</td>
+<td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7"><span style="display: inline-flex; height: 26px; align-items: center; padding: 0 10px; border-radius: 13px; font-size: 12px; font-weight: 700; background: {{o.bg}}; color: {{o.fg}}">{{o.estado}}</span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</section>
+
+<aside style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Incidencias</h2>
+<sc-for list="{{incidencias}}" as="i" hint-placeholder-count="2">
+<div style="border-radius: 12px; background: #FFF8F4; border: 1px solid #F3D3C2; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+<strong style="font-size: 14px">{{i.titulo}}</strong>
+<span style="font-size: 13px; color: #4A5568">{{i.detalle}}</span>
+<div style="display: flex; gap: 8px">
+<button type="button" style="height: 36px; padding: 0 12px; border: none; border-radius: 10px; background: #C2410C; color: #FFFFFF; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer">Llamar al técnico</button>
+<button type="button" style="height: 36px; padding: 0 12px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; color: #1A1C3D; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer">Reasignar</button>
+</div>
+</div>
+</sc-for>
+</section>
+<section style="background: #1A1C3D; color: #FFFFFF; border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Guardia Retén (standby)</h2>
+<span style="font-size: 13px; color: #C5C8E4">Técnicos sin ruta fija para picos de demanda, emergencias o ausencias.</span>
+<sc-for list="{{reten}}" as="r" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 12px; background: #2E3266; border-radius: 12px; padding: 10px 12px">
+<div style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 20px; background: #383D78; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">{{r.ini}}</div>
+<span style="flex: 1; display: flex; flex-direction: column"><strong style="font-size: 14px">{{r.nombre}}</strong><span style="font-size: 12px; color: #C5C8E4">{{r.base}}</span></span>
+<sc-if value="{{r.activo}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{r.toggle}}" style="height: 36px; padding: 0 12px; border: none; border-radius: 10px; background: #CFD72A; color: #1A1C3D; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer">Activado</button></sc-if>
+<sc-if value="{{r.inactivo}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{r.toggle}}" style="height: 36px; padding: 0 12px; border: 1px solid #5A5F99; border-radius: 10px; background: transparent; color: #FFFFFF; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer">Activar</button></sc-if>
+</div>
+</sc-for>
+</section>
+</aside>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Escuadras por tienda · rotación de guardia</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px">
+<sc-for list="{{tiendas}}" as="t" hint-placeholder-count="3">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><strong style="font-size: 16px">{{t.nombre}}</strong><span style="font-size: 13px; color: #4A5568">9 técnicos</span></div>
+<sc-for list="{{t.grupos}}" as="g" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; font-size: 14px">
+<span style="width: 72px; font-weight: 700">{{g.nombre}}</span>
+<span style="flex: 1; color: #4A5568">{{g.dia}}</span>
+<span style="display: inline-flex; height: 24px; align-items: center; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 700; background: {{g.bg}}; color: {{g.fg}}">{{g.estado}}</span>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</section>
+</main></x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1700}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { zona: 'Todas', reten: {} };
+  }
+  renderVals() {
+    const s = this.state;
+    const est = {
+      'En ruta': ['#FFF1E8', '#9A3412'],
+      'Instalando': ['#F1F3D4', '#21244D'],
+      'Completada': ['#E7F6EE', '#0F5132'],
+      'Por retirar': ['#EEF2F7', '#334155'],
+      'Incidencia': ['#FDECEC', '#B42318'],
+    };
+    const todas = [
+      ['WO-4921', 'Nevera', 'Oeste', 'José Hernández', '10:00 – 12:00', 'En ruta'],
+      ['WO-4922', 'Lavadora', 'Oeste', 'José Hernández', '12:00 – 14:00', 'Por retirar'],
+      ['WO-4917', 'Aire acondicionado', 'Central', 'Luis Rodríguez', '8:00 – 10:00', 'Completada'],
+      ['WO-4919', 'Secadora', 'Central', 'Pedro Silva', '10:00 – 12:00', 'Incidencia'],
+      ['WO-4920', 'Nevera', 'Este', 'Andrea Medina', '10:00 – 12:00', 'Instalando'],
+      ['WO-4918', 'Lavadora', 'Este', 'Carlos Rivas', '8:00 – 10:00', 'Completada'],
+    ];
+    const lista = todas.filter((o) => s.zona === 'Todas' || o[2] === s.zona);
+    const count = (st) => lista.filter((o) => st.indexOf(o[5]) >= 0).length;
+    const reten = [['Ricardo Pérez', 'RP', 'Base: Damasco Central'], ['Daniela Rojas', 'DR', 'Base: Damasco Este'], ['Miguel Torres', 'MT', 'Base: Damasco Oeste']];
+    const grupo = (n, dia, estado) => ({ nombre: n, dia, estado, bg: estado === 'De guardia' ? '#E7F6EE' : '#EEF2F7', fg: estado === 'De guardia' ? '#0F5132' : '#334155' });
+    const tienda = (nombre) => ({ nombre, grupos: [grupo('Grupo A', 'Lunes + rotación', 'Descanso'), grupo('Grupo B', 'Martes + rotación', 'Descanso'), grupo('Grupo C', 'Miércoles + rotación', 'De guardia')] });
+    return {
+      zonas: ['Todas', 'Oeste', 'Central', 'Este'].map((z) => ({ label: z === 'Todas' ? 'Todas las zonas' : 'Zona ' + z, sel: z === s.zona, unsel: z !== s.zona, pick: () => this.setState({ zona: z }) })),
+      zonaLabel: s.zona === 'Todas' ? 'todas las zonas' : 'Zona ' + s.zona,
+      ordenes: lista.map((o) => ({ wo: o[0], equipo: o[1], zona: o[2], tec: o[3], franja: o[4], estado: o[5], bg: est[o[5]][0], fg: est[o[5]][1] })),
+      kOrdenes: lista.length,
+      kRuta: count(['En ruta', 'Instalando']),
+      kHechas: count(['Completada']),
+      kInc: count(['Incidencia']),
+      incidencias: [
+        { titulo: 'WO-4919 · Toma de agua sin llave de paso', detalle: 'Pedro Silva · Zona Central · necesita plomería del cliente' },
+        { titulo: 'WO-4922 · Retraso en despacho', detalle: 'Almacén Damasco Oeste · 25 min de espera' },
+      ],
+      reten: reten.map((r) => ({ nombre: r[0], ini: r[1], base: r[2], activo: !!s.reten[r[0]], inactivo: !s.reten[r[0]], toggle: () => this.setState({ reten: Object.assign({}, s.reten, { [r[0]]: !s.reten[r[0]] }) }) })),
+      tiendas: [tienda('Damasco Oeste'), tienda('Damasco Central'), tienda('Damasco Este')],
+    };
+  }
+}
+</script>
+</body>
+</html>

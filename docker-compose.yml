@@ -1,0 +1,28 @@
+# Servidor de AHA HOME. La forma fácil de instalarlo es:  ./instalar.sh
+# (pide los datos de Brevo y del túnel de Cloudflare, y deja todo andando).
+#
+# Qué levanta:
+#   api          el servidor de AHA HOME (puerto 8000 solo dentro de la máquina)
+#   cloudflared  el túnel de Cloudflare: publica https://api.ahahome.app sin abrir puertos en el router
+# La base de datos, las fotos y la clave de correo quedan en ./datos (respáldala).
+services:
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      AHAHOME_CORREO_KEY: /datos/correo.key
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./datos:/datos
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - api
+    profiles: ["tunel"]
