@@ -39,7 +39,10 @@ export default function InicioCliente({ lista }: { lista?: boolean }) {
   if (!lista && ordenes && perfil?.email_verificado) {
     // el pedido en curso, o el último completado sin calificar, para que pueda calificar y dar propina
     const sinCalificar = pasadas.find((x) => x.estado === "completado" && !x.calificacion);
-    return <InicioActivo o={activas[0] ?? sinCalificar ?? null} onRefrescar={cargar} />;
+    // primero la que va en camino o está en su casa; si no, la más próxima por fecha
+    const PRIO: Record<string, number> = { en_progreso: 0, en_ruta: 1, entrega_fallida: 2, cita_confirmada: 3, tecnico_asignado: 4, solicitud_enviada: 5 };
+    const principal = [...activas].sort((a, b) => (PRIO[a.estado] ?? 9) - (PRIO[b.estado] ?? 9) || a.fecha.localeCompare(b.fecha))[0];
+    return <InicioActivo o={principal ?? sinCalificar ?? null} onRefrescar={cargar} />;
   }
 
   return (
