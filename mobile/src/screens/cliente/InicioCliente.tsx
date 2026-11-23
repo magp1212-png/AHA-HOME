@@ -37,7 +37,7 @@ export default function InicioCliente({ lista }: { lista?: boolean }) {
   const activas = (ordenes ?? []).filter((o) => !["completado", "cancelado"].includes(o.estado));
   const pasadas = (ordenes ?? []).filter((o) => ["completado", "cancelado"].includes(o.estado));
   if (!lista && ordenes && perfil?.email_verificado) {
-    // el pedido en curso, o el último completado sin calificar, para que pueda calificar y dar propina
+    // el pedido en curso, o el último completado sin calificar, para que pueda calificar
     const sinCalificar = pasadas.find((x) => x.estado === "completado" && !x.calificacion);
     // primero la que va en camino o está en su casa; si no, la más próxima por fecha
     const PRIO: Record<string, number> = { en_progreso: 0, en_ruta: 1, entrega_fallida: 2, cita_confirmada: 3, tecnico_asignado: 4, solicitud_enviada: 5 };

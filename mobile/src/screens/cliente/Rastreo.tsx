@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -83,14 +82,11 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
   const [error, setError] = useState<string | null>(null);
   const [estrellas, setEstrellas] = useState(0);
   const [msg, setMsg] = useState<string | null>(null);
-  const [sinPropina, setSinPropina] = useState(false);
-  const claveOmitir = `ahahome.propina.omitida.${id}`;
 
   const cargar = useCallback(async () => {
     try { const r = await api<Orden>(`/ordenes/${id}`); setO(r); setEstrellas(r.calificacion ?? 0); } catch (e: any) { setError(e.message); }
   }, [id]);
   useEffect(() => { cargar(); const t = setInterval(cargar, 20000); return () => clearInterval(t); }, [cargar]);
-  useEffect(() => { AsyncStorage.getItem(claveOmitir).then((v) => setSinPropina(v === "1")).catch(() => {}); }, [claveOmitir]);
 
   async function calificar(n: number) {
     setEstrellas(n);
@@ -98,10 +94,6 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
   }
   async function cancelar() {
     try { setO(await api<Orden>(`/ordenes/${id}/cancelar`, { body: { motivo: "Cancelado por el cliente desde la app" } })); } catch (e: any) { setError(e.message); }
-  }
-  function omitirPropina() {
-    setSinPropina(true);
-    AsyncStorage.setItem(claveOmitir, "1").catch(() => {});
   }
 
   const marco = (hijos: React.ReactNode) => (
@@ -216,25 +208,6 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
           </View>
           <Texto gris size={13}>Tu calificación ayuda a premiar a los mejores técnicos.</Texto>
           <Aviso texto={msg} tono="ok" />
-        </Tarjeta>
-      ) : null}
-
-      {o.estado === "completado" && (o.propina.dada || !sinPropina) ? (
-        <Tarjeta>
-          {o.propina.dada ? <Aviso tono="ok" texto={`¡Gracias! Le diste USD ${o.propina.monto} de propina a la cuadrilla.`} /> : (
-            <>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Texto negrita size={16}>Propina para la cuadrilla</Texto>
-                <Etiqueta texto="OPCIONAL" />
-              </View>
-              <Texto gris size={14}>
-                Si quieres, puedes agradecer a {o.tecnico?.nombre?.split(" ")[0] ?? "la cuadrilla"}
-                {o.ayudantes[0] ? ` y a ${o.ayudantes[0].nombre.split(" ")[0]}` : ""}. No es obligatoria.
-              </Texto>
-              <FormPago titulo="¿CUÁNTO?" boton="Dar propina" conMonto onOmitir={omitirPropina}
-                onEnviar={async (d) => { await api(`/ordenes/${id}/propina`, { body: d }); cargar(); }} />
-            </>
-          )}
         </Tarjeta>
       ) : null}
 
