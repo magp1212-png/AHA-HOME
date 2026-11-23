@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>AHA HOME — Novedades v3</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&amp;display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,sans-serif;background:#fff}
+.lam{width:2120px;padding:40px 48px;background:#fff}
+.lam h1{margin:0 0 6px;font-size:34px;font-weight:900;color:#21244D} .lam p.s{margin:0 0 28px;color:#5B6474;font-size:17px}
+.fila{display:grid;grid-template-columns:repeat(6,300px);gap:36px;margin-bottom:34px}
+.f{margin:0} .tel{width:300px;height:650px;border-radius:38px;border:8px solid #111327;overflow:hidden;box-shadow:0 18px 40px rgba(20,24,60,.22);background:#F2F4F9}
+.tel img{width:100%;display:block}
+figcaption{margin-top:12px;font-size:14.5px;line-height:1.35;color:#1A1C3D;font-weight:600}
+.r{display:inline-block;margin-right:6px;padding:2px 8px;border-radius:8px;background:#CFD72A;color:#21244D;font-size:11.5px;font-weight:900;text-transform:uppercase}
+.sec{font-size:15px;font-weight:900;letter-spacing:.06em;color:#C8461B;margin:0 0 14px}
+</style>
+</helmet>
+<div class="lam">
+ <h1>Versión 3 · novedades (pantallas reales de la app)</h1>
+ <p class="s">Inspección USD 10 · dos monedas USD/Bs con tasa BCV · residuos opcionales · llamar desde el chat · sin propina · QR de tienda con OK de caja</p>
+ <div class="sec">CLIENTE</div>
+ <div class="fila">
+  <figure class="f"><div class="tel"><img src="img/n01.jpg" alt="Rastreador: «Inspección» siempre antes de «Confirmado» (No requerida si no se pidió)"></div><figcaption><span class="r">Cliente</span>Rastreador: «Inspección» siempre antes de «Confirmado» (No requerida si no se pidió)</figcaption></figure>
+  <figure class="f"><div class="tel"><img src="img/n02.jpg" alt="Pedido con inspección: USD 10 pagados en la tienda"></div><figcaption><span class="r">Cliente</span>Pedido con inspección: USD 10 pagados en la tienda</figcaption></figure>
+  <figure class="f"><div class="tel"><img src="img/n03.jpg" alt="Pago en la tienda en bolívares (tasa BCV) y retiro de residuos opcional"></div><figcaption><span class="r">Cliente</span>Pago en la tienda en bolívares (tasa BCV) y retiro de residuos opcional</figcaption></figure>
+  <figure class="f"><div class="tel"><img src="img/n04.jpg" alt="Retiro de residuos para reciclar: opcional por la garantía"></div><figcaption><span class="r">Cliente</span>Retiro de residuos para reciclar: opcional por la garantía</figcaption></figure>
+  <figure class="f"><div class="tel"><img src="img/n05.jpg" alt="Chat: llamar al centro de control sin compartir números"></div><figcaption><span class="r">Cliente</span>Chat: llamar al centro de control sin compartir números</figcaption></figure>
+  <figure class="f"><div class="tel"><img src="img/n06.jpg" alt="Calificación con estrellas · sin propina"></div><figcaption><span class="r">Cliente</span>Calificación con estrellas · sin propina</figcaption></figure>
+ </div>
+ <div class="sec">CAJA · SUPERADMIN · TÉCNICO — COBRO EN DOS MONEDAS Y RETIRO CON QR DE TIENDA</div>
+ <div class="fila">
+  <figure class="f"><div class="tel"><img src="img/n07.jpg" alt="Cobro en caja en dos monedas: instalación + inspección USD 10"></div><figcaption><span class="r">Caja</span>Cobro en caja en dos monedas: instalación + inspección USD 10</figcaption></figure>
+  <figure class="f"><div class="tel"><img src="img/n08.jpg" alt="Tasa oficial BCV del día"></div><figcaption><span class="r">Superadmin</span>Tasa oficial BCV del día</figcaption></figure>
+  <figure class="f"><div class="tel"><img src="img/n09.jpg" alt="QR fijo de cada tienda Damasco"></div><figcaption><span class="r">Superadmin</span>QR fijo de cada tienda Damasco</figcaption></figure>
+  <figure class="f"><div class="tel"><img src="img/n10.jpg" alt="Escaneó el QR de la tienda: espera el OK de caja"></div><figcaption><span class="r">Técnico</span>Escaneó el QR de la tienda: espera el OK de caja</figcaption></figure>
+  <figure class="f"><div class="tel"><img src="img/n11.jpg" alt="Aviso en caja con toda la información: OK para autorizar el retiro"></div><figcaption><span class="r">Caja</span>Aviso en caja con toda la información: OK para autorizar el retiro</figcaption></figure>
+  <figure class="f"><div class="tel"><img src="img/n12.jpg" alt="Retiro autorizado: sale en ruta"></div><figcaption><span class="r">Técnico</span>Retiro autorizado: sale en ruta</figcaption></figure>
+ </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2120,"height":1720}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
