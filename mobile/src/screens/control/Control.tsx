@@ -62,6 +62,7 @@ export default function Control() {
           </View>
           <Boton titulo="Presupuestos y pagos" icono="cash-outline" tipo="lima" onPress={() => nav.push("pagos")} />
           <TasaDelDia editable={perfil?.rol === "superadmin"} />
+          {perfil?.rol === "superadmin" ? <Boton titulo="QR de las tiendas" icono="qr-code-outline" tipo="secundario" onPress={() => nav.push("tiendasQR")} /> : null}
           {perfil?.rol === "superadmin" ? <Boton titulo="Banners y aliados" icono="megaphone-outline" tipo="secundario" onPress={() => nav.push("banners")} /> : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
             {[["Órdenes", k!.ordenes, C.texto], ["En curso", k!.en_ruta_o_en_servicio, C.texto], ["Completadas", k!.completadas, C.ok],

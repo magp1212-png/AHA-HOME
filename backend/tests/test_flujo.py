@@ -759,3 +759,31 @@ def test_retiro_de_residuos_opcional_por_garantia(client):
     t = nueva(client, agente, pago=None, articulos=[{"tipo": "nevera", "instalar": False}])  # traslado: no aplica
     assert t["residuos"]["aplica"] is False
     assert client.post(f"/ordenes/{t['id']}/residuos", json={"retirar": False}, headers=agente).status_code == 409
+
+
+def test_qr_de_tienda_tecnico_escanea_y_caja_autoriza(client):
+    agente = login(client, "agente@ahahome.test")
+    sa = login(client, "superadmin@ahahome.test")
+    tiendas = client.get("/admin/tiendas-qr", headers=sa).json()
+    assert client.post(f"/admin/tiendas/{tiendas[0]['id']}/qr", headers=agente).status_code == 403
+    qr = client.post(f"/admin/tiendas/{tiendas[0]['id']}/qr", headers=sa).json()["qr"]
+    assert qr.startswith("AHATIENDA:") and client.get(f"/admin/tiendas/{tiendas[0]['id']}/qr.png", headers=sa).status_code == 200
+    o1 = nueva(client, agente, pago=None, articulos=[{"tipo": "nevera", "instalar": False}])  # solo traslado
+    tecnico = login_pin(client, tel_de(o1["tecnico"]["id"]))
+    assert client.post("/tecnico/tienda/escanear", json={"qr": "AHATIENDA:falso"}, headers=tecnico).status_code == 404
+    v = client.post("/tecnico/tienda/escanear", json={"qr": qr}, headers=tecnico).json()
+    assert v["estado"] == "pendiente" and o1["codigo"] in [x["codigo"] for x in v["ordenes"]]
+    assert any(x["retiro"] == "Solo traslado" for x in v["ordenes"])
+    assert "Técnico en caja para retirar" in titulos(client, agente)
+    pend = client.get("/caja/visitas", headers=agente).json()
+    assert [x["id"] for x in pend] == [v["id"]] and pend[0]["tecnico"]["cedula"]
+    # el técnico espera el OK: todavía no ha salido
+    assert client.get(f"/ordenes/{o1['id']}", headers=agente).json()["estado"] != "en_ruta"
+    r = client.post(f"/caja/visitas/{v['id']}/autorizar", headers=agente).json()
+    assert r["estado"] == "autorizada"
+    assert client.get(f"/ordenes/{o1['id']}", headers=agente).json()["estado"] == "en_ruta"
+    assert client.get("/tecnico/tienda/visita", headers=tecnico).json()["estado"] == "autorizada"
+    assert "Retiro autorizado ✓" in titulos(client, tecnico)
+    assert client.post(f"/caja/visitas/{v['id']}/autorizar", headers=agente).status_code == 409
+    # ya no le queda nada por retirar en esa tienda
+    assert client.post("/tecnico/tienda/escanear", json={"qr": qr}, headers=tecnico).status_code == 404

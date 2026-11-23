@@ -240,7 +240,7 @@ function TarjetaOrden({ o, activa, ancho, esAyudante, cargando, accion, retirar 
             {activa && antes && o.listo_para_instalar && o.con_retiro_en_tienda ? (
               <>
                 <Boton titulo="NAVEGAR A LA TIENDA" tipo="naranja" icono="navigate" onPress={() => navegarA(o, true)} />
-                <Boton titulo="RETIRO EN ALMACÉN: ESCANEAR QR" icono="qr-code" onPress={retirar} />
+                <Boton titulo="RETIRO EN TIENDA: ESCANEAR QR" icono="qr-code" onPress={retirar} />
               </>
             ) : null}
             {activa && antes && o.listo_para_instalar && !o.con_retiro_en_tienda ? (

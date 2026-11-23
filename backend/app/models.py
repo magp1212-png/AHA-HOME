@@ -124,6 +124,24 @@ class Tienda(Base):
     direccion: Mapped[str] = mapped_column(String(250), default="")
     lat: Mapped[float] = mapped_column(Float)
     lng: Mapped[float] = mapped_column(Float)
+    qr_token: Mapped[str] = mapped_column(String(40), default="")  # QR fijo de la tienda (lo genera el superadmin)
+
+
+class VisitaRetiro(Base):
+    """El técnico escanea el QR de la tienda; la caja ve lo que va a retirar y autoriza con un OK."""
+    __tablename__ = "visitas_retiro"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tienda_id: Mapped[int] = mapped_column(ForeignKey("tiendas.id"), index=True)
+    tecnico_id: Mapped[int] = mapped_column(ForeignKey("tecnicos.id"), index=True)
+    ordenes: Mapped[list] = mapped_column(JSON, default=list)  # ids de las órdenes a retirar
+    estado: Mapped[str] = mapped_column(String(15), default="pendiente")  # pendiente | autorizada | rechazada | cancelada
+    motivo: Mapped[str] = mapped_column(String(300), default="")
+    resuelto_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    resuelto_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
+
+    tienda: Mapped[Tienda] = relationship()
+    tecnico: Mapped["Tecnico"] = relationship()
 
 
 class Tecnico(Base):

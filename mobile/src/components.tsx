@@ -1,10 +1,11 @@
+import { Ionicons } from "@expo/vector-icons";
 // Piezas compartidas: presupuesto, métodos de pago y las dos monedas (USD y Bs a tasa oficial BCV).
 import React, { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { api } from "./api";
 import type { Presupuesto } from "./types";
-import { Aviso, Boton, C, Campo, Etiqueta, Fila, Opcion, Seccion, Tarjeta, Texto } from "./ui";
+import { Avatar, Aviso, Boton, C, Campo, Etiqueta, Fila, Opcion, Seccion, Tarjeta, Texto } from "./ui";
 
 export function useMetodosPago() {
   const [m, setM] = useState<{ id: string; texto: string }[]>([]);
@@ -254,5 +255,90 @@ export function InspeccionCliente({ o, recargar }: { o: any; recargar: () => voi
       ) : null}
       <Aviso texto={error} />
     </Tarjeta>
+  );
+}
+
+
+// ---- Retiro en tienda con el QR de la tienda ----
+export type Visita = {
+  id: number; estado: "pendiente" | "autorizada" | "rechazada" | "cancelada"; motivo: string; creado: string; resuelto_en: string | null;
+  tienda: { id: number; nombre: string };
+  tecnico: { nombre: string; cedula: string; foto: string | null; grupo: string } ;
+  ayudantes: { nombre: string; cedula: string; foto: string | null }[];
+  ordenes: { id: number; codigo: string; tipo_servicio: string; tipo_servicio_texto: string; retiro: string; cliente: string; zona: string;
+    fecha: string; franja: string; numero_factura: string; articulos: { nombre: string; modelo: string; serial: string; instalar: boolean }[] }[];
+  total_articulos: number;
+};
+
+/** Toda la información del retiro: la ve el técnico en su pantalla y la caja para autorizar. */
+export function DetalleVisita({ v }: { v: Visita }) {
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <Avatar nombre={v.tecnico.nombre} foto={v.tecnico.foto} size={58} borde={C.lima} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: "900", fontSize: 17, color: C.texto }}>{v.tecnico.nombre}</Text>
+          <Text style={{ color: C.gris, fontSize: 13 }}>Técnico · C.I. {v.tecnico.cedula} · Grupo {v.tecnico.grupo}</Text>
+          {v.ayudantes.map((a) => <Text key={a.cedula} style={{ color: C.gris, fontSize: 13 }}>Ayudante: {a.nombre} · C.I. {a.cedula}</Text>)}
+        </View>
+      </View>
+      <Text style={{ fontWeight: "800", color: C.texto }}>{v.tienda.nombre} · {v.ordenes.length} orden(es) · {v.total_articulos} artículo(s)</Text>
+      {v.ordenes.map((o) => (
+        <View key={o.id} style={{ borderRadius: 14, borderWidth: 1, borderColor: C.linea, padding: 12, gap: 4, backgroundColor: "#F7F9FC" }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+            <Text style={{ fontWeight: "900", color: C.texto, fontSize: 15 }}>{o.codigo}</Text>
+            <Etiqueta texto={o.retiro.toUpperCase()} tono={o.tipo_servicio === "traslado" ? "neutro" : "lima"} />
+          </View>
+          <Text style={{ color: C.gris, fontSize: 13 }}>Cliente: {o.cliente} · zona {o.zona} · cita {o.fecha} {o.franja}{o.numero_factura ? ` · factura ${o.numero_factura}` : ""}</Text>
+          {o.articulos.map((a, k) => (
+            <Text key={k} style={{ color: C.texto, fontSize: 14 }}>
+              • <Text style={{ fontWeight: "800" }}>{a.nombre}{a.modelo ? ` ${a.modelo}` : ""}</Text>{a.serial ? ` · serial ${a.serial}` : ""} — {a.instalar ? "para instalar" : "en su caja"}
+            </Text>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Caja: técnicos que escanearon el QR de la tienda y esperan el OK. */
+export function VisitasPendientes({ onCambio }: { onCambio?: () => void }) {
+  const [vs, setVs] = useState<Visita[]>([]);
+  const [motivo, setMotivo] = useState<Record<number, string>>({});
+  const [rechazando, setRechazando] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const cargar = async () => { try { setVs(await api<Visita[]>("/caja/visitas")); } catch (e: any) { setError(e.message); } };
+  useEffect(() => { cargar(); const t = setInterval(cargar, 6000); return () => clearInterval(t); }, []);
+  const hacer = async (ruta: string, body?: any) => {
+    setError(null);
+    try { await api(ruta, { body: body ?? {} }); setRechazando(null); await cargar(); onCambio?.(); } catch (e: any) { setError(e.message); }
+  };
+  if (!vs.length && !error) return null;
+  return (
+    <View style={{ gap: 10 }}>
+      {vs.map((v) => (
+        <View key={v.id} style={{ backgroundColor: C.blanco, borderRadius: 18, borderWidth: 3, borderColor: C.naranja, padding: 14, gap: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="notifications" size={22} color={C.naranja} />
+            <Text style={{ flex: 1, fontWeight: "900", color: C.naranja, fontSize: 15 }}>TÉCNICO EN CAJA · ESPERA TU OK PARA RETIRAR</Text>
+          </View>
+          <DetalleVisita v={v} />
+          {rechazando === v.id ? (
+            <>
+              <Campo etiqueta="Motivo (lo verá el técnico)" value={motivo[v.id] ?? ""} onChangeText={(t) => setMotivo({ ...motivo, [v.id]: t })} />
+              <Boton titulo="Confirmar: no autorizar" tipo="peligro" deshabilitado={(motivo[v.id] ?? "").trim().length < 3}
+                onPress={() => hacer(`/caja/visitas/${v.id}/rechazar`, { motivo: motivo[v.id] })} />
+              <Boton titulo="Volver" tipo="secundario" onPress={() => setRechazando(null)} />
+            </>
+          ) : (
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <View style={{ flex: 1 }}><Boton titulo="No autorizar" tipo="secundario" onPress={() => setRechazando(v.id)} /></View>
+              <View style={{ flex: 1.4 }}><Boton titulo="OK, autorizar retiro" tipo="exito" icono="checkmark-circle" onPress={() => hacer(`/caja/visitas/${v.id}/autorizar`)} /></View>
+            </View>
+          )}
+        </View>
+      ))}
+      <Aviso texto={error} />
+    </View>
   );
 }
