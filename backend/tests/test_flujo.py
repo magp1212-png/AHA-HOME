@@ -988,7 +988,12 @@ def test_panel_superadmin_resumen_y_tablas(client):
     assert r["clientes"]["total"] >= 1 and len(r["ordenes"]["serie"]) == 30 and r["ordenes"]["nuevos"] >= 1 and r["empresas"]["total"] >= 1
     assert sum(r["ordenes_por_servicio"].values()) >= 1
     assert client.get("/panel-api/resumen", headers=agente).status_code == 403
-    for t in ("clientes", "tecnicos", "empresas", "equipo", "ordenes", "transacciones", "liquidaciones", "verificaciones", "reportes", "resenas", "mensajeria"):
+    adm = client.get("/panel-api/tabla/administradores", headers=sa).json()["filas"]
+    assert adm and all(x["rol"] in ("Superadmin", "CEO") for x in adm)
+    assert all(x["rol"] == "Caja" for x in client.get("/panel-api/tabla/caja", headers=sa).json()["filas"])
+    cl = client.get("/panel-api/tabla/clientes", headers=sa).json()["filas"]
+    assert not any(x["nombre"].startswith("Superadministrador") for x in cl)
+    for t in ("clientes", "tecnicos", "empresas", "equipo", "administradores", "control", "caja", "ordenes", "transacciones", "liquidaciones", "verificaciones", "reportes", "resenas", "mensajeria"):
         x = client.get(f"/panel-api/tabla/{t}", headers=sa).json()
         assert x["columnas"] and "filas" in x, t
     v = client.get("/panel-api/tabla/verificaciones?estado=Aprobado", headers=sa).json()

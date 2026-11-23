@@ -19,22 +19,30 @@
   function salir() { localStorage.removeItem("ahahome.panel.token"); S.token = null; S.yo = null; pintar(); }
 
   // ---------- Menú ----------
+  // Cada tipo de registro va en su propia sección; el personal interno (superadmin, control, caja) va aparte.
   const MENU = [
     { k: "inicio", t: "Panel principal", i: "⌂" },
-    { g: "Usuarios", i: "👥", cap: "PROFESIONALES", hijos: [["tecnicos", "Técnicos y ayudantes"], ["empresas", "Empresas"], ["clientes", "Clientes"], ["equipo", "Equipo AHA HOME"]] },
+    { sec: "REGISTROS" },
+    { k: "clientes", t: "Clientes", i: "🙋" },
+    { k: "empresas", t: "Empresas aliadas", i: "🏬" },
+    { g: "Técnicos", i: "👷", hijos: [["tecnicos", "Técnicos y ayudantes"], ["verificaciones", "Verificaciones", "verif"]] },
+    { sec: "OPERACIÓN" },
+    { g: "Órdenes", i: "🛒", hijos: [["ordenes", "Lista"], ["transacciones", "Transacciones"], ["liquidaciones", "Liquidaciones"]] },
+    { g: "Centro de soporte", i: "◎", hijos: [["mensajeria", "Mensajería"], ["reportes", "Reportes", "rep"], ["resenas", "Reseñas"]] },
     { k: "anuncios", t: "Banners y aliados", i: "▤" },
-    { g: "Órdenes", i: "🛒", hijos: [["ordenes", "Lista"], ["transacciones", "Transacciones"], ["mensajeria", "Mensajería"], ["liquidaciones", "Liquidaciones"]] },
-    { g: "Centro de soporte", i: "◎", hijos: [["verificaciones", "Verificaciones", "verif"], ["reportes", "Reportes", "rep"], ["resenas", "Reseñas"]] },
+    { sec: "ADMINISTRACIÓN AHA HOME" },
+    { g: "Personal interno", i: "🛡", hijos: [["administradores", "Superadministradores"], ["control", "Centro de control"], ["caja", "Operadores de caja"]] },
   ];
-  const TITULOS = { inicio: ["Tableros", "Panel principal"], tecnicos: ["Usuarios", "Técnicos y ayudantes"], empresas: ["Usuarios", "Empresas"], clientes: ["Usuarios", "Clientes"],
-    equipo: ["Usuarios", "Equipo AHA HOME"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Órdenes", "Lista"], transacciones: ["Órdenes", "Transacciones"],
-    mensajeria: ["Órdenes", "Mensajería"], liquidaciones: ["Órdenes", "Liquidaciones"], verificaciones: ["Recursos", "Verificaciones"], reportes: ["Recursos", "Reportes"],
-    resenas: ["Recursos", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"] };
+  const TITULOS = { inicio: ["Tableros", "Panel principal"], tecnicos: ["Técnicos", "Técnicos y ayudantes"], empresas: ["Registros", "Empresas aliadas"], clientes: ["Registros", "Clientes"],
+    equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Órdenes", "Lista"], transacciones: ["Órdenes", "Transacciones"],
+    mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Órdenes", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
+    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"] };
 
   function menuHTML() {
     const it = (k, t, i) => `<a class="it ${S.ruta === k ? "on" : ""}" href="#${k}"><span class="i">${i}</span>${t}</a>`;
     let h = "";
     for (const m of MENU) {
+      if (m.sec) { h += `<div style="margin:14px 12px 4px;font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--suave)">${m.sec}</div>`; continue; }
       if (m.k) { h += it(m.k, m.t, m.i); continue; }
       h += `<div class="grupo"><span style="display:flex;gap:12px"><span class="i" style="width:22px;text-align:center">${m.i}</span>${m.g}</span><span>⌄</span></div>`;
       if (m.cap) h += `<div class="cap">${m.cap}</div>`;

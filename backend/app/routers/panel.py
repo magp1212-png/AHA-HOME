@@ -126,12 +126,21 @@ def _tabla_empresas(db):
                    "qr": "Generado" if t.qr_token else "Sin QR"} for t in db.scalars(select(Tienda))]
 
 
-def _tabla_equipo(db):
-    cols = [("nombre", "Nombre"), ("rol", "Rol"), ("email", "Correo"), ("tienda", "Tienda"), ("ultimo_acceso", "Último acceso"), ("estado", "Estado")]
-    tiendas = {t.id: t.nombre for t in db.scalars(select(Tienda))}
-    return cols, [{"id": u.id, "nombre": u.nombre, "rol": "CEO" if u.es_ceo else ROL_TEXTO.get(u.rol, u.rol), "email": u.email, "tienda": tiendas.get(u.tienda_id, "—"),
-                   "ultimo_acceso": _iso(u.ultimo_acceso_en), "estado": "Activo" if u.activo else "Inactivo", "_acciones": ["activo"]}
-                  for u in db.scalars(select(User).where(User.rol.in_(("agente", "tecnico_supervisor", "supervisor", "superadmin"))))]
+def _equipo(roles):
+    def f(db):
+        cols = [("nombre", "Nombre"), ("rol", "Rol"), ("email", "Correo"), ("telefono", "Teléfono"), ("tienda", "Tienda"), ("ultimo_acceso", "Último acceso"), ("estado", "Estado")]
+        tiendas = {t.id: t.nombre for t in db.scalars(select(Tienda))}
+        return cols, [{"id": u.id, "nombre": u.nombre, "rol": "CEO" if u.es_ceo else ROL_TEXTO.get(u.rol, u.rol), "email": u.email, "telefono": u.telefono,
+                       "tienda": tiendas.get(u.tienda_id, "—"), "ultimo_acceso": _iso(u.ultimo_acceso_en), "estado": "Activo" if u.activo else "Inactivo", "_acciones": ["activo"]}
+                      for u in db.scalars(select(User).where(User.rol.in_(roles)))]
+    return f
+
+
+# Personal interno de AHA HOME, separado de clientes, empresas y técnicos
+_tabla_equipo = _equipo(("agente", "tecnico_supervisor", "supervisor", "superadmin"))
+_tabla_administradores = _equipo(("superadmin",))
+_tabla_control = _equipo(("supervisor", "tecnico_supervisor"))
+_tabla_caja = _equipo(("agente",))
 
 
 def _tabla_ordenes(db):
@@ -214,7 +223,8 @@ def _tabla_mensajeria(db):
     return cols, list(filas.values())
 
 
-TABLAS = {"clientes": _tabla_clientes, "tecnicos": _tabla_tecnicos, "empresas": _tabla_empresas, "equipo": _tabla_equipo, "ordenes": _tabla_ordenes,
+TABLAS = {"clientes": _tabla_clientes, "tecnicos": _tabla_tecnicos, "empresas": _tabla_empresas, "equipo": _tabla_equipo,
+          "administradores": _tabla_administradores, "control": _tabla_control, "caja": _tabla_caja, "ordenes": _tabla_ordenes,
           "transacciones": _tabla_transacciones, "liquidaciones": _tabla_liquidaciones, "verificaciones": _tabla_verificaciones,
           "reportes": _tabla_reportes, "resenas": _tabla_resenas, "mensajeria": _tabla_mensajeria}
 ORDEN_INICIAL = {"clientes": "creado", "tecnicos": "creado", "ordenes": "creado", "transacciones": "en", "liquidaciones": "en", "verificaciones": "solicitado",
@@ -248,7 +258,7 @@ def tabla(nombre: str, q: str = "", orden: str | None = None, dir: str = "desc",
 def buscar(q: str, user: User = Depends(panel), db: Session = Depends(get_db)):
     """Buscador global de la barra superior: personas, órdenes y tiendas."""
     out = []
-    for nombre, etiqueta in (("ordenes", "Orden"), ("clientes", "Cliente"), ("tecnicos", "Técnico"), ("empresas", "Empresa"), ("equipo", "Equipo")):
+    for nombre, etiqueta in (("ordenes", "Orden"), ("clientes", "Cliente"), ("tecnicos", "Técnico"), ("empresas", "Empresa"), ("equipo", "Personal AHA HOME")):
         r = tabla(nombre, q=q, por_pagina=5, user=user, db=db)
         for f in r["filas"]:
             out.append({"tabla": nombre, "tipo": etiqueta, "id": f["id"], "titulo": f.get("codigo") or f.get("nombre"), "sub": f.get("cliente") or f.get("email") or f.get("tienda") or ""})
