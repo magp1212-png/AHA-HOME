@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 // Piezas compartidas: presupuesto, métodos de pago y las dos monedas (USD y Bs a tasa oficial BCV).
 import React, { useEffect, useState } from "react";
@@ -29,13 +30,89 @@ export function useTasa() {
 }
 
 /** «USD 10,00 · Bs 2.500,00» */
-export function MontoDual({ usd, tasa, size = 15, negrita }: { usd: number; tasa: Tasa | null; size?: number; negrita?: boolean }) {
+export function MontoDual({ usd, tasa, size = 15, negrita, moneda = "USD" }: { usd: number; tasa: Tasa | null; size?: number; negrita?: boolean; moneda?: Moneda }) {
   const bs = aBs(usd, tasa);
+  const principal = moneda === "Bs" && bs !== null ? `Bs ${fmtBs(bs)}` : `USD ${fmtBs(usd)}`;
+  const otra = moneda === "Bs" && bs !== null ? `USD ${fmtBs(usd)}` : bs !== null ? `Bs ${fmtBs(bs)}` : null;
   return (
     <Text style={{ fontSize: size, fontWeight: negrita ? "900" : "700", color: C.texto }}>
-      USD {fmtBs(usd)}{bs !== null ? <Text style={{ color: C.gris, fontWeight: "700", fontSize: size - 2 }}>  ·  Bs {fmtBs(bs)}</Text> : null}
+      {principal}{otra ? <Text style={{ color: C.gris, fontWeight: "700", fontSize: size - 2 }}>  ·  {otra}</Text> : null}
     </Text>
   );
+}
+
+export type Moneda = "Bs" | "USD";
+const CLAVE_MONEDA = "ahahome.caja.moneda";
+/** Moneda en la que la caja le muestra los precios al cliente (se recuerda en el equipo de la caja). */
+export function useMonedaCaja(): [Moneda, (m: Moneda) => void] {
+  const [m, setM] = useState<Moneda>("Bs");
+  useEffect(() => { AsyncStorage.getItem(CLAVE_MONEDA).then((v) => { if (v === "Bs" || v === "USD") setM(v); }).catch(() => {}); }, []);
+  const cambiar = (v: Moneda) => { setM(v); AsyncStorage.setItem(CLAVE_MONEDA, v).catch(() => {}); };
+  return [m, cambiar];
+}
+
+/** Selector grande [ Bs | $ ]: cambia todos los precios de la pantalla al instante. */
+export function MonedaToggle({ moneda, onCambiar, tasa }: { moneda: Moneda; onCambiar: (m: Moneda) => void; tasa: Tasa | null }) {
+  const sinTasa = !tasa?.bs_por_usd;
+  return (
+    <View style={{ gap: 6 }}>
+      <View accessibilityRole="radiogroup" style={{ flexDirection: "row", backgroundColor: "#EEF2F7", borderRadius: 16, padding: 4 }}>
+        {([["Bs", "Bs  Bolívares"], ["USD", "$  Dólares"]] as const).map(([k, t]) => {
+          const on = (sinTasa ? "USD" : moneda) === k;
+          return (
+            <Pressable key={k} accessibilityRole="radio" accessibilityState={{ checked: on, disabled: k === "Bs" && sinTasa }} disabled={k === "Bs" && sinTasa}
+              onPress={() => onCambiar(k)} style={{ flex: 1, minHeight: 48, borderRadius: 12, alignItems: "center", justifyContent: "center",
+                backgroundColor: on ? C.marino : "transparent", opacity: k === "Bs" && sinTasa ? 0.4 : 1 }}>
+              <Text style={{ fontWeight: "900", fontSize: 16, color: on ? C.lima : C.marino }}>{t}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={{ fontSize: 12.5, color: C.gris, textAlign: "center" }}>
+        {sinTasa ? "Sin tasa del día: solo dólares (el superadmin debe cargar la tasa BCV)." : `Tasa oficial BCV: Bs ${fmtBs(Number(tasa!.bs_por_usd))} por USD · ${tasa!.fecha}`}
+      </Text>
+    </View>
+  );
+}
+
+/** Inicio de la caja: tasa del día, precios y calculadora, en la moneda que pida el cliente. */
+export function PreciosCaja() {
+  const { tasa } = useTasa();
+  const [moneda, setMoneda] = useMonedaCaja();
+  const [costoInsp, setCostoInsp] = useState(10);
+  const [tarifas, setTarifas] = useState<{ tipo: string; tipo_texto: string; precio: string }[]>([]);
+  const [monto, setMonto] = useState("");
+  useEffect(() => {
+    api<{ costo: string }>("/inspeccion/costo").then((r) => setCostoInsp(Number(r.costo))).catch(() => {});
+    api<{ tipo: string; tipo_texto: string; precio: string }[]>("/tarifas").then(setTarifas).catch(() => {});
+  }, []);
+  const mon: Moneda = tasa?.bs_por_usd ? moneda : "USD";
+  const m = useMoneda(mon, tasa);
+  const valor = Number(monto.replace(/\./g, "").replace(",", ".")) || 0;
+  const conv = mon === "Bs" ? (tasa?.bs_por_usd ? valor / Number(tasa.bs_por_usd) : null) : aBs(valor, tasa);
+  return (
+    <Tarjeta>
+      <Seccion>PRECIOS · ¿EN QUÉ MONEDA LO PIDE EL CLIENTE?</Seccion>
+      <MonedaToggle moneda={moneda} onCambiar={setMoneda} tasa={tasa} />
+      <View style={{ gap: 6 }}>
+        <Fila><Texto>Inspección del técnico</Texto><View style={{ flex: 1 }} /><Texto negrita>{m(costoInsp)}</Texto></Fila>
+        {tarifas.length ? tarifas.map((t) => (
+          <Fila key={t.tipo}><Texto>Instalación · {t.tipo_texto}</Texto><View style={{ flex: 1 }} /><Texto negrita>{m(Number(t.precio))}</Texto></Fila>
+        )) : <Texto gris size={13}>Instalación: precio por definir (la tabla de precios se carga más adelante).</Texto>}
+      </View>
+      <View style={{ height: 1, backgroundColor: C.linea }} />
+      <Texto negrita size={14}>Calculadora</Texto>
+      <Campo etiqueta={mon === "Bs" ? "Monto en bolívares" : "Monto en dólares"} value={monto} onChangeText={setMonto} keyboardType="decimal-pad" />
+      {valor > 0 && conv !== null ? (
+        <Text style={{ fontSize: 22, fontWeight: "900", color: C.marino }}>= {mon === "Bs" ? `USD ${fmtBs(conv)}` : `Bs ${fmtBs(conv)}`}</Text>
+      ) : null}
+    </Tarjeta>
+  );
+}
+
+/** Formatea un monto en USD en la moneda elegida. */
+export function useMoneda(moneda: Moneda, tasa: Tasa | null) {
+  return (usd: number) => (moneda === "Bs" && tasa?.bs_por_usd ? `Bs ${fmtBs(aBs(usd, tasa)!)}` : `USD ${fmtBs(usd)}`);
 }
 
 export type InfoPago = { metodo: string | null; metodo_texto: string; moneda: string; monto_usd: string; monto_bs: string | null; tasa: string | null; cobrado: string | null; referencia?: string; pagado_en?: string | null };

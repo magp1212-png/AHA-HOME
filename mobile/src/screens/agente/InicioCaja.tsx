@@ -6,7 +6,7 @@ import { api } from "../../api";
 import { useNav } from "../../nav";
 import { useSession } from "../../session";
 import type { Orden } from "../../types";
-import { VisitasPendientes } from "../../components";
+import { PreciosCaja, VisitasPendientes } from "../../components";
 import { BotonCuenta, Campana, Aviso, Boton, C, Cargando, Etiqueta, Pantalla, Texto, tonoEstado } from "../../ui";
 
 export default function InicioCaja() {
@@ -25,6 +25,7 @@ export default function InicioCaja() {
       derecha={<><Campana /><BotonCuenta /></>}>
       <VisitasPendientes onCambio={cargar} />
       <Boton titulo="Nueva orden de servicio" icono="add-circle" tipo="lima" onPress={() => nav.push("nuevaOrden")} />
+      <PreciosCaja />
       <Aviso texto={error} />
       <Texto negrita>Órdenes de la tienda</Texto>
       {ordenes === null ? <Cargando /> : null}
