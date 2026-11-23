@@ -9,7 +9,9 @@ from app.db import SessionLocal
 from app.models import Tecnico
 from conftest import login, login_pin
 
-LUNES = "2026-11-23"  # guardia del Grupo A
+_hoy = dt.date.today()
+LUNES = (_hoy + dt.timedelta(days=(7 - _hoy.weekday()) or 7)).isoformat()  # el próximo lunes: guardia del Grupo A
+MARTES = (dt.date.fromisoformat(LUNES) + dt.timedelta(days=1)).isoformat()
 
 ORDEN = {
     "cliente_nombre": "María González", "cliente_telefono": "0414-123-4567",
@@ -229,8 +231,8 @@ def test_cancelar_y_reprogramar(client):
     agente = login(client, "agente@ahahome.test")
     o = nueva(client, agente)
     cliente = login(client, "maria@ahahome.test")
-    r = client.post(f"/ordenes/{o['id']}/reprogramar", json={"fecha": "2026-11-24", "franja": "13:00-15:00"}, headers=cliente).json()
-    assert r["fecha"] == "2026-11-24" and r["estado"] == "tecnico_asignado"
+    r = client.post(f"/ordenes/{o['id']}/reprogramar", json={"fecha": MARTES, "franja": "13:00-15:00"}, headers=cliente).json()
+    assert r["fecha"] == MARTES and r["estado"] == "tecnico_asignado"
     assert client.get(f"/ordenes/{o['id']}", headers=agente).json()["tecnico"]["grupo"] == "B"
     assert client.post(f"/ordenes/{o['id']}/cancelar", json={"motivo": "Me mudé"}, headers=cliente).json()["estado"] == "cancelado"
     assert client.post(f"/ordenes/{o['id']}/cancelar", json={}, headers=cliente).status_code == 409

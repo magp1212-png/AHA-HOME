@@ -101,6 +101,7 @@ def listar(user: User = Depends(solo_superadmin), db: Session = Depends(get_db))
 
 @router.post("/admin/banners")
 def crear(body: BannerIn, user: User = Depends(solo_superadmin), db: Session = Depends(get_db)):
+    crear_por_defecto(db)  # los mensajes de fábrica de AHA HOME existen antes del primer banner propio
     b = Banner(**(body.model_dump() | {"imagen": body.imagen or ""}))
     db.add(b)
     db.commit()
