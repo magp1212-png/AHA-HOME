@@ -186,6 +186,7 @@ class Orden(Base):
 
     # pago de la instalación (se cobra en caja al solicitarla)
     monto_instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    inspeccion_centavos: Mapped[int] = mapped_column(Integer, default=0)  # inspección cobrada en caja junto con la instalación
     pago_metodo: Mapped[str | None] = mapped_column(String(20))
     pago_referencia: Mapped[str] = mapped_column(String(60), default="")
     pagado_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
@@ -347,6 +348,7 @@ class Presupuesto(Base):
     fotos: Mapped[list] = mapped_column(JSON, default=list)
     materiales_centavos: Mapped[int] = mapped_column(Integer, default=0)
     mano_obra_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    inspeccion_centavos: Mapped[int] = mapped_column(Integer, default=0)  # inspección pedida después (no se cobró en caja): va en este pago
     materiales_compra: Mapped[str] = mapped_column(String(10), default="tecnico")  # quién compra los materiales: tecnico | cliente
     estado: Mapped[str] = mapped_column(String(30), default="enviado")
     motivo_rechazo: Mapped[str] = mapped_column(String(300), default="")
@@ -366,7 +368,7 @@ class Presupuesto(Base):
 
     @property
     def total_centavos(self) -> int:
-        return self.materiales_centavos + self.mano_obra_centavos
+        return self.materiales_centavos + self.mano_obra_centavos + self.inspeccion_centavos
 
     @property
     def compra_cliente(self) -> bool:
@@ -374,8 +376,8 @@ class Presupuesto(Base):
 
     @property
     def a_pagar_centavos(self) -> int:
-        """Lo que paga el cliente: si él compra los materiales, solo la mano de obra."""
-        return self.mano_obra_centavos if self.compra_cliente else self.total_centavos
+        """Lo que paga el cliente: inspección + mano de obra, y los materiales si los compra el técnico."""
+        return self.mano_obra_centavos + self.inspeccion_centavos if self.compra_cliente else self.total_centavos
 
 
 class Mensaje(Base):

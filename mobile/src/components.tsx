@@ -33,6 +33,7 @@ export function DetallePresupuesto({ p }: { p: Presupuesto }) {
       ) : null}
       <Text style={{ color: C.gris }}>
         Materiales USD {p.materiales_compra === "cliente" ? `0.00 (referencia ${p.materiales})` : p.materiales} · Mano de obra USD {p.mano_obra}
+        {Number(p.inspeccion) > 0 ? ` · Inspección USD ${p.inspeccion}` : ""}
       </Text>
       <Text style={{ fontSize: 20, fontWeight: "900", color: C.texto }}>Total a pagar USD {p.a_pagar}</Text>
       {p.notas ? <Texto gris size={14}>Nota del técnico: {p.notas}</Texto> : null}
@@ -124,7 +125,7 @@ export function InspeccionCliente({ o, recargar }: { o: any; recargar: () => voi
   const [compra, setCompra] = useState<"tecnico" | "cliente">(p?.materiales_compra ?? "tecnico");
   useEffect(() => { if (p) setCompra(p.materiales_compra); }, [p?.id, p?.materiales_compra]);
   const hayMateriales = !!p && Number(p.materiales) > 0;
-  const aPagar = p ? (compra === "cliente" && hayMateriales ? p.mano_obra : p.total) : "0";
+  const aPagar = p ? (compra === "cliente" && hayMateriales ? (Number(p.mano_obra) + Number(p.inspeccion ?? 0)).toFixed(2) : p.total) : "0";
   const listaCompra = p ? p.items.filter((i) => i.tipo === "material").map((i) => `${i.cantidad} × ${i.descripcion}`).join(", ") : "";
   const antes = ["solicitud_enviada", "tecnico_asignado", "cita_confirmada"].includes(o.estado);
   const hacer = async (ruta: string, body: any) => { setError(null); try { await api(ruta, { body }); recargar(); } catch (e: any) { setError(e.message); } };
@@ -135,6 +136,7 @@ export function InspeccionCliente({ o, recargar }: { o: any; recargar: () => voi
       <Tarjeta>
         <Texto negrita>¿Quieres que el técnico revise antes?</Texto>
         <Texto gris size={14}>Te visita, revisa dónde va el equipo y te da un presupuesto de materiales e instalación antes de retirar tu compra.</Texto>
+        <Texto negrita size={14}>Costo de la inspección: USD {o.inspeccion.costo} (se suma al pago del presupuesto).</Texto>
         <Boton titulo="Solicitar inspección" tipo="secundario" icono="search" onPress={() => hacer(`/ordenes/${o.id}/inspeccion`, {})} />
         <Aviso texto={error} />
       </Tarjeta>
@@ -144,6 +146,9 @@ export function InspeccionCliente({ o, recargar }: { o: any; recargar: () => voi
     <Tarjeta>
       <Seccion>INSPECCIÓN Y PRESUPUESTO</Seccion>
       <Texto gris size={14}>Visita: {o.inspeccion.fecha} · {o.inspeccion.franja}</Texto>
+      <Texto gris size={14}>
+        Costo de la inspección: USD {o.inspeccion.costo}{o.inspeccion.pagada_en_tienda ? " · ✓ pagada en la tienda" : " · se suma al pago del presupuesto"}
+      </Texto>
       {!p ? <Aviso tono="info" texto="El técnico te visitará y te enviará el presupuesto aquí." /> : <DetallePresupuesto p={p} />}
       {p?.estado === "enviado" && !p.cliente_acepto ? (
         <View style={{ gap: 10 }}>

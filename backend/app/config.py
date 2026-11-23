@@ -36,3 +36,5 @@ UTC_OFFSET_HOURS = -4
 # El cliente puede reprogramar sin costo hasta estas horas antes del inicio de su franja (y antes del retiro).
 REPROGRAMAR_HORAS_ANTES = int(os.environ.get("AHAHOME_REPROGRAMAR_HORAS", "3"))
 PAUSA_INSPECCION_HORAS = int(os.environ.get("AHAHOME_PAUSA_INSPECCION_HORAS", "48"))
+# Costo de la visita de inspección (USD); se suma al pago del presupuesto cuando el cliente la pidió.
+INSPECCION_USD = float(os.environ.get("AHAHOME_INSPECCION_USD", "10"))

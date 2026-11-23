@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from . import asignacion
+from . import asignacion, config
 from .models import (ESTADO_CANCELADO, ESTADO_TEXTO, ESTADOS, TIPO_EQUIPO_TEXTO, TIPO_SERVICIO_TEXTO, Articulo, Evento, Orden,
                      Tecnico, User, ahora, checklist_de, con_retiro, fotos_de)
 from .notificar import notificar
@@ -197,7 +197,8 @@ def vista(orden: Orden, rol: str) -> dict:
         "retirado_en": _iso(orden.retirado_en), "completado_en": _iso(orden.completado_en),
         "checklist": orden.checklist or {}, "fotos": orden.fotos or {},
         "calificacion": orden.calificacion, "comentario": orden.comentario,
-        "inspeccion": {"requerida": orden.requiere_inspeccion, "fecha": orden.inspeccion_fecha, "franja": orden.inspeccion_franja},
+        "inspeccion": {"requerida": orden.requiere_inspeccion, "fecha": orden.inspeccion_fecha, "franja": orden.inspeccion_franja,
+                       "costo": dinero(round(config.INSPECCION_USD * 100)), "pagada_en_tienda": orden.inspeccion_centavos > 0},
         "propina": {"monto": dinero(orden.propina_centavos), "metodo": orden.propina_metodo, "dada": orden.propina_en is not None,
                     "entregada_al_tecnico": orden.propina_entregada_en is not None},
         "creado": _iso(orden.creado),

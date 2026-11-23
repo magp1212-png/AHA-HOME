@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .. import config
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import current_user, require
@@ -67,6 +68,12 @@ class PagoIn(BaseModel):
 def metodos_pago():
     from ..models import METODO_PAGO_TEXTO
     return [{"id": k, "texto": METODO_PAGO_TEXTO[k]} for k in METODOS_PAGO]
+
+
+@router.get("/inspeccion/costo")
+def costo_inspeccion():
+    """Lo que cuesta la visita de inspección (se cobra en caja si el cliente la pide al comprar)."""
+    return {"costo": svc.dinero(round(config.INSPECCION_USD * 100))}
 
 
 @router.get("/tarifas")
@@ -147,8 +154,10 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
     precios = {x.tipo: x.precio_centavos for x in db.scalars(select(Tarifa).where(Tarifa.activa.is_(True)))}
     # Mientras no se publique la tabla de precios, la instalación queda «precio por definir» (sin cobro en caja)
     total = sum(precios.get(a.tipo, 0) for a in a_instalar)
-    if total and not body.pago:
-        raise HTTPException(422, "Registra el pago de la instalación en caja")
+    # La inspección se cobra en caja, en el momento, junto con la instalación
+    insp = round(config.INSPECCION_USD * 100) if body.requiere_inspeccion else 0
+    if (total or insp) and not body.pago:
+        raise HTTPException(422, "Registra el pago en caja")
 
     tel = limpiar_tel(body.cliente_telefono)
     cliente = db.scalar(select(User).where(User.telefono == tel, User.rol == "cliente"))
@@ -156,12 +165,12 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
               cliente_nombre=body.cliente_nombre.strip(), cliente_telefono=tel, direccion=body.direccion.strip(),
               referencia=body.referencia.strip(), lat=body.lat, lng=body.lng, zona=body.zona, tipo_servicio=tipo_servicio,
               numero_factura=body.numero_factura.strip(), fecha_compra=body.fecha_compra, factura=body.factura,
-              monto_instalacion_centavos=total, requiere_inspeccion=body.requiere_inspeccion,
+              monto_instalacion_centavos=total, inspeccion_centavos=insp, requiere_inspeccion=body.requiere_inspeccion,
               inspeccion_fecha=body.fecha.isoformat() if body.requiere_inspeccion else "", inspeccion_franja=body.franja if body.requiere_inspeccion else "", fecha=body.fecha.isoformat(), franja=body.franja, tienda_id=tienda.id,
               agente_id=user.id if user.rol == "agente" else None, qr_token=new_qr_token(), checklist={}, fotos={})
     if body.requiere_inspeccion:
         o.pausa_desde = ahora()
-    if total:
+    if total or insp:
         o.pago_metodo, o.pago_referencia, o.pagado_en, o.cobrado_por = body.pago.metodo, body.pago.referencia.strip(), ahora(), user.id
     o.articulos = [Articulo(tipo=a.tipo, descripcion=a.descripcion.strip(), marca=a.marca.strip(), modelo=a.modelo.strip(),
                             serial=a.serial.strip(), garantia=a.garantia.strip(), instalar=a.instalar,
@@ -169,7 +178,8 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
     db.add(o)
     db.flush()
     o.tienda = tienda
-    pago = f" · instalación cobrada USD {svc.dinero(total)} ({o.pago_metodo})" if total else ""
+    pago = (f" · cobrado en caja USD {svc.dinero(total + insp)} ({o.pago_metodo})"
+            + (f": instalación {svc.dinero(total)} + inspección {svc.dinero(insp)}" if insp else "")) if total or insp else ""
     svc.registrar(db, o, "solicitud_enviada", user, f"Registrada en {tienda.nombre}: {len(o.articulos)} artículo(s){pago}")
     svc.asignar(db, o, user)
     svc.avisar_nueva_orden(db, o)

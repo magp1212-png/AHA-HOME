@@ -29,16 +29,21 @@ export default function NuevaOrden() {
   const [ref, setRef] = useState("");
   const [terminos, setTerminos] = useState(false);
   const [inspeccion, setInspeccion] = useState(false);
+  const [costoInsp, setCostoInsp] = useState(10);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
     api<{ tipo: string; precio: string }[]>("/tarifas").then((t) => setTarifas(Object.fromEntries(t.map((x) => [x.tipo, Number(x.precio)])))).catch(() => {});
     api<{ id: string; texto: string }[]>("/metodos-pago").then(setMetodos).catch(() => {});
+    api<{ costo: string }>("/inspeccion/costo").then((r) => setCostoInsp(Number(r.costo))).catch(() => {});
   }, []);
 
   const aInstalar = arts.filter((a) => a.instalar);
-  const total = useMemo(() => aInstalar.reduce((s, a) => s + (tarifas[a.tipo] ?? 0), 0), [aInstalar, tarifas]);
+  const instalacion = useMemo(() => aInstalar.reduce((s, a) => s + (tarifas[a.tipo] ?? 0), 0), [aInstalar, tarifas]);
+  const conInsp = inspeccion && (aInstalar.length > 0 || soloInst);
+  // Todo se cobra en caja, en el momento: la instalación y, si la pide, la inspección
+  const total = instalacion + (conInsp ? costoInsp : 0);
   const porDefinir = aInstalar.some((a) => !tarifas[a.tipo]);
   const servicio = soloInst ? "Solo instalación" : aInstalar.length ? "Traslado e instalación" : "Traslado";
   const setArt = (i: number, k: keyof Art, v: any) => setArts(arts.map((a, j) => (j === i ? { ...a, [k]: v } : a)));
@@ -50,7 +55,7 @@ export default function NuevaOrden() {
         cliente_nombre: c.nombre, cliente_telefono: c.telefono, direccion: c.direccion, referencia: c.referencia, zona,
         articulos: arts.map((a) => ({ ...a, instalar: soloInst ? true : a.instalar })), solo_instalacion: soloInst,
         pago: total > 0 && metodo ? { metodo, referencia: ref } : null, numero_factura: c.numero_factura,
-        fecha, franja, acepta_terminos: terminos, requiere_inspeccion: inspeccion,
+        fecha, franja, acepta_terminos: terminos, requiere_inspeccion: conInsp,
       } });
       nav.back();
       nav.push("ordenCaja", { id: o.id });
@@ -112,24 +117,27 @@ export default function NuevaOrden() {
       </Tarjeta>
 
       {aInstalar.length || soloInst ? (
+        <Pressable onPress={() => setInspeccion(!inspeccion)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
+          <Ionicons name={inspeccion ? "checkbox" : "square-outline"} size={26} color={C.marino} />
+          <Text style={{ flex: 1, fontSize: 15, color: C.texto }}>El cliente pide inspección antes del retiro (el técnico visita y presupuesta materiales) · USD {costoInsp.toFixed(2)}</Text>
+        </Pressable>
+      ) : null}
+      {aInstalar.length || soloInst ? (
         <Tarjeta>
-          <Seccion>PAGO DE LA INSTALACIÓN</Seccion>
-          {porDefinir || total === 0 ? <Aviso tono="info" texto="Precio de instalación por definir: no se cobra por ahora." /> : (
+          <Seccion>PAGO EN CAJA</Seccion>
+          {instalacion > 0 && !porDefinir ? <Fila><Texto>Instalación</Texto><Texto negrita>USD {instalacion.toFixed(2)}</Texto></Fila>
+            : <Aviso tono="info" texto="Precio de instalación por definir: no se cobra por ahora." />}
+          {conInsp ? <Fila><Texto>Inspección</Texto><Texto negrita>USD {costoInsp.toFixed(2)}</Texto></Fila> : null}
+          {total > 0 ? (
             <>
-              <Texto negrita size={20}>Total: USD {total.toFixed(2)}</Texto>
+              <Texto negrita size={20}>Total a cobrar: USD {total.toFixed(2)}</Texto>
               <Fila wrap>{metodos.map((m) => <Opcion key={m.id} texto={m.texto} activo={metodo === m.id} onPress={() => setMetodo(m.id)} />)}</Fila>
               <Campo etiqueta="Referencia, lote o número de aprobación" value={ref} onChangeText={setRef} />
             </>
-          )}
+          ) : null}
         </Tarjeta>
       ) : null}
 
-      {aInstalar.length || soloInst ? (
-        <Pressable onPress={() => setInspeccion(!inspeccion)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
-          <Ionicons name={inspeccion ? "checkbox" : "square-outline"} size={26} color={C.marino} />
-          <Text style={{ flex: 1, fontSize: 15, color: C.texto }}>El cliente pide inspección antes del retiro (el técnico visita y presupuesta materiales)</Text>
-        </Pressable>
-      ) : null}
       <Pressable onPress={() => setTerminos(!terminos)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
         <Ionicons name={terminos ? "checkbox" : "square-outline"} size={26} color={C.marino} />
         <Text style={{ flex: 1, fontSize: 15, color: C.texto }}>El cliente acepta los términos del servicio</Text>

@@ -500,7 +500,8 @@ def test_inspeccion_presupuesto_pago_materiales_y_propina(client):
     c = client.put(url, json={"pago_movil_telefono": "04242000000", "pago_movil_banco": "Banesco", "cedula": "V-12000000"}, headers=oficina).json()
     assert c["registrada"] and client.get("/tecnico/cuenta-bancaria", headers=tecnico).json()["registrada"]
     p = client.post(f"/tecnico/ordenes/{o['id']}/presupuesto", json=pres, headers=tecnico).json()
-    assert p["total"] == "80.00" and p["materiales"] == "40.00" and p["estado"] == "enviado"
+    # pidió la inspección desde la app (no se cobró en caja): los USD 10 van en este pago
+    assert p["total"] == "90.00" and p["inspeccion"] == "10.00" and p["a_pagar"] == "90.00" and p["materiales"] == "40.00" and p["estado"] == "enviado"
     assert "Presupuesto por aprobar" in titulos(client, superadmin)
     assert "Tu presupuesto está listo" in titulos(client, cliente)
 
@@ -540,7 +541,7 @@ def test_inspeccion_presupuesto_pago_materiales_y_propina(client):
 
 def test_presupuesto_rechazado_permite_uno_nuevo(client):
     agente = login(client, "agente@ahahome.test")
-    o = nueva(client, agente, requiere_inspeccion=True, pago=None, articulos=[{"tipo": "otro", "descripcion": "Closet", "instalar": True}])
+    o = nueva(client, agente, requiere_inspeccion=True, pago={"metodo": "punto_de_venta", "referencia": "L-1"}, articulos=[{"tipo": "otro", "descripcion": "Closet", "instalar": True}])
     assert o["inspeccion"]["requerida"]
     tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
     solo_mano = {"items": [{"tipo": "mano_obra", "descripcion": "Armado de closet", "cantidad": 1, "precio": 30}]}
@@ -566,7 +567,7 @@ def test_pausa_por_inspeccion_vence_y_se_puede_quitar(client):
     agente = login(client, "agente@ahahome.test")
     sin = nueva(client, agente, pago=None, articulos=[{"tipo": "otro", "descripcion": "Mesa", "instalar": True}])
     assert sin["pausa"]["activa"] is False  # sin inspección: va directo a la confirmación de retiro
-    o = nueva(client, agente, requiere_inspeccion=True, pago=None, articulos=[{"tipo": "otro", "descripcion": "Closet", "instalar": True}])
+    o = nueva(client, agente, requiere_inspeccion=True, pago={"metodo": "punto_de_venta", "referencia": "L-1"}, articulos=[{"tipo": "otro", "descripcion": "Closet", "instalar": True}])
     assert o["pausa"]["activa"] and not o["pausa"]["vencida"]
     # pasa el límite: avisa una sola vez al control y al cliente
     with SessionLocal() as db:
@@ -601,7 +602,11 @@ def test_analitica_sin_servicios_completados(client):
 def test_materiales_los_compra_el_cliente(client):
     """El técnico sugiere quién compra los materiales; el cliente elige al aceptar y solo paga la mano de obra."""
     agente = login(client, "agente@ahahome.test")
-    o = nueva(client, agente, requiere_inspeccion=True, pago=None, articulos=[{"tipo": "aire_acondicionado", "instalar": True}])
+    # la inspección se cobra en caja en el momento: sin pago no se registra la orden
+    sin = client.post("/ordenes", json=ORDEN | {"requiere_inspeccion": True, "pago": None, "articulos": [{"tipo": "aire_acondicionado", "instalar": True}]}, headers=agente)
+    assert sin.status_code == 422 and "caja" in sin.json()["detail"]
+    o = nueva(client, agente, requiere_inspeccion=True, pago={"metodo": "punto_de_venta", "referencia": "L-1"}, articulos=[{"tipo": "aire_acondicionado", "instalar": True}])
+    assert o["inspeccion"]["pagada_en_tienda"] and o["inspeccion"]["costo"] == "10.00"
     tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
     items = {"items": [{"tipo": "material", "descripcion": "Tubería de cobre 3 m", "cantidad": 1, "precio": 45},
                        {"tipo": "mano_obra", "descripcion": "Instalación split", "cantidad": 1, "precio": 35}]}

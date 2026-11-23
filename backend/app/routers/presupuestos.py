@@ -115,7 +115,7 @@ def _iso(x):
 def vista_presupuesto(p: Presupuesto, rol: str) -> dict:
     d = {"id": p.id, "orden_id": p.orden_id, "codigo": p.orden.codigo, "estado": p.estado, "estado_texto": ESTADO_PRESUPUESTO_TEXTO.get(p.estado),
          "items": [{**i, "precio": dinero(i["precio_centavos"]), "subtotal": dinero(i["precio_centavos"] * i["cantidad"])} for i in p.items],
-         "materiales": dinero(p.materiales_centavos), "mano_obra": dinero(p.mano_obra_centavos), "total": dinero(p.total_centavos),
+         "materiales": dinero(p.materiales_centavos), "mano_obra": dinero(p.mano_obra_centavos), "inspeccion": dinero(p.inspeccion_centavos), "total": dinero(p.total_centavos),
          "materiales_compra": p.materiales_compra, "a_pagar": dinero(p.a_pagar_centavos),
          "notas": p.notas, "fotos": p.fotos, "motivo_rechazo": p.motivo_rechazo, "tecnico": p.tecnico.user.nombre,
          "cliente_acepto": p.cliente_acepto_en is not None, "admin_aprobo": p.admin_aprobo_en is not None,
@@ -212,10 +212,11 @@ def enviar_presupuesto(orden_id: int, body: NuevoPresupuesto, user: User = Depen
     if mat and body.materiales_compra == "tecnico" and not cuenta_tecnico(t)["registrada"]:
         raise HTTPException(422, "Tu cuenta de pago no está registrada: pásala por la oficina de AHA HOME para poder presupuestar materiales")
     p = Presupuesto(orden_id=o.id, tecnico_id=t.id, items=items, notas=body.notas.strip(), fotos=body.fotos,
-                    materiales_centavos=mat, mano_obra_centavos=mo, materiales_compra=body.materiales_compra)
+                    materiales_centavos=mat, mano_obra_centavos=mo, materiales_compra=body.materiales_compra,
+                    inspeccion_centavos=round(config.INSPECCION_USD * 100) if o.requiere_inspeccion and not o.inspeccion_centavos else 0)
     db.add(p)
     db.flush()
-    svc.registrar(db, o, o.estado, user, f"Presupuesto enviado: USD {dinero(p.total_centavos)} (materiales {dinero(mat)}, mano de obra {dinero(mo)})")
+    svc.registrar(db, o, o.estado, user, f"Presupuesto enviado: USD {dinero(p.total_centavos)} (materiales {dinero(mat)}, mano de obra {dinero(mo)}, inspección {dinero(p.inspeccion_centavos)})")
     notificar(db, o.cliente_id, "Tu presupuesto está listo", f"{o.codigo}: total USD {dinero(p.total_centavos)}. Ábrelo en la app para aceptarlo.", o.id)
     _avisar(db, _control(db, o), "Presupuesto por aprobar", f"{o.codigo} · {user.nombre} · USD {dinero(p.total_centavos)}", o.id)
     db.commit()
