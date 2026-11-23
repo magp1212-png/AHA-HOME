@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.asignacion import grupo_de_guardia
 from app.db import SessionLocal
-from app.models import Tecnico
+from app.models import Orden, Tecnico
 from conftest import login, login_pin
 
 _hoy = dt.date.today()
@@ -36,6 +36,11 @@ def nueva(client, h, **cambios):
     r = client.post("/ordenes", json=ORDEN | cambios, headers=h)
     assert r.status_code == 200, r.text
     return r.json()
+
+
+def token_de(orden_id):
+    with SessionLocal() as db:
+        return db.get(Orden, orden_id).token_cierre
 
 
 def tel_de(tecnico_id):
@@ -86,18 +91,18 @@ def test_traslado_e_instalacion_completo(client):
     assert v["tecnico"]["foto"] and v["ayudantes"][0]["foto"]
 
     client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
-    r = client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico)
+    r = client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": token_de(o["id"])}, headers=tecnico)
     assert r.status_code == 422 and "anime" in r.json()["detail"]["faltan"]
     client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": INSTALACION}, headers=tecnico)
     client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {"instalacion": "/archivos/a.jpg", "espacio_limpio": "/archivos/b.jpg"}},
                headers=tecnico)
     # el juego de comedor va sin instalar: falta confirmar su entrega en empaque original
-    r = client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico).json()
+    r = client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": token_de(o["id"])}, headers=tecnico).json()
     assert r["detail"]["faltan"] == ["entrega_en_empaque_original", "ubicado_en_sitio", "foto_entrega"]
     client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {"entrega_en_empaque_original": True, "ubicado_en_sitio": True}},
                headers=tecnico)
     client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {"entrega": "/archivos/e.jpg"}}, headers=tecnico)
-    assert client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico).json()["estado"] == "completado"
+    assert client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": token_de(o["id"])}, headers=tecnico).json()["estado"] == "completado"
     client.post(f"/ordenes/{o['id']}/calificar", json={"estrellas": 5}, headers=cliente)
 
     # Seguimiento completo del superadmin: bitácora con quién y cuándo, y tiempos por fase
@@ -120,7 +125,7 @@ def test_solo_traslado(client):
     assert client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {"anime": True}}, headers=tecnico).status_code == 422
     client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {"entrega_en_empaque_original": True, "ubicado_en_sitio": True}}, headers=tecnico)
     client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {"entrega": "/archivos/e.jpg"}}, headers=tecnico)
-    assert client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico).json()["estado"] == "completado"
+    assert client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": token_de(o["id"])}, headers=tecnico).json()["estado"] == "completado"
 
 
 def test_solo_instalacion_sin_almacen(client):
@@ -396,7 +401,7 @@ def test_analitica_ranking_y_mapa(client):
     client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
     client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {"entrega_en_empaque_original": True, "ubicado_en_sitio": True}}, headers=tecnico)
     client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {"entrega": "/archivos/e.jpg"}}, headers=tecnico)
-    client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico)
+    client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": token_de(o["id"])}, headers=tecnico)
     client.post(f"/ordenes/{o['id']}/calificar", json={"estrellas": 5, "comentario": "Rápidos y amables"}, headers=login(client, "maria@ahahome.test"))
 
     a = client.get("/supervisor/analitica", headers=login(client, "superadmin@ahahome.test")).json()
@@ -529,7 +534,7 @@ def test_inspeccion_presupuesto_pago_materiales_y_propina(client):
     client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {k: True for k in full["checklist_requerido"]}}, headers=tecnico)
     client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {k: "/archivos/x.jpg" for k in full["fotos_requeridas"]}}, headers=tecnico)
     assert client.post(f"/ordenes/{o['id']}/propina", json={"monto": 5, "metodo": "zelle", "referencia": "Z1"}, headers=cliente).status_code == 409
-    client.post(f"/tecnico/ordenes/{o['id']}/completar", headers=tecnico)
+    client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": token_de(o["id"])}, headers=tecnico)
     assert client.post(f"/ordenes/{o['id']}/propina", json={"monto": 5, "metodo": "zelle"}, headers=cliente).status_code == 422
     r = client.post(f"/ordenes/{o['id']}/propina", json={"monto": 5, "metodo": "zelle", "referencia": "Z1"}, headers=cliente).json()
     assert r["propina"]["monto"] == "5.00" and r["propina"]["entregada_al_tecnico"] is False
@@ -797,3 +802,38 @@ def test_tipo_de_inmueble_casa_edificio_u_oficina(client):
     assert client.get(f"/ordenes/{o['id']}", headers=tecnico).json()["cliente"]["tipo_inmueble_texto"] == "Edificio"
     r = client.post("/ordenes", json=ORDEN | {"tipo_inmueble": "galpon", "pago": None}, headers=agente)
     assert r.status_code == 422 and "casa, edificio u oficina" in r.json()["detail"]
+
+
+def test_cierre_con_codigo_del_cliente(client):
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente, pago=None, articulos=[{"tipo": "nevera", "instalar": False}])
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    cliente = login(client, "maria@ahahome.test")
+    client.post(f"/tecnico/ordenes/{o['id']}/confirmar", headers=tecnico)
+    client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico)
+    vc = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
+    token = vc["cierre"]["token"]
+    assert len(token) == 6 and token.isdigit()
+    vt = client.get(f"/ordenes/{o['id']}", headers=tecnico).json()
+    assert "token" not in vt["cierre"] and vt["cierre"]["requiere_token"]
+    sup = login(client, "supervisor@ahahome.test")
+    assert client.get(f"/ordenes/{o['id']}", headers=sup).json()["cierre"]["token"] == token
+    client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
+    req = vt["checklist_requerido"]
+    client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {k: True for k in req}}, headers=tecnico)
+    client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {k: "x.jpg" for k in vt["fotos_requeridas"]}}, headers=tecnico)
+    r = client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": ""}, headers=tecnico)
+    assert r.status_code == 422 and "código de cierre" in r.json()["detail"]
+    malo = "000000" if token != "000000" else "111111"
+    for i in range(4):
+        r = client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": malo}, headers=tecnico)
+        assert r.status_code == 422 and f"{4 - i} intento" in r.json()["detail"]
+    # quinto error: se genera un código nuevo y el viejo deja de servir
+    r = client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": malo}, headers=tecnico)
+    assert "se generó uno nuevo" in r.json()["detail"]
+    assert "Nuevo código de cierre" in titulos(client, cliente)
+    nuevo = client.get(f"/ordenes/{o['id']}", headers=cliente).json()["cierre"]["token"]
+    assert client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": token}, headers=tecnico).status_code == 422 or nuevo == token
+    r = client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": nuevo}, headers=tecnico).json()
+    assert r["estado"] == "completado"
+    assert client.get(f"/ordenes/{o['id']}", headers=cliente).json()["cierre"] is None

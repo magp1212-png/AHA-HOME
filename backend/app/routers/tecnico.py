@@ -314,10 +314,37 @@ def fotos(orden_id: int, body: Fotos, user: User = Depends(solo_tecnico), db: Se
     return svc.vista(o, "tecnico")
 
 
+class Cierre(BaseModel):
+    token: str = Field(default="", max_length=12)
+
+
+INTENTOS_TOKEN = 5
+
+
 @router.post("/ordenes/{orden_id}/completar")
-def completar(orden_id: int, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+def completar(orden_id: int, body: Cierre | None = None, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    """Cerrar el servicio: fotos y checklist completos + el código que dicta el cliente (o que envía por el chat)."""
     o = obtener(db, orden_id, user)
     svc.exigir_estado(o, "en_progreso")
+    falta = svc.faltantes_cierre(o)
+    if falta:
+        raise HTTPException(422, {"mensaje": "Completa el checklist y las fotos antes de cerrar", "faltan": falta})
+    if not o.token_cierre:
+        o.token_cierre = svc.nuevo_token_cierre()
+    dado = "".join(ch for ch in (body.token if body else "") if ch.isdigit())
+    if not dado:
+        raise HTTPException(422, "Escribe el código de cierre que te da el cliente")
+    if dado != o.token_cierre:
+        o.token_intentos += 1
+        if o.token_intentos >= INTENTOS_TOKEN:
+            o.token_cierre, o.token_intentos = svc.nuevo_token_cierre(), 0
+            notificar(db, o.cliente_id, "Nuevo código de cierre", f"{o.codigo}: por seguridad cambiamos tu código. Ábrelo en la app y díctaselo al técnico.", o.id)
+            svc.avisar_seguimiento(db, o, f"{o.codigo}: código de cierre bloqueado", f"{user.nombre} falló {INTENTOS_TOKEN} veces; se generó uno nuevo")
+            db.commit()
+            raise HTTPException(422, "Código incorrecto. Por seguridad se generó uno nuevo: pídeselo al cliente")
+        db.commit()
+        quedan = INTENTOS_TOKEN - o.token_intentos
+        raise HTTPException(422, f"Código de cierre incorrecto. Te quedan {quedan} intento(s)")
     svc.marcar_completada(db, o, user)
     db.commit()
     return svc.vista(o, "tecnico")

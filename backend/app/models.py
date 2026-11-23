@@ -217,6 +217,8 @@ class Orden(Base):
 
     # pago de la instalación (se cobra en caja al solicitarla)
     monto_instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    token_cierre: Mapped[str] = mapped_column(String(8), default="")   # código que el cliente dicta al técnico para cerrar
+    token_intentos: Mapped[int] = mapped_column(Integer, default=0)
     tipo_inmueble: Mapped[str] = mapped_column(String(10), default="")  # casa | edificio | oficina (dónde se instala)
     retirar_residuos: Mapped[bool] = mapped_column(Boolean, default=True)  # opcional: el cliente puede quedarse el empaque (garantía)
     inspeccion_centavos: Mapped[int] = mapped_column(Integer, default=0)  # inspección cobrada en caja junto con la instalación

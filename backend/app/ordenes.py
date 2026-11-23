@@ -130,6 +130,11 @@ def exigir_estado(orden: Orden, *permitidos: str) -> None:
         raise HTTPException(409, f"La orden está en «{ESTADO_TEXTO.get(orden.estado, orden.estado)}»; este paso no aplica ahora")
 
 
+def nuevo_token_cierre() -> str:
+    import secrets
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
 def faltantes_cierre(orden: Orden) -> list[str]:
     hechos = orden.checklist or {}
     fotos = orden.fotos or {}
@@ -225,6 +230,8 @@ def vista(orden: Orden, rol: str) -> dict:
         d["tecnico"] = ficha_cliente(orden.tecnico) if en_camino else None
         d["ayudantes"] = [ficha_cliente(a) for a in orden.ayudantes] if en_camino else []
         d["tecnico_asignado"] = orden.tecnico is not None
+        # Código de cierre: el cliente se lo dicta al técnico (o se lo manda por el chat) cuando termina el servicio
+        d["cierre"] = {"token": orden.token_cierre} if orden.estado in ("en_ruta", "en_progreso") and orden.token_cierre else None
     else:
         d["tecnico"] = ficha(orden.tecnico)
         d["ayudantes"] = [ficha(a) for a in orden.ayudantes]
@@ -232,6 +239,10 @@ def vista(orden: Orden, rol: str) -> dict:
     if rol in ("tecnico", "ayudante"):
         # Privacidad: la cuadrilla no ve el teléfono del cliente; se comunica por el chat supervisado
         d["cliente"].pop("telefono", None)
+    if rol in ("tecnico", "ayudante"):
+        d["cierre"] = {"requiere_token": True, "intentos": orden.token_intentos}
+    if rol in ("tecnico_supervisor", "supervisor", "superadmin") and orden.estado in ("en_ruta", "en_progreso"):
+        d["cierre"] = {"token": orden.token_cierre}  # para dictarlo por teléfono si el cliente no tiene la app
     if rol in ("agente", "tecnico_supervisor", "supervisor", "superadmin"):
         if con_retiro(orden.tipo_servicio):
             d["qr"] = f"AHAHOME:{orden.qr_token}"
@@ -256,7 +267,10 @@ def marcar_completada(db: Session, orden: Orden, actor: User) -> None:
     if falta:
         raise HTTPException(422, {"mensaje": "Completa el checklist y las fotos antes de cerrar", "faltan": falta})
     orden.completado_en = ahora()
-    nota = "Entrega en empaque original completada" if orden.tipo_servicio == "traslado" else "Instalación y retiro de embalaje completados"
+    nota = ("Entrega en empaque original completada" if orden.tipo_servicio == "traslado"
+            else "Instalación y retiro de embalaje completados" if orden.retirar_residuos is not False
+            else "Instalación completada · el cliente se quedó con el empaque")
+    nota += " · cerrado con el código del cliente"
     registrar(db, orden, "completado", actor, nota)
     notificar(db, orden.cliente_id, "¡Servicio completado!", f"{orden.codigo}: cuéntanos cómo te fue y califica el servicio.", orden.id)
     avisar_seguimiento(db, orden, f"{orden.codigo} completada", f"{descripcion(orden)} · {nombres_cuadrilla(orden)}")

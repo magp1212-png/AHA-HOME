@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, TextInput, View } from "react-native";
 
 import { api, ApiError, fileUrl, subirFoto } from "../../api";
 import { useNav } from "../../nav";
@@ -14,6 +14,7 @@ export default function Checklist({ id }: { id: number }) {
   const [error, setError] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState<string | null>(null);
   const [cerrando, setCerrando] = useState(false);
+  const [token, setToken] = useState("");
 
   useEffect(() => { api<Orden>(`/ordenes/${id}`).then(setO).catch((e) => setError(e.message)); }, [id]);
 
@@ -38,7 +39,7 @@ export default function Checklist({ id }: { id: number }) {
 
   async function cerrar() {
     setCerrando(true); setError(null);
-    try { await api(`/tecnico/ordenes/${id}/completar`, { body: {} }); nav.back(); }
+    try { await api(`/tecnico/ordenes/${id}/completar`, { body: { token } }); nav.back(); }
     catch (e: any) { setError(e instanceof ApiError && e.faltan ? `${e.message}: faltan ${e.faltan.length} punto(s).` : e.message); }
     setCerrando(false);
   }
@@ -54,7 +55,7 @@ export default function Checklist({ id }: { id: number }) {
 
   return (
     <Pantalla titulo={`Checklist · ${o.codigo}`} subtitulo={`${hechos} de ${total} · ${o.tipo_servicio_texto}`}
-      pie={<Boton titulo="Completar orden" tipo="exito" onPress={cerrar} cargando={cerrando} deshabilitado={hechos < total} />}>
+      pie={<Boton titulo="Cerrar servicio" tipo="exito" icono="lock-closed" onPress={cerrar} cargando={cerrando} deshabilitado={hechos < total || token.length !== 6} />}>
       {entrega.length ? (
         <Tarjeta>
           <Seccion>ENTREGA EN SU CAJA</Seccion>
@@ -93,6 +94,15 @@ export default function Checklist({ id }: { id: number }) {
             </Pressable>
           ))}
         </View>
+      </Tarjeta>
+      <Tarjeta>
+        <Seccion color={C.naranja}>CÓDIGO DE CIERRE DEL CLIENTE</Seccion>
+        <Texto gris size={13}>Pídele al cliente el código de 6 dígitos que ve en su app. Si no está, se lo envía por el chat de la orden.</Texto>
+        <TextInput value={token} onChangeText={(t) => setToken(t.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" maxLength={6}
+          accessibilityLabel="Código de cierre" placeholder="••••••" placeholderTextColor="#9AA3B5"
+          style={{ height: 64, borderRadius: 16, borderWidth: 2, borderColor: token.length === 6 ? C.ok : C.borde, backgroundColor: C.blanco,
+            textAlign: "center", fontSize: 32, fontWeight: "900", letterSpacing: 10, color: C.marino }} />
+        <Boton titulo="Ver el chat de la orden" tipo="secundario" icono="chatbubble-ellipses-outline" onPress={() => nav.push("chat", { id })} />
       </Tarjeta>
       <Aviso texto={error} />
     </Pantalla>

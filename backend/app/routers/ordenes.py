@@ -173,7 +173,7 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
               numero_factura=body.numero_factura.strip(), fecha_compra=body.fecha_compra, factura=body.factura,
               monto_instalacion_centavos=total, inspeccion_centavos=insp, retirar_residuos=body.retirar_residuos, requiere_inspeccion=body.requiere_inspeccion,
               inspeccion_fecha=body.fecha.isoformat() if body.requiere_inspeccion else "", inspeccion_franja=body.franja if body.requiere_inspeccion else "", fecha=body.fecha.isoformat(), franja=body.franja, tienda_id=tienda.id,
-              agente_id=user.id if user.rol == "agente" else None, qr_token=new_qr_token(), checklist={}, fotos={})
+              agente_id=user.id if user.rol == "agente" else None, qr_token=new_qr_token(), token_cierre=svc.nuevo_token_cierre(), checklist={}, fotos={})
     if body.requiere_inspeccion:
         o.pausa_desde = ahora()
     if total or insp:
