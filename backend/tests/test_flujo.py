@@ -838,3 +838,16 @@ def test_cierre_con_codigo_del_cliente(client):
     r = client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": nuevo}, headers=tecnico).json()
     assert r["estado"] == "completado"
     assert client.get(f"/ordenes/{o['id']}", headers=cliente).json()["cierre"] is None
+
+
+def test_calificar_en_la_pantalla_de_cierre(client):
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente, pago=None, articulos=[{"tipo": "nevera", "instalar": False}])
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    cliente = login(client, "maria@ahahome.test")
+    assert client.post(f"/ordenes/{o['id']}/calificar", json={"estrellas": 5}, headers=cliente).status_code == 409
+    client.post(f"/tecnico/ordenes/{o['id']}/confirmar", headers=tecnico)
+    client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico)
+    client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
+    r = client.post(f"/ordenes/{o['id']}/calificar", json={"estrellas": 5}, headers=cliente).json()
+    assert r["calificacion"] == 5 and r["cierre"]["token"]

@@ -66,7 +66,7 @@ function Rastreador({ f }: { f: Fase[] }) {
 }
 
 /** Código para cerrar el servicio: se lo dicta al técnico o se lo manda por el chat si no está en casa. */
-function CodigoCierre({ id, token }: { id: number; token: string }) {
+function CodigoCierre({ id, token, children }: { id: number; token: string; children?: React.ReactNode }) {
   const [enviado, setEnviado] = useState<string | null>(null);
   async function enviar() {
     try { await api(`/ordenes/${id}/chat`, { body: { texto: `🔐 Mi código para cerrar el servicio es ${token}`, foto: "" } }); setEnviado("Listo: se lo enviaste al técnico por el chat."); }
@@ -81,6 +81,7 @@ function CodigoCierre({ id, token }: { id: number; token: string }) {
       </Text>
       <Boton titulo="Enviar el código por el chat" tipo="lima" icono="chatbubble-ellipses" onPress={enviar} />
       {enviado ? <Text style={{ color: C.lima, fontWeight: "700", fontSize: 13 }}>{enviado}</Text> : null}
+      {children}
     </View>
   );
 }
@@ -126,6 +127,20 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
   if (!o) return marco(error ? <Aviso texto={error} /> : <Cargando />);
 
   const f = fases(o);
+  const resena = (
+    <>
+      <Texto negrita size={16}>¿Cómo fue el servicio? Califica a {o.tecnico?.nombre?.split(" ")[0] ?? "tu técnico"}</Texto>
+      <View style={{ flexDirection: "row", gap: 4 }}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Pressable key={n} accessibilityLabel={`${n} estrellas`} onPress={() => calificar(n)} style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name={n <= estrellas ? "star" : "star-outline"} size={34} color={n <= estrellas ? "#E8A317" : "#9AA8BA"} />
+          </Pressable>
+        ))}
+      </View>
+      <Texto gris size={13}>Tu calificación ayuda a premiar a los mejores técnicos.</Texto>
+      <Aviso texto={msg} tono="ok" />
+    </>
+  );
   const enCamino = ["en_ruta", "en_progreso", "completado"].includes(o.estado);
   const puedeCambiar = ["solicitud_enviada", "tecnico_asignado", "cita_confirmada"].includes(o.estado);
   const estadoCorto = o.estado === "cancelado" ? "Cancelado" : o.estado === "completado" ? "Completado" : o.estado === "entrega_fallida" ? "No entregado"
@@ -230,27 +245,18 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
         {o.pago_instalacion.pagado ? <PagoServicio pago={o.pago_instalacion} titulo="TU PAGO EN LA TIENDA" donde="pagado en la tienda" /> : null}
       </Tarjeta>
 
-      {o.cierre?.token ? <CodigoCierre id={o.id} token={o.cierre.token} /> : o.estado === "en_ruta" ? (
+      {o.cierre?.token ? (
+        <CodigoCierre id={o.id} token={o.cierre.token}>
+          <View style={{ backgroundColor: C.blanco, borderRadius: 16, padding: 14, gap: 8 }}>{resena}</View>
+        </CodigoCierre>
+      ) : o.estado === "en_ruta" ? (
         <View style={{ borderRadius: 20, borderWidth: 2, borderStyle: "dashed", borderColor: C.borde, padding: 16, gap: 4 }}>
           <Text style={{ color: C.marino, fontWeight: "900", fontSize: 13, letterSpacing: 0.6 }}>CIERRE DEL SERVICIO</Text>
           <Texto gris size={13.5}>Tu código para cerrar el servicio aparecerá aquí cuando el técnico llegue.</Texto>
         </View>
       ) : null}
 
-      {o.estado === "completado" ? (
-        <Tarjeta>
-          <Texto negrita size={16}>¿Cómo fue el servicio?</Texto>
-          <View style={{ flexDirection: "row", gap: 4 }}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Pressable key={n} accessibilityLabel={`${n} estrellas`} onPress={() => calificar(n)} style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center" }}>
-                <Ionicons name={n <= estrellas ? "star" : "star-outline"} size={34} color={n <= estrellas ? "#E8A317" : "#9AA8BA"} />
-              </Pressable>
-            ))}
-          </View>
-          <Texto gris size={13}>Tu calificación ayuda a premiar a los mejores técnicos.</Texto>
-          <Aviso texto={msg} tono="ok" />
-        </Tarjeta>
-      ) : null}
+      {o.estado === "completado" ? <Tarjeta>{resena}</Tarjeta> : null}
 
       <Aviso texto={error} />
       {puedeCambiar && !o.pausa?.activa && !o.reprogramar?.puede && o.reprogramar?.motivo ? <Aviso tono="info" texto={o.reprogramar.motivo} /> : null}

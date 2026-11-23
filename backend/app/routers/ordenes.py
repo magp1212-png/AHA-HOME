@@ -318,7 +318,8 @@ class Calificar(BaseModel):
 @router.post("/ordenes/{orden_id}/calificar")
 def calificar(orden_id: int, body: Calificar, user: User = Depends(require("cliente")), db: Session = Depends(get_db)):
     o = obtener(db, orden_id, user)
-    svc.exigir_estado(o, "completado")
+    # se califica en la pantalla de cierre, junto al código (con la cuadrilla en casa) o después de completado
+    svc.exigir_estado(o, "en_progreso", "completado")
     o.calificacion, o.comentario = body.estrellas, body.comentario.strip()
     db.commit()
     return svc.vista(o, user.rol)
