@@ -25,7 +25,7 @@ TERMINOS = f"""
 <p class="meta">AHA HOME · Hacemos todo por ti · Última actualización: {ACTUALIZADO}</p>
 <h2>1. Qué es AHA HOME</h2>
 <p>AHA HOME, prestado por {EMPRESA}, retira en la tienda aliada (Tiendas Damasco) los artículos que compraste, los traslada a
-tu domicilio y, si lo pides y pagas en caja, los desembala, instala y retira el embalaje (cajas, anime, plásticos, flejes y precintos).</p>
+tu domicilio y, si lo pides y pagas en caja, los desembala, instala y, si lo deseas, retira el embalaje para reciclar (cajas, anime, plásticos, flejes y precintos). El retiro es opcional: puedes quedarte con la caja y el empaque si la garantía del fabricante lo requiere.</p>
 <h2>2. Tipos de servicio</h2>
 <ul><li><b>Traslado:</b> se entrega tal cual sale de la tienda, en su empaque original, sin abrirlo.</li>
 <li><b>Instalación:</b> la cuadrilla instala en tu domicilio artículos que ya tienes.</li>

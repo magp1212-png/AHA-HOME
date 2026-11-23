@@ -743,3 +743,19 @@ def test_llamar_desde_el_chat_sin_compartir_numeros(client):
     assert lc[0]["telefono"] != o["cliente"]["telefono"] and lt[0]["telefono"] != tel_de(o["tecnico"]["id"])
     ls = client.get(f"/ordenes/{o['id']}/chat", headers=sup).json()["llamar"]
     assert ls[0]["texto"] == "Llamar al cliente" and ls[1]["texto"].startswith("Llamar al técnico")
+
+
+def test_retiro_de_residuos_opcional_por_garantia(client):
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente, retirar_residuos=False, pago=None, articulos=[{"tipo": "nevera", "instalar": True}])
+    assert o["residuos"] == {"retirar": False, "aplica": True, "puede_cambiar": True}
+    assert "cajas" not in o["checklist_requerido"] and "empaque_entregado_al_cliente" in o["checklist_requerido"]
+    cliente = login(client, "maria@ahahome.test")
+    r = client.post(f"/ordenes/{o['id']}/residuos", json={"retirar": True}, headers=cliente).json()
+    assert r["residuos"]["retirar"] and "cajas" in r["checklist_requerido"] and "empaque_entregado_al_cliente" not in r["checklist_requerido"]
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    assert "Cambio en el retiro de residuos" in titulos(client, tecnico)
+    assert client.post(f"/ordenes/{o['id']}/residuos", json={"retirar": False}, headers=tecnico).status_code == 403
+    t = nueva(client, agente, pago=None, articulos=[{"tipo": "nevera", "instalar": False}])  # traslado: no aplica
+    assert t["residuos"]["aplica"] is False
+    assert client.post(f"/ordenes/{t['id']}/residuos", json={"retirar": False}, headers=agente).status_code == 409

@@ -40,7 +40,7 @@ def hay_sin_instalar(orden: Orden) -> bool:
 
 def requeridos(orden: Orden) -> tuple[tuple[str, ...], tuple[str, ...]]:
     sin = hay_sin_instalar(orden)
-    return checklist_de(orden.tipo_servicio, sin), fotos_de(orden.tipo_servicio, sin)
+    return checklist_de(orden.tipo_servicio, sin, orden.retirar_residuos is not False), fotos_de(orden.tipo_servicio, sin)
 
 
 def dinero(centavos: int) -> str:
@@ -201,6 +201,8 @@ def vista(orden: Orden, rol: str) -> dict:
         "calificacion": orden.calificacion, "comentario": orden.comentario,
         "inspeccion": {"requerida": orden.requiere_inspeccion, "fecha": orden.inspeccion_fecha, "franja": orden.inspeccion_franja,
                        "costo": dinero(round(config.INSPECCION_USD * 100)), "pagada_en_tienda": orden.inspeccion_centavos > 0},
+        "residuos": {"retirar": orden.retirar_residuos is not False, "aplica": orden.tipo_servicio != "traslado",
+                     "puede_cambiar": orden.tipo_servicio != "traslado" and orden.estado in ("solicitud_enviada", "tecnico_asignado", "cita_confirmada", "en_ruta")},
         "propina": {"monto": dinero(orden.propina_centavos), "metodo": orden.propina_metodo, "dada": orden.propina_en is not None,
                     "entregada_al_tecnico": orden.propina_entregada_en is not None},
         "creado": _iso(orden.creado),

@@ -5,7 +5,7 @@ import { api, ApiError, fileUrl, subirFoto } from "../../api";
 import { useNav } from "../../nav";
 import { tomarFoto } from "../../photo";
 import type { Orden } from "../../types";
-import { Aviso, Boton, C, Cargando, Casilla, Pantalla, RESIDUOS, Seccion, Tarjeta, TEXTO_CHECK, TEXTO_FOTO } from "../../ui";
+import { Aviso, Boton, C, Cargando, Casilla, Pantalla, RESIDUOS, Seccion, Tarjeta, TEXTO_CHECK, TEXTO_FOTO, Texto } from "../../ui";
 
 /** Checklist digital obligatorio según el tipo de servicio, fotos de evidencia y cierre. */
 export default function Checklist({ id }: { id: number }) {
@@ -46,7 +46,8 @@ export default function Checklist({ id }: { id: number }) {
   if (!o) return <Pantalla titulo="Checklist">{error ? <Aviso texto={error} /> : <Cargando />}</Pantalla>;
   const req = o.checklist_requerido;
   const entrega = req.filter((k) => ["entrega_en_empaque_original", "ubicado_en_sitio"].includes(k));
-  const inst = req.filter((k) => !entrega.includes(k) && !RESIDUOS.includes(k));
+  const inst = req.filter((k) => !entrega.includes(k) && !RESIDUOS.includes(k) && k !== "empaque_entregado_al_cliente");
+  const empaque = req.filter((k) => k === "empaque_entregado_al_cliente");
   const res = req.filter((k) => RESIDUOS.includes(k));
   const hechos = req.filter((k) => o.checklist[k]).length + o.fotos_requeridas.filter((k) => o.fotos[k]).length;
   const total = req.length + o.fotos_requeridas.length;
@@ -68,8 +69,15 @@ export default function Checklist({ id }: { id: number }) {
       ) : null}
       {res.length ? (
         <Tarjeta>
-          <Seccion color={C.alerta}>RETIRO DE RESIDUOS · OBLIGATORIO</Seccion>
+          <Seccion color={C.alerta}>RETIRO DE RESIDUOS PARA RECICLAR · EL CLIENTE LO PIDIÓ</Seccion>
           {res.map((k) => <Casilla key={k} texto={TEXTO_CHECK[k] ?? k} marcado={!!o.checklist[k]} onPress={() => marcar(k)} tono="obligatorio" />)}
+        </Tarjeta>
+      ) : null}
+      {empaque.length ? (
+        <Tarjeta>
+          <Seccion color={C.alerta}>EMPAQUE · EL CLIENTE SE LO QUEDA (GARANTÍA)</Seccion>
+          <Texto gris size={13}>No retires las cajas ni el empaque: déjalos ordenados donde indique el cliente.</Texto>
+          {empaque.map((k) => <Casilla key={k} texto={TEXTO_CHECK[k] ?? k} marcado={!!o.checklist[k]} onPress={() => marcar(k)} tono="obligatorio" />)}
         </Tarjeta>
       ) : null}
       <Tarjeta>

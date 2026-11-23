@@ -28,6 +28,7 @@ export type Orden = {
   pago_instalacion: { monto: string; inspeccion?: string; metodo: string | null; metodo_texto: string; moneda: string; monto_usd: string; monto_bs: string | null;
     tasa: string | null; cobrado: string | null; referencia?: string; pagado: boolean; pagado_en?: string | null; precio_por_definir?: boolean };
   calificacion: number | null; qr?: string;
+  residuos: { retirar: boolean; aplica: boolean; puede_cambiar: boolean };
   inspeccion: { requerida: boolean; fecha: string; franja: string; costo: string; pagada_en_tienda: boolean };
   presupuesto: Presupuesto | null; listo_para_instalar: boolean;
   reprogramar: { puede: boolean; motivo: string; horas_antes: number; limite: string | null };

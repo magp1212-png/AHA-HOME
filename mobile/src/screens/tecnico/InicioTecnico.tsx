@@ -211,6 +211,11 @@ function TarjetaOrden({ o, activa, ancho, esAyudante, cargando, accion, retirar 
             <Text style={{ fontWeight: "800" }}>{a.nombre}{a.modelo ? ` ${a.modelo}` : ""}</Text> — {a.instalar ? "instalar" : "entregar en su caja"}
           </Text>
         ))}
+        {o.residuos?.aplica ? (
+          <Text style={{ color: o.residuos.retirar ? C.ok : C.naranja, fontSize: 13, fontWeight: "800" }}>
+            {o.residuos.retirar ? "♻️ Retirar residuos para reciclar" : "📦 NO retirar el empaque: el cliente lo guarda (garantía)"}
+          </Text>
+        ) : null}
         {o.pago_instalacion.pagado ? (
           <Text style={{ color: C.gris, fontSize: 13 }}>
             Pagado en la tienda: <Text style={{ fontWeight: "800", color: C.texto }}>{o.pago_instalacion.cobrado}</Text> · {o.pago_instalacion.metodo_texto}

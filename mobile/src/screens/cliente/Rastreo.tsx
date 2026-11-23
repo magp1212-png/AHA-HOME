@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Switch, Text, View } from "react-native";
 
 import { api } from "../../api";
 import { useNav } from "../../nav";
@@ -194,6 +194,19 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
         <Texto>{o.articulos.map((a) => a.nombre).join(" y ")}</Texto>
         <Texto gris>Fecha: {o.fecha} · Hora: {o.franja.replace("-", " – ")}</Texto>
         <Texto gris size={13}>{o.cliente.direccion}</Texto>
+        {o.residuos?.aplica ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 14, borderWidth: 1, borderColor: C.linea, padding: 12 }}>
+            <Ionicons name={o.residuos.retirar ? "leaf" : "cube-outline"} size={24} color={o.residuos.retirar ? C.ok : C.marino} />
+            <View style={{ flex: 1 }}>
+              <Texto negrita size={14}>Retiro de residuos para reciclar</Texto>
+              <Texto gris size={12.5}>{o.residuos.retirar ? "Nos llevamos cajas, anime y plásticos." : "Te quedas con la caja y el empaque (garantía)."} Es opcional.</Texto>
+            </View>
+            {o.residuos.puede_cambiar ? (
+              <Switch accessibilityLabel="Retirar residuos para reciclar" value={o.residuos.retirar} trackColor={{ true: C.ok, false: C.borde }}
+                onValueChange={async (v) => { try { setO(await api<Orden>(`/ordenes/${id}/residuos`, { body: { retirar: v } })); } catch (e: any) { setError(e.message); } }} />
+            ) : null}
+          </View>
+        ) : null}
         {o.pago_instalacion.pagado ? <PagoServicio pago={o.pago_instalacion} titulo="TU PAGO EN LA TIENDA" donde="pagado en la tienda" /> : null}
       </Tarjeta>
 

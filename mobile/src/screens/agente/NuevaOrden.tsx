@@ -30,6 +30,7 @@ export default function NuevaOrden() {
   const [ref, setRef] = useState("");
   const [terminos, setTerminos] = useState(false);
   const [inspeccion, setInspeccion] = useState(false);
+  const [residuos, setResiduos] = useState(true);
   const [costoInsp, setCostoInsp] = useState(10);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -58,7 +59,7 @@ export default function NuevaOrden() {
         cliente_nombre: c.nombre, cliente_telefono: c.telefono, direccion: c.direccion, referencia: c.referencia, zona,
         articulos: arts.map((a) => ({ ...a, instalar: soloInst ? true : a.instalar })), solo_instalacion: soloInst,
         pago: total > 0 && metodo ? { metodo, referencia: ref } : null, numero_factura: c.numero_factura,
-        fecha, franja, acepta_terminos: terminos, requiere_inspeccion: conInsp,
+        fecha, franja, acepta_terminos: terminos, requiere_inspeccion: conInsp, retirar_residuos: residuos,
       } });
       nav.back();
       nav.push("ordenCaja", { id: o.id });
@@ -119,6 +120,14 @@ export default function NuevaOrden() {
         <Fila wrap>{FRANJAS.map((f) => <Opcion key={f} texto={f.replace("-", " – ")} activo={franja === f} onPress={() => setFranja(f)} />)}</Fila>
       </Tarjeta>
 
+      {aInstalar.length || soloInst ? (
+        <Pressable onPress={() => setResiduos(!residuos)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
+          <Ionicons name={residuos ? "checkbox" : "square-outline"} size={26} color={C.marino} />
+          <Text style={{ flex: 1, fontSize: 15, color: C.texto }}>
+            Retirar residuos para reciclar (cajas, anime, plásticos) · <Text style={{ fontWeight: "800" }}>opcional</Text>: desmárcalo si el cliente guarda el empaque por la garantía
+          </Text>
+        </Pressable>
+      ) : null}
       {aInstalar.length || soloInst ? (
         <Pressable onPress={() => setInspeccion(!inspeccion)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
           <Ionicons name={inspeccion ? "checkbox" : "square-outline"} size={26} color={C.marino} />

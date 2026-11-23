@@ -235,6 +235,7 @@ export const TEXTO_CHECK: Record<string, string> = {
   plasticos: "Plásticos retirados",
   flejes: "Flejes retirados",
   precintos: "Precintos de seguridad retirados",
+  empaque_entregado_al_cliente: "Caja y empaque entregados al cliente, ordenados (los guarda por la garantía)",
 };
 export const TEXTO_FOTO: Record<string, string> = { entrega: "Foto de la entrega", instalacion: "Foto del equipo instalado", espacio_limpio: "Foto del espacio limpio" };
 export const RESIDUOS = ["cajas", "anime", "plasticos", "flejes", "precintos"];

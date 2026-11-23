@@ -63,15 +63,17 @@ ESTADO_FALLIDA = "entrega_fallida"
 CHECKLIST_TRASLADO = ("entrega_en_empaque_original", "ubicado_en_sitio")
 CHECKLIST_INSTALACION = ("conexion_electrica", "conexion_hidraulica", "nivelacion", "prueba_encendido")
 CHECKLIST_RESIDUOS = ("cajas", "anime", "plasticos", "flejes", "precintos")
+# Si el cliente se queda con el empaque (p. ej. lo pide la garantía del fabricante), no se retiran residuos.
+CHECKLIST_EMPAQUE_CLIENTE = ("empaque_entregado_al_cliente",)
 FOTOS_CIERRE = ("instalacion", "espacio_limpio", "entrega")
 
 
-def checklist_de(tipo_servicio: str, hay_sin_instalar: bool = False) -> tuple[str, ...]:
-    """Traslado: solo entrega. Con instalación: instalación + residuos, y la entrega de lo que va sin instalar."""
+def checklist_de(tipo_servicio: str, hay_sin_instalar: bool = False, retirar_residuos: bool = True) -> tuple[str, ...]:
+    """Traslado: solo entrega. Con instalación: instalación + residuos (opcional), y la entrega de lo que va sin instalar."""
     if tipo_servicio == "traslado":
         return CHECKLIST_TRASLADO
     extra = CHECKLIST_TRASLADO if tipo_servicio == "traslado_instalacion" and hay_sin_instalar else ()
-    return extra + CHECKLIST_INSTALACION + CHECKLIST_RESIDUOS
+    return extra + CHECKLIST_INSTALACION + (CHECKLIST_RESIDUOS if retirar_residuos else CHECKLIST_EMPAQUE_CLIENTE)
 
 
 def fotos_de(tipo_servicio: str, hay_sin_instalar: bool = False) -> tuple[str, ...]:
@@ -194,6 +196,7 @@ class Orden(Base):
 
     # pago de la instalación (se cobra en caja al solicitarla)
     monto_instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    retirar_residuos: Mapped[bool] = mapped_column(Boolean, default=True)  # opcional: el cliente puede quedarse el empaque (garantía)
     inspeccion_centavos: Mapped[int] = mapped_column(Integer, default=0)  # inspección cobrada en caja junto con la instalación
     pago_metodo: Mapped[str | None] = mapped_column(String(20))
     pago_referencia: Mapped[str] = mapped_column(String(60), default="")

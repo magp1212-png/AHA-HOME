@@ -16,6 +16,7 @@ from .. import ordenes as svc
 from ..db import get_db
 from ..deps import current_user, require
 from ..models import METODOS_PAGO, TIPOS_EQUIPO, ZONAS, Articulo, Orden, Tarifa, Tienda, User, ahora, orden_ayudantes
+from ..notificar import notificar
 from ..security import new_qr_token
 from .auth import limpiar_tel
 
@@ -95,6 +96,7 @@ class NuevaOrden(BaseModel):
     zona: str
     articulos: list[ArticuloIn] = Field(min_length=1, max_length=30)
     solo_instalacion: bool = False  # el cliente ya tiene los artículos en casa: no hay traslado
+    retirar_residuos: bool = True     # opcional: el cliente puede quedarse con el empaque por la garantía
     requiere_inspeccion: bool = False  # el cliente pide que el técnico inspeccione y presupueste antes del retiro
     pago: PagoIn | None = None      # obligatorio si hay artículos para instalar
     numero_factura: str = Field(default="", max_length=40)
@@ -166,7 +168,7 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
               cliente_nombre=body.cliente_nombre.strip(), cliente_telefono=tel, direccion=body.direccion.strip(),
               referencia=body.referencia.strip(), lat=body.lat, lng=body.lng, zona=body.zona, tipo_servicio=tipo_servicio,
               numero_factura=body.numero_factura.strip(), fecha_compra=body.fecha_compra, factura=body.factura,
-              monto_instalacion_centavos=total, inspeccion_centavos=insp, requiere_inspeccion=body.requiere_inspeccion,
+              monto_instalacion_centavos=total, inspeccion_centavos=insp, retirar_residuos=body.retirar_residuos, requiere_inspeccion=body.requiere_inspeccion,
               inspeccion_fecha=body.fecha.isoformat() if body.requiere_inspeccion else "", inspeccion_franja=body.franja if body.requiere_inspeccion else "", fecha=body.fecha.isoformat(), franja=body.franja, tienda_id=tienda.id,
               agente_id=user.id if user.rol == "agente" else None, qr_token=new_qr_token(), checklist={}, fotos={})
     if body.requiere_inspeccion:
@@ -182,7 +184,8 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
     o.tienda = tienda
     pago = (f" · cobrado en caja {info_pago(o.pago_metodo, total + insp, o.pago_moneda, o.pago_tasa)['cobrado']} ({o.pago_metodo})"
             + (f": instalación {svc.dinero(total)} + inspección {svc.dinero(insp)}" if insp else "")) if total or insp else ""
-    svc.registrar(db, o, "solicitud_enviada", user, f"Registrada en {tienda.nombre}: {len(o.articulos)} artículo(s){pago}")
+    svc.registrar(db, o, "solicitud_enviada", user, f"Registrada en {tienda.nombre}: {len(o.articulos)} artículo(s){pago}"
+                  + ("" if o.retirar_residuos or tipo_servicio == "traslado" else " · el cliente se queda con el empaque (garantía)"))
     svc.asignar(db, o, user)
     svc.avisar_nueva_orden(db, o)
     db.commit()
@@ -226,6 +229,29 @@ def qr_png(orden_id: int, user: User = Depends(require("agente", "tecnico_superv
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return Response(buf.getvalue(), media_type="image/png")
+
+
+class Residuos(BaseModel):
+    retirar: bool
+
+
+@router.post("/ordenes/{orden_id}/residuos")
+def cambiar_residuos(orden_id: int, body: Residuos, user: User = Depends(require("cliente", "agente", "tecnico_supervisor", "supervisor")),
+                     db: Session = Depends(get_db)):
+    """Retiro de residuos para reciclar: opcional. El cliente puede quedarse con el empaque (garantía) hasta que empiece el servicio."""
+    o = obtener(db, orden_id, user)
+    if o.tipo_servicio == "traslado":
+        raise HTTPException(409, "En traslado se entrega en su caja: no hay residuos que retirar")
+    svc.exigir_estado(o, "solicitud_enviada", "tecnico_asignado", "cita_confirmada", "en_ruta")
+    if o.retirar_residuos != body.retirar:
+        o.retirar_residuos = body.retirar
+        o.checklist = {k: v for k, v in (o.checklist or {}).items() if k in svc.requeridos(o)[0]}
+        svc.registrar(db, o, o.estado, user, "Retiro de residuos para reciclar: " + ("SÍ" if body.retirar else "NO, el cliente se queda con el empaque (garantía)"))
+        if o.tecnico:
+            notificar(db, o.tecnico.user_id, "Cambio en el retiro de residuos",
+                      f"{o.codigo}: " + ("retira los residuos para reciclar." if body.retirar else "el cliente se queda con la caja y el empaque (garantía). No los retires."), o.id)
+        db.commit()
+    return svc.vista(o, user.rol)
 
 
 class Motivo(BaseModel):
