@@ -73,9 +73,10 @@ def metodos_pago():
 
 
 @router.get("/inspeccion/costo")
-def costo_inspeccion():
+def costo_inspeccion(db: Session = Depends(get_db)):
     """Lo que cuesta la visita de inspección (se cobra en caja si el cliente la pide al comprar)."""
-    return {"costo": svc.dinero(round(config.INSPECCION_USD * 100))}
+    from .precios import precio_inspeccion_centavos
+    return {"costo": svc.dinero(precio_inspeccion_centavos(db))}
 
 
 @router.get("/tarifas")
@@ -161,7 +162,8 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
     if body.tipo_inmueble not in ("",) + TIPOS_INMUEBLE:
         raise HTTPException(422, "Indica si la instalación es en casa, edificio u oficina")
     # La inspección se cobra en caja, en el momento, junto con la instalación
-    insp = round(config.INSPECCION_USD * 100) if body.requiere_inspeccion else 0
+    from .precios import precio_inspeccion_centavos
+    insp = precio_inspeccion_centavos(db) if body.requiere_inspeccion else 0
     if (total or insp) and not body.pago:
         raise HTTPException(422, "Registra el pago en caja")
 

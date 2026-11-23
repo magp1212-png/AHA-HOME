@@ -230,6 +230,7 @@ class Orden(Base):
     acta: Mapped[dict] = mapped_column(JSON, default=dict)  # {puntos, recibe_nombre, recibe_cedula, mayor_edad, en}
     token_cierre: Mapped[str] = mapped_column(String(8), default="")   # código que el cliente dicta al técnico para cerrar
     token_intentos: Mapped[int] = mapped_column(Integer, default=0)
+    token_emitido_en: Mapped[dt.datetime | None] = mapped_column(DateTime)  # el código de cierre vale 30 minutos (AHA HOGAR v2)
     tipo_inmueble: Mapped[str] = mapped_column(String(10), default="")  # casa | edificio | oficina (dónde se instala)
     retirar_residuos: Mapped[bool] = mapped_column(Boolean, default=True)  # opcional: el cliente puede quedarse el empaque (garantía)
     inspeccion_centavos: Mapped[int] = mapped_column(Integer, default=0)  # inspección cobrada en caja junto con la instalación
@@ -329,6 +330,7 @@ TIPOS_DOCUMENTO = {
     "certificado_medico": "Certificado médico",
     "vehiculo_titulo": "Título o carnet de circulación del vehículo",
     "vehiculo_rcv": "RCV · Responsabilidad Civil del vehículo",
+    "vehiculo_rotc": "ROTC del INTT (solo NPR, pick-up de batea larga o furgoneta)",
     "vehiculo_seguro": "Seguro del vehículo (otra póliza)",
     "vehiculo_foto": "Foto del vehículo",
     "rif": "RIF",
@@ -482,6 +484,28 @@ class SoporteLectura(Base):
     hilo_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), primary_key=True)
     ultimo_id: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class PrecioItem(Base):
+    """Tabulación de precios por artículo y por servicio (la carga el superadmin)."""
+    __tablename__ = "precios"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    clave: Mapped[str] = mapped_column(String(40), unique=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    categoria: Mapped[str] = mapped_column(String(40), default="Otros")
+    tipo_equipo: Mapped[str] = mapped_column(String(30), default="otro")  # para enlazar con los artículos de la caja
+    traslado_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    combo_centavos: Mapped[int] = mapped_column(Integer, default=0)  # traslado + instalación (0 = suma de los dos)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Ajuste(Base):
+    """Valores del negocio que cambia el superadmin (p. ej. precio de la inspección)."""
+    __tablename__ = "ajustes"
+    clave: Mapped[str] = mapped_column(String(40), primary_key=True)
+    valor: Mapped[str] = mapped_column(String(200), default="")
 
 
 class TasaCambio(Base):

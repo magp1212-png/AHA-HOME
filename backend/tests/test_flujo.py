@@ -47,8 +47,16 @@ def firmar_acta(client, orden_id, cliente):
 
 
 def token_de(orden_id):
+    """Atajo de prueba: el cliente ya confirmó el acta y tiene su código vigente."""
+    from app import ordenes as svc
     with SessionLocal() as db:
-        return db.get(Orden, orden_id).token_cierre
+        o = db.get(Orden, orden_id)
+        if not (o.acta or {}).get("en"):
+            o.acta = {"en": "2026-01-01T00:00:00Z", "recibe_nombre": "Prueba", "recibe_cedula": "12345678"}
+        if not svc.codigo_vigente(o):
+            svc.emitir_codigo_cierre(db, o)
+        db.commit()
+        return o.token_cierre
 
 
 def tel_de(tecnico_id):
@@ -840,6 +848,7 @@ def test_cierre_con_codigo_del_cliente(client):
     firmar_acta(client, o["id"], cliente)
     vc = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
     token = vc["cierre"]["token"]
+    assert vc["cierre"]["minutos"] == 30 and not vc["cierre"]["vencido"] and "Tu código de cierre" in titulos(client, cliente)
     assert len(token) == 6 and token.isdigit()
     vt = client.get(f"/ordenes/{o['id']}", headers=tecnico).json()
     assert "token" not in vt["cierre"] and vt["cierre"]["requiere_token"]
@@ -857,7 +866,7 @@ def test_cierre_con_codigo_del_cliente(client):
     # quinto error: se genera un código nuevo y el viejo deja de servir
     r = client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": malo}, headers=tecnico)
     assert "se generó uno nuevo" in r.json()["detail"]
-    assert "Nuevo código de cierre" in titulos(client, cliente)
+    assert titulos(client, cliente).count("Tu código de cierre") >= 2
     nuevo = client.get(f"/ordenes/{o['id']}", headers=cliente).json()["cierre"]["token"]
     assert client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": token}, headers=tecnico).status_code == 422 or nuevo == token
     r = client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": nuevo}, headers=tecnico).json()
@@ -1002,3 +1011,62 @@ def test_panel_superadmin_resumen_y_tablas(client):
     c = client.get("/panel-api/tabla/clientes?q=maria gonzalez", headers=sa).json()
     assert c["total"] == 1
     assert client.get("/panel-api/buscar?q=WO", headers=sa).json()[0]["tipo"] == "Orden"
+
+
+def test_v2_codigo_vence_pedir_otro_perfil_y_campanita(client):
+    agente = login(client, "agente@ahahome.test")
+    cliente = login(client, "maria@ahahome.test")
+    o = nueva(client, agente, pago=None, articulos=[{"tipo": "nevera", "instalar": False}])
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    client.post(f"/tecnico/ordenes/{o['id']}/confirmar", headers=tecnico)
+    client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico)
+    client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
+    v = client.get(f"/ordenes/{o['id']}", headers=tecnico).json()
+    client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {k: True for k in v["checklist_requerido"]}}, headers=tecnico)
+    client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {k: "x.jpg" for k in v["fotos_requeridas"]}}, headers=tecnico)
+    assert client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": "123456"}, headers=tecnico).status_code == 409  # sin acta
+    viejo = firmar_acta(client, o["id"], cliente)["cierre"]["token"]
+    assert client.post(f"/ordenes/{o['id']}/cierre/nuevo-codigo", headers=cliente).status_code == 429  # antes de 60 s
+    with SessionLocal() as db:  # pasan 31 minutos: vence
+        x = db.get(Orden, o["id"]); x.token_emitido_en = x.token_emitido_en - dt.timedelta(minutes=31); db.commit()
+    vc = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
+    assert vc["cierre"]["vencido"] and vc["cierre"]["token"] is None
+    r = client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": viejo}, headers=tecnico)
+    assert r.status_code == 422 and "venció" in r.json()["detail"]
+    nuevo = client.post(f"/ordenes/{o['id']}/cierre/nuevo-codigo", headers=cliente).json()["cierre"]["token"]
+    assert nuevo and "El cliente pidió otro código" in titulos(client, tecnico)
+    assert client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": nuevo}, headers=tecnico).json()["estado"] == "completado"
+    # Mi perfil: datos personales y contraseña
+    assert client.put("/yo", json={"nombre": "María G.", "telefono": "0412-555-0000", "email": "maria@ahahome.test"}, headers=cliente).json()["telefono"] == "04125550000"
+    assert client.put("/yo", json={"nombre": "María G.", "telefono": "123", "email": ""}, headers=cliente).status_code == 422
+    assert client.post("/yo/contrasena", json={"actual": "mala", "nueva": "Nueva2026", "repetir": "Nueva2026"}, headers=cliente).status_code == 422
+    assert client.post("/yo/contrasena", json={"actual": "aha12345", "nueva": "corta1", "repetir": "corta1"}, headers=cliente).status_code == 422
+    assert client.post("/yo/contrasena", json={"actual": "aha12345", "nueva": "Nueva2026", "repetir": "Nueva2027"}, headers=cliente).status_code == 422
+    assert client.post("/yo/contrasena", json={"actual": "aha12345", "nueva": "Nueva2026", "repetir": "Nueva2026"}, headers=cliente).json()["ok"]
+    assert client.post("/auth/login", json={"usuario": "maria@ahahome.test", "password": "Nueva2026"}).status_code == 200
+    # campanita: marcar un aviso como leído
+    ns = client.get("/notificaciones", headers=cliente).json()
+    assert ns[0]["titulo"] == "Cambiaste tu contraseña" and not ns[0]["leida"]
+    client.post(f"/notificaciones/{ns[0]['id']}/leer", headers=cliente)
+    assert client.get("/notificaciones", headers=cliente).json()[0]["leida"]
+
+
+def test_tabulacion_de_precios_por_articulo_y_servicio(client):
+    sa = login(client, "superadmin@ahahome.test")
+    sup = login(client, "supervisor@ahahome.test")
+    agente = login(client, "agente@ahahome.test")
+    t = client.get("/precios", headers=sup).json()
+    nombres = [i["nombre"] for i in t["items"]]
+    assert "Aire acondicionado 18.000 BTU" in nombres and "Morochas (lavadora + secadora)" in nombres and "Tope de cocina" in nombres
+    assert t["inspeccion"] == "10.00"
+    a12 = next(i for i in t["items"] if i["clave"] == "aire_12000")
+    assert client.put(f"/admin/precios/{a12['id']}", json={"traslado": 15}, headers=sup).status_code == 403
+    r = client.put(f"/admin/precios/{a12['id']}", json={"traslado": 15, "instalacion": 45}, headers=sa).json()
+    assert r["traslado"] == "15.00" and r["combo"] == "60.00" and r["combo_es_suma"]
+    r = client.put(f"/admin/precios/{a12['id']}", json={"combo": 55}, headers=sa).json()
+    assert r["combo"] == "55.00" and not r["combo_es_suma"]
+    assert client.post("/admin/precios", json={"nombre": "Enfriador de vinos"}, headers=sa).json()["categoria"] == "Otros de línea blanca"
+    client.put("/admin/precios-inspeccion", json={"precio": 12}, headers=sa)
+    assert client.get("/inspeccion/costo").json()["costo"] == "12.00"
+    o = nueva(client, agente, requiere_inspeccion=True, pago={"metodo": "efectivo_usd", "referencia": ""}, articulos=[{"tipo": "aire_acondicionado", "instalar": True}])
+    assert o["pago_instalacion"]["inspeccion"] == "12.00"

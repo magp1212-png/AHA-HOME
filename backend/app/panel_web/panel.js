@@ -32,7 +32,7 @@
     { k: "anuncios", t: "Banners y aliados", i: "▤" },
     { sec: "NEGOCIO" },
     { k: "tasa", t: "Tasa BCV", i: "💱" },
-    { k: "tarifas", t: "Tarifas de instalación", i: "🏷" },
+    { k: "precios", t: "Tabulación de precios", i: "🏷" },
     { k: "qrs", t: "QR de las tiendas", i: "▦" },
     { sec: "ADMINISTRACIÓN AHA HOME" },
     { g: "Personal interno", i: "🛡", hijos: [["administradores", "Superadministradores"], ["control", "Centro de control"], ["caja", "Operadores de caja"]] },
@@ -41,7 +41,7 @@
     equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Órdenes", "Lista"], transacciones: ["Órdenes", "Transacciones"],
     mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Órdenes", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
     resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"],
-    tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], qrs: ["Negocio", "QR de las tiendas"] };
+    tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
 
   function menuHTML() {
     const it = (k, t, i) => `<a class="it ${S.ruta === k ? "on" : ""}" href="#${k}"><span class="i">${i}</span>${t}</a>`;
@@ -235,6 +235,38 @@
       api(`/admin/tarifas/${b.dataset.g}`, { method: "PUT", body: { precio: v || 0, activa: v > 0 } }).then(() => pintar()).catch((e) => ($("#ef").textContent = e.message));
     }));
   }
+  async function pagPrecios(main) {
+    const [pr, t] = await Promise.all([api("/precios"), api("/tasa")]);
+    S.verBs = S.verBs || false;
+    const tasa = Number(t.bs_por_usd || 0);
+    const mon = (v) => (v ? (S.verBs && tasa ? "Bs " + (Number(v) * tasa).toLocaleString("es-VE", { minimumFractionDigits: 2 }) : usd(v)) : "por definir");
+    const cats = [...new Set(pr.items.map((i) => i.categoria))];
+    const inp = (i, campo, v) => esSA() ? `<input data-i="${i.id}" data-c="${campo}" value="${v ?? ""}" placeholder="por definir" inputmode="decimal" style="width:110px;height:34px;border-radius:8px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 10px">` : mon(v);
+    main.innerHTML += `<p class="total" style="margin-top:-6px">Precio por artículo y por servicio. <b>Traslado</b>: retiro en tienda y entrega en su caja. <b>Instalación</b>: desembalaje, conexión a tomas existentes y retiro de residuos (el equipo ya está en casa). <b>Traslado + instalación</b>: el servicio completo (si lo dejas vacío, se usa la suma de los dos).</p>
+      <div style="display:flex;gap:10px;align-items:center;margin:14px 0">
+        <div class="card" style="min-height:0;padding:12px 16px;display:flex;gap:12px;align-items:center"><b>🔍 Inspección del técnico</b>${esSA() ? `<input id="pi" value="${pr.inspeccion}" style="width:90px;height:34px;border-radius:8px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 10px"><button class="btn sec" id="gi">Guardar</button>` : `<span>${mon(pr.inspeccion)}</span>`}<span class="total">precio único, se cobra en caja</span></div>
+        <div class="esp"></div>
+        <div style="display:flex;background:var(--panel2);border:1px solid var(--borde);border-radius:12px;padding:3px">${[["usd", "$ Dólares"], ["bs", "Bs Bolívares"]].map(([k, l]) => `<button data-mon="${k}" class="btn" style="padding:8px 14px;${(k === "bs") === S.verBs ? "background:var(--acento);color:#06231A" : "background:none"}">${l}</button>`).join("")}</div>
+        ${esSA() ? `<button class="btn pri" id="gp">Guardar cambios</button>` : ""}</div>
+      ${tasa ? `<p class="total">Tasa BCV: Bs ${tasa.toLocaleString("es-VE", { minimumFractionDigits: 2 })} por USD. Los precios se guardan en dólares; en bolívares se calculan con la tasa del día.</p>` : ""}
+      ${cats.map((c) => `<div class="tabla" style="margin-bottom:16px"><div class="barra"><b style="flex:1">${esc(c)}</b></div><table><thead><tr><th>Artículo</th><th>Traslado</th><th>Instalación</th><th>Traslado + instalación</th><th>Estado</th></tr></thead><tbody>
+        ${pr.items.filter((i) => i.categoria === c).map((i) => `<tr><td class="nombre">${esc(i.nombre)}</td>
+          <td>${S.verBs ? mon(i.traslado) : inp(i, "traslado", i.traslado)}</td><td>${S.verBs ? mon(i.instalacion) : inp(i, "instalacion", i.instalacion)}</td>
+          <td>${S.verBs ? mon(i.combo) : inp(i, "combo", i.combo_es_suma ? "" : i.combo)}${!S.verBs && i.combo_es_suma ? `<div class="total">suma: ${usd(i.combo)}</div>` : ""}</td>
+          <td>${esSA() ? `<button class="est ${i.activo ? "ok" : "neutro"}" data-act="${i.id}" style="border:0">${i.activo ? "Activo" : "Pausado"}</button>` : `<span class="est ${i.activo ? "ok" : "neutro"}">${i.activo ? "Activo" : "Pausado"}</span>`}</td></tr>`).join("")}</tbody></table></div>`).join("")}
+      ${esSA() ? `<div class="card" style="min-height:0;display:flex;gap:10px;align-items:center"><b>Agregar artículo de línea blanca</b><input id="nn" placeholder="Ej.: Enfriador de vinos" style="flex:1;height:38px;border-radius:10px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 12px"><button class="btn sec" id="na">Agregar</button></div>` : ""}
+      <p class="error" id="ep"></p><p class="total" id="okp" style="color:var(--verde)"></p>`;
+    const err = (e) => ($("#ep").textContent = e.message);
+    main.querySelectorAll("[data-mon]").forEach((b) => (b.onclick = () => { S.verBs = b.dataset.mon === "bs"; pintar(); }));
+    const gi = $("#gi"); if (gi) gi.onclick = () => api("/admin/precios-inspeccion", { method: "PUT", body: { precio: Number($("#pi").value.replace(",", ".")) } }).then(() => { $("#okp").textContent = "Inspección actualizada."; }).catch(err);
+    const gp = $("#gp"); if (gp) gp.onclick = async () => {
+      const cambios = {};
+      main.querySelectorAll("[data-i]").forEach((x) => { const v = x.value.trim().replace(",", "."); (cambios[x.dataset.i] = cambios[x.dataset.i] || {})[x.dataset.c] = v === "" ? 0 : Number(v); });
+      try { for (const [id, b] of Object.entries(cambios)) await api(`/admin/precios/${id}`, { method: "PUT", body: b }); $("#okp").textContent = "Precios guardados."; setTimeout(pintar, 700); } catch (e) { err(e); }
+    };
+    main.querySelectorAll("[data-act]").forEach((b) => (b.onclick = () => api(`/admin/precios/${b.dataset.act}`, { method: "PUT", body: { activo: b.textContent.trim() !== "Activo" } }).then(() => pintar()).catch(err)));
+    const na = $("#na"); if (na) na.onclick = () => api("/admin/precios", { body: { nombre: $("#nn").value } }).then(() => pintar()).catch(err);
+  }
   async function pagQrs(main) {
     const ts = await api("/admin/tiendas-qr");
     main.innerHTML += `<p class="total" style="margin-top:-6px">QR fijo de cada tienda aliada. Se imprime y se pega en la caja: el técnico lo escanea al llegar y la caja autoriza el retiro con un OK.</p>
@@ -292,6 +324,7 @@
       else if (S.ruta === "auditoria") await auditoria(main);
       else if (S.ruta === "tasa") await pagTasa(main);
       else if (S.ruta === "tarifas") await pagTarifas(main);
+      else if (S.ruta === "precios") await pagPrecios(main);
       else if (S.ruta === "qrs") await pagQrs(main);
       else await tabla(main, S.ruta);
     } catch (e) { main.innerHTML += `<p class="error">${esc(e.message)}</p>`; }

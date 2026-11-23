@@ -43,4 +43,6 @@ TELEFONO_CONTROL = os.environ.get("AHAHOME_TELEFONO_CONTROL", "").strip()
 MODELOS_DIR = pathlib.Path(os.environ.get("AHAHOME_MODELOS_DIR", pathlib.Path(__file__).resolve().parent.parent / "modelos"))
 # Correos de las cuentas CEO (superadmin con acceso al centro de mando y a la auditoría), separados por coma
 CEO_EMAILS = {e.strip().lower() for e in os.environ.get("AHAHOME_CEO_EMAILS", "").split(",") if e.strip()}
+# Código de cierre (AHA HOGAR v2): vale 30 minutos y se puede pedir otro cada 60 segundos
+CIERRE_MINUTOS = int(os.environ.get("AHAHOME_CIERRE_MINUTOS", "30"))
 INSPECCION_USD = float(os.environ.get("AHAHOME_INSPECCION_USD", "10"))

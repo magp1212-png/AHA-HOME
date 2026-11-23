@@ -15,6 +15,7 @@ from ..db import get_db
 from ..deps import require
 from ..models import ESTADO_PRESUPUESTO_TEXTO, METODOS_PAGO, Orden, Presupuesto, Tecnico, User, ahora
 from ..notificar import notificar
+from .precios import precio_inspeccion_centavos
 from .tasa import cobro, info_pago
 from .ordenes import normalizar_franja, obtener
 
@@ -214,7 +215,7 @@ def enviar_presupuesto(orden_id: int, body: NuevoPresupuesto, user: User = Depen
         raise HTTPException(422, "Tu cuenta de pago no está registrada: pásala por la oficina de AHA HOME para poder presupuestar materiales")
     p = Presupuesto(orden_id=o.id, tecnico_id=t.id, items=items, notas=body.notas.strip(), fotos=body.fotos,
                     materiales_centavos=mat, mano_obra_centavos=mo, materiales_compra=body.materiales_compra,
-                    inspeccion_centavos=round(config.INSPECCION_USD * 100) if o.requiere_inspeccion and not o.inspeccion_centavos else 0)
+                    inspeccion_centavos=precio_inspeccion_centavos(db) if o.requiere_inspeccion and not o.inspeccion_centavos else 0)
     db.add(p)
     db.flush()
     svc.registrar(db, o, o.estado, user, f"Presupuesto enviado: USD {dinero(p.total_centavos)} (materiales {dinero(mat)}, mano de obra {dinero(mo)}, inspección {dinero(p.inspeccion_centavos)})")

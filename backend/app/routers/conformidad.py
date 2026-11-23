@@ -111,5 +111,23 @@ def acta(orden_id: int, body: Acta, user: User = Depends(require("cliente")), db
     o.acta = {"puntos": {p["id"]: True for p in puntos_acta(o)}, "recibe_nombre": body.recibe_nombre.strip(),
               "recibe_cedula": ced, "mayor_edad": True, "en": ahora().isoformat() + "Z"}
     svc.registrar(db, o, o.estado, user, f"Acta de conformidad confirmada por {o.acta['recibe_nombre']} (C.I. {ced})")
+    svc.emitir_codigo_cierre(db, o)
+    db.commit()
+    return svc.vista(o, user.rol)
+
+
+@router.post("/ordenes/{orden_id}/cierre/nuevo-codigo")
+def nuevo_codigo(orden_id: int, user: User = Depends(require("cliente")), db: Session = Depends(get_db)):
+    """«Pedir otro código» (a los 60 s): reemplaza el anterior para el cliente y el técnico."""
+    o = obtener(db, orden_id, user)
+    svc.exigir_estado(o, "en_progreso")
+    if not (o.acta or {}).get("en"):
+        raise HTTPException(409, "Primero confirma el acta de conformidad")
+    if o.token_emitido_en and (ahora() - o.token_emitido_en).total_seconds() < 60:
+        raise HTTPException(429, "Espera un minuto para pedir otro código")
+    svc.emitir_codigo_cierre(db, o)
+    if o.tecnico:
+        from ..notificar import notificar
+        notificar(db, o.tecnico.user_id, "El cliente pidió otro código", f"{o.codigo}: el código anterior ya no sirve. Pídele el nuevo.", o.id)
     db.commit()
     return svc.vista(o, user.rol)

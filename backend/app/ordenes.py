@@ -135,6 +135,25 @@ def nuevo_token_cierre() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
+def emitir_codigo_cierre(db: Session, orden: Orden) -> None:
+    """Código nuevo de 6 dígitos (vale 30 min): llega al cliente en su app, en la campanita y por correo."""
+    from . import correo
+    orden.token_cierre, orden.token_intentos, orden.token_emitido_en = nuevo_token_cierre(), 0, ahora()
+    notificar(db, orden.cliente_id, "Tu código de cierre", f"{orden.codigo}: tu código es {orden.token_cierre}. Díctaselo al técnico para cerrar el servicio. Vale {config.CIERRE_MINUTOS} minutos.", orden.id)
+    cliente = db.get(User, orden.cliente_id) if orden.cliente_id else None
+    if cliente and cliente.email:
+        try:
+            correo.enviar(cliente.email, f"AHA HOME · Código de cierre {orden.codigo}", correo.plantilla("Tu código de cierre",
+                f"<p>Para cerrar el servicio <b>{orden.codigo}</b>, díctale este código al técnico:</p><p style='font-size:32px;font-weight:900;letter-spacing:8px'>{orden.token_cierre}</p>"
+                f"<p>Vale {config.CIERRE_MINUTOS} minutos. Si vence, pide otro desde la app.</p>"), f"Tu código de cierre {orden.codigo}: {orden.token_cierre}")
+        except Exception:  # el correo nunca debe tumbar el cierre
+            pass
+
+
+def codigo_vigente(orden: Orden) -> bool:
+    return bool(orden.token_cierre and orden.token_emitido_en and ahora() - orden.token_emitido_en < dt.timedelta(minutes=config.CIERRE_MINUTOS))
+
+
 def faltantes_cierre(orden: Orden) -> list[str]:
     hechos = orden.checklist or {}
     fotos = orden.fotos or {}
@@ -180,6 +199,13 @@ def linea_de_tiempo(orden: Orden) -> list[dict]:
              "fecha": _iso(cuando.get(s)) if i <= actual else None} for i, s in enumerate(ESTADOS)]
 
 
+def _insp(orden: Orden) -> int:
+    from sqlalchemy.orm import object_session
+    from .routers.precios import precio_inspeccion_centavos
+    db = object_session(orden)
+    return precio_inspeccion_centavos(db) if db else round(config.INSPECCION_USD * 100)
+
+
 def vista(orden: Orden, rol: str) -> dict:
     """Lo que ve cada rol. El cliente recibe la ficha de seguridad de la cuadrilla cuando ya va en camino."""
     from .routers.tasa import info_pago
@@ -206,7 +232,7 @@ def vista(orden: Orden, rol: str) -> dict:
         "checklist": orden.checklist or {}, "fotos": orden.fotos or {},
         "calificacion": orden.calificacion, "comentario": orden.comentario,
         "inspeccion": {"requerida": orden.requiere_inspeccion, "fecha": orden.inspeccion_fecha, "franja": orden.inspeccion_franja,
-                       "costo": dinero(round(config.INSPECCION_USD * 100)), "pagada_en_tienda": orden.inspeccion_centavos > 0},
+                       "costo": dinero(_insp(orden)), "pagada_en_tienda": orden.inspeccion_centavos > 0},
         "residuos": {"retirar": orden.retirar_residuos is not False, "aplica": orden.tipo_servicio != "traslado",
                      "puede_cambiar": orden.tipo_servicio != "traslado" and orden.estado in ("solicitud_enviada", "tecnico_asignado", "cita_confirmada", "en_ruta")},
         "propina": {"monto": dinero(orden.propina_centavos), "metodo": orden.propina_metodo, "dada": orden.propina_en is not None,
@@ -234,8 +260,12 @@ def vista(orden: Orden, rol: str) -> dict:
         d["tecnico_asignado"] = orden.tecnico is not None
         # Código de cierre: el cliente se lo dicta al técnico (o se lo manda por el chat) cuando termina el servicio
         # el código aparece cuando el cliente confirma el acta de conformidad (fusión AHA HOGAR)
-        d["cierre"] = ({"token": orden.token_cierre} if orden.estado == "en_progreso" and orden.token_cierre and (orden.acta or {}).get("en")
-                       else {"token": None, "falta_acta": True} if orden.estado == "en_progreso" else None)
+        if orden.estado == "en_progreso" and (orden.acta or {}).get("en"):
+            vence = orden.token_emitido_en + dt.timedelta(minutes=config.CIERRE_MINUTOS) if orden.token_emitido_en else None
+            d["cierre"] = {"token": orden.token_cierre if codigo_vigente(orden) else None, "vencido": not codigo_vigente(orden),
+                           "vence_en": _iso(vence), "emitido_en": _iso(orden.token_emitido_en), "minutos": config.CIERRE_MINUTOS}
+        else:
+            d["cierre"] = {"token": None, "falta_acta": True} if orden.estado == "en_progreso" else None
     else:
         d["tecnico"] = ficha(orden.tecnico)
         d["ayudantes"] = [ficha(a) for a in orden.ayudantes]
