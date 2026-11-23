@@ -5,6 +5,7 @@ import { Pressable, Switch, Text, View } from "react-native";
 import { api } from "../../api";
 import { useNav } from "../../nav";
 import type { Orden } from "../../types";
+import { aBs, fmtBs, monedaDe, MontoDual, useTasa } from "../../components";
 import { Aviso, Boton, C, Campo, Fila, Opcion, Pantalla, Seccion, Tarjeta, Texto } from "../../ui";
 import { FRANJAS, proximosDias } from "../cliente/Reprogramar";
 
@@ -44,6 +45,8 @@ export default function NuevaOrden() {
   const conInsp = inspeccion && (aInstalar.length > 0 || soloInst);
   // Todo se cobra en caja, en el momento: la instalación y, si la pide, la inspección
   const total = instalacion + (conInsp ? costoInsp : 0);
+  const { tasa } = useTasa();
+  const cobroTexto = monedaDe(metodo) === "Bs" ? (aBs(total, tasa) !== null ? `Bs ${fmtBs(aBs(total, tasa)!)}` : "falta la tasa del día") : `USD ${fmtBs(total)}`;
   const porDefinir = aInstalar.some((a) => !tarifas[a.tipo]);
   const servicio = soloInst ? "Solo instalación" : aInstalar.length ? "Traslado e instalación" : "Traslado";
   const setArt = (i: number, k: keyof Art, v: any) => setArts(arts.map((a, j) => (j === i ? { ...a, [k]: v } : a)));
@@ -67,7 +70,7 @@ export default function NuevaOrden() {
 
   return (
     <Pantalla titulo="Nueva orden" subtitulo={servicio}
-      pie={<Boton titulo={total > 0 ? `Cobrar USD ${total.toFixed(2)} y generar QR` : "Generar orden y QR"} onPress={crear} cargando={cargando} deshabilitado={!listo} />}>
+      pie={<Boton titulo={total > 0 ? `Cobrar ${metodo ? cobroTexto : `USD ${fmtBs(total)}`} y generar QR` : "Generar orden y QR"} onPress={crear} cargando={cargando} deshabilitado={!listo} />}>
       <Tarjeta>
         <Seccion>CLIENTE</Seccion>
         <Campo etiqueta="Nombre y apellido" value={c.nombre} onChangeText={(v) => setC({ ...c, nombre: v })} />
@@ -125,13 +128,16 @@ export default function NuevaOrden() {
       {aInstalar.length || soloInst ? (
         <Tarjeta>
           <Seccion>PAGO EN CAJA</Seccion>
-          {instalacion > 0 && !porDefinir ? <Fila><Texto>Instalación</Texto><Texto negrita>USD {instalacion.toFixed(2)}</Texto></Fila>
+          {instalacion > 0 && !porDefinir ? <View><Texto>Instalación</Texto><MontoDual usd={instalacion} tasa={tasa} /></View>
             : <Aviso tono="info" texto="Precio de instalación por definir: no se cobra por ahora." />}
-          {conInsp ? <Fila><Texto>Inspección</Texto><Texto negrita>USD {costoInsp.toFixed(2)}</Texto></Fila> : null}
+          {conInsp ? <View><Texto>Inspección</Texto><MontoDual usd={costoInsp} tasa={tasa} /></View> : null}
           {total > 0 ? (
             <>
-              <Texto negrita size={20}>Total a cobrar: USD {total.toFixed(2)}</Texto>
+              <Texto negrita size={14}>Total a cobrar</Texto>
+              <MontoDual usd={total} tasa={tasa} size={20} negrita />
+              <Texto gris size={13}>{tasa?.bs_por_usd ? `Tasa oficial BCV: Bs ${fmtBs(Number(tasa.bs_por_usd))} por USD (${tasa.fecha})` : "Sin tasa del día: solo se puede cobrar en dólares."}</Texto>
               <Fila wrap>{metodos.map((m) => <Opcion key={m.id} texto={m.texto} activo={metodo === m.id} onPress={() => setMetodo(m.id)} />)}</Fila>
+              {metodo ? <Aviso tono="info" texto={`Se cobra en ${monedaDe(metodo) === "Bs" ? "bolívares" : "dólares"}: ${cobroTexto}`} /> : null}
               <Campo etiqueta="Referencia, lote o número de aprobación" value={ref} onChangeText={setRef} />
             </>
           ) : null}

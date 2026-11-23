@@ -6,6 +6,7 @@ import { api } from "../../api";
 import { useNav } from "../../nav";
 import { useSession } from "../../session";
 import type { Orden } from "../../types";
+import { TasaDelDia } from "../../components";
 import { BotonCuenta, Campana, Aviso, Boton, C, Cargando, Etiqueta, Pantalla, Seccion, Tarjeta, Texto, tonoEstado } from "../../ui";
 
 type Tec = { id: number; nombre: string; rol: string; grupo: string | null; reten_activo: boolean; verificado: boolean; registro_app_completo: boolean;
@@ -60,6 +61,7 @@ export default function Control() {
             <View style={{ flex: 1 }}><Boton titulo="Analítica" icono="bar-chart" tipo="secundario" onPress={() => nav.push("analitica")} /></View>
           </View>
           <Boton titulo="Presupuestos y pagos" icono="cash-outline" tipo="lima" onPress={() => nav.push("pagos")} />
+          <TasaDelDia editable={perfil?.rol === "superadmin"} />
           {perfil?.rol === "superadmin" ? <Boton titulo="Banners y aliados" icono="megaphone-outline" tipo="secundario" onPress={() => nav.push("banners")} /> : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
             {[["Órdenes", k!.ordenes, C.texto], ["En curso", k!.en_ruta_o_en_servicio, C.texto], ["Completadas", k!.completadas, C.ok],
@@ -145,6 +147,10 @@ export default function Control() {
                 <Etiqueta texto={o.estado_texto} tono={tonoEstado(o.estado)} />
               </View>
               <Texto gris size={13}>{o.franja} · {o.cliente.nombre} · {o.cliente.direccion}</Texto>
+              {o.pago_instalacion?.pagado ? (
+                <Texto size={13}>💳 Pagado en tienda: {o.pago_instalacion.cobrado} · {o.pago_instalacion.metodo_texto}
+                  {o.pago_instalacion.moneda === "Bs" ? ` (USD ${o.pago_instalacion.monto_usd} · tasa ${o.pago_instalacion.tasa})` : " · en dólares"}</Texto>
+              ) : null}
               <Texto size={14}>{o.tecnico ? `${o.tecnico.nombre}${o.ayudantes.length ? " + " + o.ayudantes.map((a) => a.nombre).join(", ") : ""}` : "SIN TÉCNICO"}</Texto>
               {o.pausa?.activa ? (
                 <View style={{ gap: 8, backgroundColor: o.pausa.vencida ? "#FDECEC" : C.limaSuave, borderRadius: 12, padding: 10 }}>

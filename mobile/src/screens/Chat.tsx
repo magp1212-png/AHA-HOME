@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api, fileUrl, subirFoto } from "../api";
@@ -10,7 +10,8 @@ import { useSession } from "../session";
 import { Avatar, C } from "../ui";
 
 type Msg = { id: number; texto: string; foto: string | null; creado: string; mio: boolean; sistema: boolean; autor: string | null; rol: string | null; control: boolean };
-type Chat = { orden_id: number; codigo: string; abierto: boolean; estado_texto: string; con: { nombre: string; foto: string | null; rol: string }; mensajes: Msg[] };
+type Llamada = { texto: string; detalle?: string; telefono: string };
+type Chat = { orden_id: number; codigo: string; abierto: boolean; llamar?: Llamada[]; estado_texto: string; con: { nombre: string; foto: string | null; rol: string }; mensajes: Msg[] };
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" });
 
@@ -23,6 +24,9 @@ export default function ChatOrden({ id }: { id: number }) {
   const [texto, setTexto] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [menuLlamar, setMenuLlamar] = useState(false);
+  const llamadas = chat?.llamar ?? [];
+  const llamar = (l: Llamada) => { setMenuLlamar(false); Linking.openURL(`tel:${l.telefono}`).catch(() => setError("No se pudo abrir el teléfono.")); };
   const scroll = useRef<ScrollView>(null);
   const esCliente = perfil?.rol === "cliente";
   const esControl = ["tecnico_supervisor", "supervisor", "superadmin"].includes(perfil?.rol ?? "");
@@ -60,7 +64,29 @@ export default function ChatOrden({ id }: { id: number }) {
           <Text style={{ fontWeight: "800", fontSize: 16, color: C.texto }} numberOfLines={1}>{chat ? `${chat.con.nombre} · ${chat.con.rol}` : "Chat"}</Text>
           <Text style={{ fontSize: 12.5, color: chat?.abierto ? C.ok : C.gris, fontWeight: "700" }}>{chat ? `● ${chat.estado_texto} · ${chat.codigo}` : ""}</Text>
         </View>
+        {llamadas.length ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Llamar" onPress={() => (llamadas.length === 1 && !llamadas[0].detalle ? llamar(llamadas[0]) : setMenuLlamar(!menuLlamar))}
+            style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: C.ok, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="call" size={22} color={C.blanco} />
+          </Pressable>
+        ) : null}
       </View>
+      {menuLlamar ? (
+        <View style={{ backgroundColor: C.blanco, borderBottomWidth: 1, borderBottomColor: C.linea, padding: 10, gap: 8 }}>
+          {llamadas.map((l) => (
+            <Pressable key={l.texto} accessibilityRole="button" onPress={() => llamar(l)}
+              style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, borderWidth: 1, borderColor: C.linea, padding: 12 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.ok, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="call" size={20} color={C.blanco} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontWeight: "800", color: C.texto, fontSize: 15 }}>{l.texto}</Text>
+                {l.detalle ? <Text style={{ color: C.gris, fontSize: 12.5 }}>{l.detalle}</Text> : null}
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       <ScrollView ref={scroll} contentContainerStyle={{ padding: 14, gap: 8 }}>
         <View style={{ flexDirection: "row", gap: 8, backgroundColor: C.limaSuave, borderWidth: 1, borderColor: "#DDE27A", borderRadius: 14, padding: 10 }}>

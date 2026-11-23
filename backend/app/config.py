@@ -37,4 +37,6 @@ UTC_OFFSET_HOURS = -4
 REPROGRAMAR_HORAS_ANTES = int(os.environ.get("AHAHOME_REPROGRAMAR_HORAS", "3"))
 PAUSA_INSPECCION_HORAS = int(os.environ.get("AHAHOME_PAUSA_INSPECCION_HORAS", "48"))
 # Costo de la visita de inspección (USD); se suma al pago del presupuesto cuando el cliente la pidió.
+# Teléfono del centro de control (si está vacío, se usa el del técnico supervisor de la tienda o el del supervisor)
+TELEFONO_CONTROL = os.environ.get("AHAHOME_TELEFONO_CONTROL", "").strip()
 INSPECCION_USD = float(os.environ.get("AHAHOME_INSPECCION_USD", "10"))

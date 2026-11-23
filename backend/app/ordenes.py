@@ -177,6 +177,7 @@ def linea_de_tiempo(orden: Orden) -> list[dict]:
 
 def vista(orden: Orden, rol: str) -> dict:
     """Lo que ve cada rol. El cliente recibe la ficha de seguridad de la cuadrilla cuando ya va en camino."""
+    from .routers.tasa import info_pago
     d = {
         "id": orden.id, "codigo": orden.codigo, "estado": orden.estado, "estado_texto": ESTADO_TEXTO.get(orden.estado),
         "tipo_servicio": orden.tipo_servicio, "tipo_servicio_texto": TIPO_SERVICIO_TEXTO.get(orden.tipo_servicio),
@@ -185,7 +186,8 @@ def vista(orden: Orden, rol: str) -> dict:
                     "referencia": orden.referencia, "lat": orden.lat, "lng": orden.lng, "zona": orden.zona},
         "articulos": articulos_vista(orden),
         "compra": {"factura": orden.factura, "numero_factura": orden.numero_factura, "fecha_compra": orden.fecha_compra},
-        "pago_instalacion": {"monto": dinero(orden.monto_instalacion_centavos), "moneda": "USD", "metodo": orden.pago_metodo,
+        "pago_instalacion": {**info_pago(orden.pago_metodo, orden.monto_instalacion_centavos + orden.inspeccion_centavos, orden.pago_moneda, orden.pago_tasa),
+                             "monto": dinero(orden.monto_instalacion_centavos), "inspeccion": dinero(orden.inspeccion_centavos),
                              "precio_por_definir": any(a.instalar and not a.precio_instalacion_centavos for a in orden.articulos),
                              "referencia": orden.pago_referencia, "pagado": orden.pagado_en is not None,
                              "pagado_en": _iso(orden.pagado_en)},
@@ -224,6 +226,9 @@ def vista(orden: Orden, rol: str) -> dict:
         d["tecnico"] = ficha(orden.tecnico)
         d["ayudantes"] = [ficha(a) for a in orden.ayudantes]
         d["faltantes_cierre"] = faltantes_cierre(orden)
+    if rol in ("tecnico", "ayudante"):
+        # Privacidad: la cuadrilla no ve el teléfono del cliente; se comunica por el chat supervisado
+        d["cliente"].pop("telefono", None)
     if rol in ("agente", "tecnico_supervisor", "supervisor", "superadmin"):
         if con_retiro(orden.tipo_servicio):
             d["qr"] = f"AHAHOME:{orden.qr_token}"

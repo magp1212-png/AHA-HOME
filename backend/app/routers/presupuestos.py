@@ -15,6 +15,7 @@ from ..db import get_db
 from ..deps import require
 from ..models import ESTADO_PRESUPUESTO_TEXTO, METODOS_PAGO, Orden, Presupuesto, Tecnico, User, ahora
 from ..notificar import notificar
+from .tasa import cobro, info_pago
 from .ordenes import normalizar_franja, obtener
 
 router = APIRouter(tags=["presupuestos"])
@@ -119,7 +120,7 @@ def vista_presupuesto(p: Presupuesto, rol: str) -> dict:
          "materiales_compra": p.materiales_compra, "a_pagar": dinero(p.a_pagar_centavos),
          "notas": p.notas, "fotos": p.fotos, "motivo_rechazo": p.motivo_rechazo, "tecnico": p.tecnico.user.nombre,
          "cliente_acepto": p.cliente_acepto_en is not None, "admin_aprobo": p.admin_aprobo_en is not None,
-         "pago": {"metodo": p.pago_metodo, "referencia": p.pago_referencia, "registrado_en": _iso(p.pago_registrado_en),
+         "pago": {**info_pago(p.pago_metodo, p.a_pagar_centavos, p.pago_moneda, p.pago_tasa), "referencia": p.pago_referencia, "registrado_en": _iso(p.pago_registrado_en),
                   "confirmado_en": _iso(p.pago_confirmado_en)},
          "materiales_pagados_en": _iso(p.materiales_pagados_en), "creado": _iso(p.creado)}
     if rol in ("superadmin", "supervisor", "tecnico_supervisor"):
@@ -309,8 +310,9 @@ def registrar_pago(orden_id: int, body: Pago, user: User = Depends(require("clie
     if not p or p.estado != "aprobado":
         raise HTTPException(409, "El presupuesto todavía no está aprobado por ambas partes")
     p.pago_metodo, p.pago_referencia, p.pago_registrado_en, p.estado = body.metodo, body.referencia.strip(), ahora(), "pago_registrado"
+    p.pago_moneda, p.pago_tasa = cobro(db, body.metodo)
     svc.registrar(db, o, o.estado, user, f"Pago del presupuesto registrado: {body.metodo} ref. {p.pago_referencia}")
-    _avisar(db, _control(db, o), "Pago por confirmar", f"{o.codigo}: USD {dinero(p.a_pagar_centavos)} por {body.metodo}, ref. {p.pago_referencia}", o.id)
+    _avisar(db, _control(db, o), "Pago por confirmar", f"{o.codigo}: {info_pago(p.pago_metodo, p.a_pagar_centavos, p.pago_moneda, p.pago_tasa)['cobrado']} por {body.metodo}, ref. {p.pago_referencia}", o.id)
     db.commit()
     return vista_presupuesto(p, user.rol)
 

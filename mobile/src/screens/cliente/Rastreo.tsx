@@ -4,7 +4,7 @@ import { Pressable, Text, View } from "react-native";
 
 import { api } from "../../api";
 import { useNav } from "../../nav";
-import { FormPago, InspeccionCliente } from "../../components";
+import { FormPago, InspeccionCliente, PagoServicio } from "../../components";
 import { HamburguesaCliente, MenuCliente } from "../../menus";
 import type { Orden, Persona } from "../../types";
 import { Aviso, Avatar, Boton, C, Campana, Cargando, Etiqueta, Pantalla, Tarjeta, Texto, Titulo } from "../../ui";
@@ -142,7 +142,7 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
           <Texto gris size={14}>{pen.motivo}. La cuadrilla ya había retirado tu compra y salió hacia tu casa, así que regresó a la tienda y se cobra el servicio completo como penalidad.</Texto>
           {pen.estado === "pendiente" && pen.por_definir ? <Aviso tono="info" texto="AHA HOME está confirmando el monto de la penalidad. Te avisamos en breve." /> : null}
           {pen.estado === "pendiente" && !pen.por_definir ? (
-            <FormPago titulo={`PENALIDAD USD ${pen.monto}`} boton={`Pagar USD ${pen.monto}`}
+            <FormPago titulo={`PENALIDAD USD ${pen.monto}`} boton="Registrar pago" usd={Number(pen.monto)}
               onEnviar={async (d) => { await api(`/ordenes/${id}/penalidad/pago`, { body: d }); cargar(); }} />
           ) : null}
           {pen.estado === "pago_registrado" ? <Aviso tono="info" texto="Registraste el pago. AHA HOME lo confirma y podrás reprogramar." /> : null}
@@ -194,6 +194,7 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
         <Texto>{o.articulos.map((a) => a.nombre).join(" y ")}</Texto>
         <Texto gris>Fecha: {o.fecha} · Hora: {o.franja.replace("-", " – ")}</Texto>
         <Texto gris size={13}>{o.cliente.direccion}</Texto>
+        {o.pago_instalacion.pagado ? <PagoServicio pago={o.pago_instalacion} titulo="TU PAGO EN LA TIENDA" donde="pagado en la tienda" /> : null}
       </Tarjeta>
 
       {o.estado === "completado" ? (

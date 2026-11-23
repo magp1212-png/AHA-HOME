@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .. import config
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import current_user
@@ -68,6 +69,27 @@ def vista_mensaje(db: Session, m: Mensaje, yo: User) -> dict:
             "control": bool(autor and autor.rol in CONTROL)}
 
 
+def telefono_control(db: Session, o: Orden) -> str:
+    if config.TELEFONO_CONTROL:
+        return config.TELEFONO_CONTROL
+    u = (db.scalar(select(User).where(User.rol == "tecnico_supervisor", User.tienda_id == o.tienda_id, User.activo.is_(True)).order_by(User.id))
+         or db.scalar(select(User).where(User.rol == "supervisor", User.activo.is_(True)).order_by(User.id)))
+    return u.telefono if u and u.telefono else ""
+
+
+def opciones_llamada(db: Session, o: Orden, user: User) -> list[dict]:
+    """Llamar desde el chat. Cliente y cuadrilla llaman al centro de control, que los comunica sin compartir números;
+    el centro de control llama directo al cliente o al técnico."""
+    if user.rol in CONTROL:
+        ops = [{"texto": "Llamar al cliente", "telefono": o.cliente_telefono}]
+        if o.tecnico:
+            ops.append({"texto": f"Llamar al técnico ({o.tecnico.user.nombre.split()[0]})", "telefono": o.tecnico.user.telefono})
+        return [x for x in ops if x["telefono"]]
+    tel = telefono_control(db, o)
+    otro = "tu técnico" if user.rol == "cliente" else "el cliente"
+    return [{"texto": "Llamar al centro de control", "detalle": f"Te comunicamos con {otro} sin compartir números", "telefono": tel}] if tel else []
+
+
 @router.get("/ordenes/{orden_id}/chat")
 def ver_chat(orden_id: int, solo_resumen: bool = False, user: User = Depends(current_user), db: Session = Depends(get_db)):
     o = orden_del_chat(db, orden_id, user)
@@ -82,7 +104,7 @@ def ver_chat(orden_id: int, solo_resumen: bool = False, user: User = Depends(cur
         db.commit()
     otro = o.tecnico if user.rol == "cliente" else None
     return {"orden_id": o.id, "codigo": o.codigo, "abierto": o.estado not in CERRADOS, "estado_texto": svc.ESTADO_TEXTO.get(o.estado),
-            "no_leidos": pendientes, "supervisado": True,
+            "no_leidos": pendientes, "supervisado": True, "llamar": opciones_llamada(db, o, user),
             "con": (({"nombre": otro.user.nombre, "foto": otro.foto_perfil or otro.foto_rostro, "rol": "técnico"} if o.estado in VE_CUADRILLA
                      else {"nombre": "Tu técnico", "foto": None, "rol": "técnico asignado"}) if otro
                     else {"nombre": o.cliente_nombre, "foto": None, "rol": "cliente"}),

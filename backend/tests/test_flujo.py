@@ -706,3 +706,40 @@ def test_banners_de_aliados_desde_el_centro_de_control(client):
     client.put(f"/admin/banners/{b['id']}", json=b | {"activo": False}, headers=sa)
     assert all(x["id"] != b["id"] for x in client.get("/banners", headers=cliente).json()["aliados"])
     assert [x["clics"] for x in client.get("/admin/banners", headers=sa).json() if x["id"] == b["id"]] == [1]
+
+
+def test_dos_monedas_tasa_oficial_y_telefono_oculto_al_tecnico(client):
+    """Se cobra en USD o en Bs a la tasa oficial del día; todos ven cómo se pagó. La cuadrilla no ve el teléfono del cliente."""
+    agente = login(client, "agente@ahahome.test")
+    sa = login(client, "superadmin@ahahome.test")
+    assert client.put("/admin/tasa", json={"bs_por_usd": 300}, headers=agente).status_code == 403
+    assert client.put("/admin/tasa", json={"bs_por_usd": 300}, headers=sa).json()["bs_por_usd"] == "300.00"
+    assert client.get("/tasa", headers=agente).json()["bs_por_usd"] == "300.00"
+    arts = [{"tipo": "aire_acondicionado", "instalar": True}]
+    usd = nueva(client, agente, requiere_inspeccion=True, pago={"metodo": "efectivo_usd", "referencia": ""}, articulos=arts)
+    assert usd["pago_instalacion"]["moneda"] == "USD" and usd["pago_instalacion"]["cobrado"] == "USD 10.00"
+    bs = nueva(client, agente, requiere_inspeccion=True, pago={"metodo": "pago_movil", "referencia": "777"}, articulos=arts)
+    pi = bs["pago_instalacion"]
+    assert pi["moneda"] == "Bs" and pi["monto_bs"] == "3000.00" and pi["tasa"] == "300.00" and pi["cobrado"] == "Bs 3000.00"
+    assert pi["metodo_texto"] == "Pago móvil"
+    # la tasa del día cambia, pero el cobro ya hecho conserva la suya
+    client.put("/admin/tasa", json={"bs_por_usd": 320}, headers=sa)
+    assert client.get(f"/ordenes/{bs['id']}", headers=sa).json()["pago_instalacion"]["cobrado"] == "Bs 3000.00"
+    tecnico = login_pin(client, tel_de(bs["tecnico"]["id"]))
+    vt = client.get(f"/ordenes/{bs['id']}", headers=tecnico).json()
+    assert "telefono" not in vt["cliente"] and vt["pago_instalacion"]["cobrado"] == "Bs 3000.00"
+    assert client.get(f"/ordenes/{bs['id']}", headers=sa).json()["cliente"]["telefono"]
+
+
+def test_llamar_desde_el_chat_sin_compartir_numeros(client):
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente)
+    cliente = login(client, "maria@ahahome.test")
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    sup = login(client, "supervisor@ahahome.test")
+    lc = client.get(f"/ordenes/{o['id']}/chat", headers=cliente).json()["llamar"]
+    lt = client.get(f"/ordenes/{o['id']}/chat", headers=tecnico).json()["llamar"]
+    assert [x["texto"] for x in lc] == ["Llamar al centro de control"] == [x["texto"] for x in lt]
+    assert lc[0]["telefono"] != o["cliente"]["telefono"] and lt[0]["telefono"] != tel_de(o["tecnico"]["id"])
+    ls = client.get(f"/ordenes/{o['id']}/chat", headers=sup).json()["llamar"]
+    assert ls[0]["texto"] == "Llamar al cliente" and ls[1]["texto"].startswith("Llamar al técnico")

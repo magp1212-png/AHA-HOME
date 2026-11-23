@@ -32,6 +32,14 @@ TIPOS_EQUIPO = ("nevera", "lavadora", "secadora", "aire_acondicionado", "cocina"
 TIPO_EQUIPO_TEXTO = {"nevera": "Nevera", "lavadora": "Lavadora", "secadora": "Secadora", "aire_acondicionado": "Aire acondicionado",
                      "cocina": "Cocina", "televisor": "Televisor", "otro": "Otro artículo"}
 METODOS_PAGO = ("pago_movil", "efectivo_bs", "efectivo_usd", "zelle", "punto_de_venta")
+# Métodos que se cobran en bolívares (a la tasa oficial del BCV del día); el resto, en dólares.
+METODOS_BS = ("pago_movil", "efectivo_bs", "punto_de_venta")
+
+
+def moneda_de(metodo: str | None) -> str:
+    return "" if not metodo else ("Bs" if metodo in METODOS_BS else "USD")
+
+
 METODO_PAGO_TEXTO = {"pago_movil": "Pago móvil", "efectivo_bs": "Efectivo en bolívares", "efectivo_usd": "Efectivo en dólares",
                      "zelle": "Zelle", "punto_de_venta": "Punto de venta"}
 
@@ -189,6 +197,8 @@ class Orden(Base):
     inspeccion_centavos: Mapped[int] = mapped_column(Integer, default=0)  # inspección cobrada en caja junto con la instalación
     pago_metodo: Mapped[str | None] = mapped_column(String(20))
     pago_referencia: Mapped[str] = mapped_column(String(60), default="")
+    pago_moneda: Mapped[str] = mapped_column(String(3), default="")     # USD | Bs
+    pago_tasa: Mapped[float] = mapped_column(Float, default=0.0)        # Bs por USD (tasa oficial BCV) usada al cobrar
     pagado_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
     cobrado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
 
@@ -357,6 +367,8 @@ class Presupuesto(Base):
     admin_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     pago_metodo: Mapped[str | None] = mapped_column(String(20))
     pago_referencia: Mapped[str] = mapped_column(String(60), default="")
+    pago_moneda: Mapped[str] = mapped_column(String(3), default="")
+    pago_tasa: Mapped[float] = mapped_column(Float, default=0.0)
     pago_registrado_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
     pago_confirmado_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
     materiales_referencia: Mapped[str] = mapped_column(String(60), default="")
@@ -397,6 +409,17 @@ class ChatLectura(Base):
     orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), primary_key=True)
     ultimo_id: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class TasaCambio(Base):
+    """Tasa oficial del día (Bs por USD, BCV). La carga el superadmin; la última es la vigente."""
+    __tablename__ = "tasas"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    bs_por_usd: Mapped[float] = mapped_column(Float)
+    fuente: Mapped[str] = mapped_column(String(30), default="BCV")
+    fecha: Mapped[str] = mapped_column(String(10), default="")
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
 
 
 class Banner(Base):

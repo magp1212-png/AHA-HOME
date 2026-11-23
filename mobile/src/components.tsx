@@ -1,4 +1,4 @@
-// Piezas compartidas: presupuesto, métodos de pago y propina.
+// Piezas compartidas: presupuesto, métodos de pago y las dos monedas (USD y Bs a tasa oficial BCV).
 import React, { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -10,6 +10,85 @@ export function useMetodosPago() {
   const [m, setM] = useState<{ id: string; texto: string }[]>([]);
   useEffect(() => { api<{ id: string; texto: string }[]>("/metodos-pago").then(setM).catch(() => {}); }, []);
   return m;
+}
+
+// ---- Dos monedas ----
+export type Tasa = { bs_por_usd: string | null; fecha: string | null; fuente: string };
+export const METODOS_BS = ["pago_movil", "efectivo_bs", "punto_de_venta"];
+export const monedaDe = (metodo?: string | null) => (!metodo ? "" : METODOS_BS.includes(metodo) ? "Bs" : "USD");
+/** Formato venezolano: 1.234,56 */
+export const fmtBs = (n: number) => n.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const aBs = (usd: number, tasa: Tasa | null) => (tasa?.bs_por_usd ? Math.round(usd * Number(tasa.bs_por_usd) * 100) / 100 : null);
+
+export function useTasa() {
+  const [t, setT] = useState<Tasa | null>(null);
+  const cargar = () => api<Tasa>("/tasa").then(setT).catch(() => {});
+  useEffect(() => { cargar(); }, []);
+  return { tasa: t, recargar: cargar };
+}
+
+/** «USD 10,00 · Bs 2.500,00» */
+export function MontoDual({ usd, tasa, size = 15, negrita }: { usd: number; tasa: Tasa | null; size?: number; negrita?: boolean }) {
+  const bs = aBs(usd, tasa);
+  return (
+    <Text style={{ fontSize: size, fontWeight: negrita ? "900" : "700", color: C.texto }}>
+      USD {fmtBs(usd)}{bs !== null ? <Text style={{ color: C.gris, fontWeight: "700", fontSize: size - 2 }}>  ·  Bs {fmtBs(bs)}</Text> : null}
+    </Text>
+  );
+}
+
+export type InfoPago = { metodo: string | null; metodo_texto: string; moneda: string; monto_usd: string; monto_bs: string | null; tasa: string | null; cobrado: string | null; referencia?: string; pagado_en?: string | null };
+
+/** Cómo se pagó: lo ven el cliente, la caja, la cuadrilla y el centro de control. */
+export function PagoServicio({ pago, titulo = "PAGO DEL SERVICIO", donde }: { pago: InfoPago; titulo?: string; donde?: string }) {
+  if (!pago.metodo) return null;
+  const enBs = pago.moneda === "Bs";
+  return (
+    <View style={{ gap: 6, borderRadius: 14, borderWidth: 1, borderColor: C.linea, padding: 12, backgroundColor: "#F7F9FC" }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Seccion>{titulo}</Seccion>
+        <Etiqueta texto={enBs ? "BOLÍVARES" : "DÓLARES"} tono={enBs ? "lima" : "ok"} />
+      </View>
+      <Text style={{ fontSize: 20, fontWeight: "900", color: C.texto }}>
+        {enBs && pago.monto_bs ? `Bs ${fmtBs(Number(pago.monto_bs))}` : `USD ${fmtBs(Number(pago.monto_usd))}`}
+      </Text>
+      <Text style={{ color: C.gris, fontSize: 13 }}>
+        {enBs ? `Equivale a USD ${fmtBs(Number(pago.monto_usd))} · tasa oficial BCV Bs ${fmtBs(Number(pago.tasa))} por USD`
+          : pago.monto_bs ? `Referencia en bolívares: Bs ${fmtBs(Number(pago.monto_bs))} (tasa BCV ${fmtBs(Number(pago.tasa))})` : "Pagado en dólares"}
+      </Text>
+      <Text style={{ color: C.texto, fontSize: 14, fontWeight: "700" }}>
+        {pago.metodo_texto}{donde ? ` · ${donde}` : ""}{pago.referencia ? ` · ref. ${pago.referencia}` : ""}
+      </Text>
+    </View>
+  );
+}
+
+/** Tasa oficial del día. El superadmin la actualiza; los demás la ven. */
+export function TasaDelDia({ editable }: { editable?: boolean }) {
+  const { tasa, recargar } = useTasa();
+  const [valor, setValor] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  async function guardar() {
+    setMsg(null);
+    try { await api("/admin/tasa", { method: "PUT", body: { bs_por_usd: Number(valor.replace(/\./g, "").replace(",", ".")) } }); setValor(""); recargar(); setMsg("Tasa actualizada."); }
+    catch (e: any) { setMsg(e.message); }
+  }
+  return (
+    <Tarjeta>
+      <Seccion>TASA OFICIAL BCV DEL DÍA</Seccion>
+      <Text style={{ fontSize: 22, fontWeight: "900", color: C.texto }}>
+        {tasa?.bs_por_usd ? `Bs ${fmtBs(Number(tasa.bs_por_usd))} por USD` : "Sin cargar"}
+      </Text>
+      <Texto gris size={13}>{tasa?.fecha ? `Del ${tasa.fecha} · fuente ${tasa.fuente}` : "Sin tasa no se puede cobrar en bolívares."}</Texto>
+      {editable ? (
+        <>
+          <Campo etiqueta="Nueva tasa (Bs por USD)" value={valor} onChangeText={setValor} keyboardType="decimal-pad" />
+          <Boton titulo="Guardar tasa del día" tipo="lima" onPress={guardar} deshabilitado={!(Number(valor.replace(/\./g, "").replace(",", ".")) > 0)} />
+          {msg ? <Aviso tono={msg.startsWith("Tasa") ? "ok" : "error"} texto={msg} /> : null}
+        </>
+      ) : null}
+    </Tarjeta>
+  );
 }
 
 export function DetallePresupuesto({ p }: { p: Presupuesto }) {
@@ -36,6 +115,7 @@ export function DetallePresupuesto({ p }: { p: Presupuesto }) {
         {Number(p.inspeccion) > 0 ? ` · Inspección USD ${p.inspeccion}` : ""}
       </Text>
       <Text style={{ fontSize: 20, fontWeight: "900", color: C.texto }}>Total a pagar USD {p.a_pagar}</Text>
+      {(p as any).pago?.metodo ? <PagoServicio pago={(p as any).pago} titulo="PAGO DEL PRESUPUESTO" /> : null}
       {p.notas ? <Texto gris size={14}>Nota del técnico: {p.notas}</Texto> : null}
       {p.motivo_rechazo ? <Aviso texto={`Rechazado por ${p.motivo_rechazo}`} /> : null}
       <Text style={{ fontSize: 12, color: C.gris }}>
@@ -76,11 +156,12 @@ export function QuienCompra({ valor, onCambiar, paraTecnico }: { valor: "tecnico
 }
 
 /** Elegir método de pago y referencia (la referencia no hace falta en efectivo). */
-export function FormPago({ titulo, boton, onEnviar, conMonto, onOmitir }: {
+export function FormPago({ titulo, boton, onEnviar, conMonto, onOmitir, usd }: {
   titulo: string; boton: string; conMonto?: boolean; onEnviar: (d: { metodo: string; referencia: string; monto?: number }) => Promise<void>;
-  onOmitir?: () => void;
+  onOmitir?: () => void; usd?: number;
 }) {
   const metodos = useMetodosPago();
+  const { tasa } = useTasa();
   const [metodo, setMetodo] = useState<string | null>(null);
   const [ref, setRef] = useState("");
   const [monto, setMonto] = useState<number | null>(null);
@@ -108,6 +189,11 @@ export function FormPago({ titulo, boton, onEnviar, conMonto, onOmitir }: {
       ) : null}
       <Text style={{ fontSize: 13, fontWeight: "700", color: C.texto }}>¿Cómo vas a pagar?</Text>
       <Fila wrap>{metodos.map((m) => <Opcion key={m.id} texto={m.texto} activo={metodo === m.id} onPress={() => setMetodo(m.id)} />)}</Fila>
+      {metodo && usd ? (
+        <Aviso tono="info" texto={monedaDe(metodo) === "Bs"
+          ? (tasa?.bs_por_usd ? `Pagas Bs ${fmtBs(aBs(usd, tasa)!)} (USD ${fmtBs(usd)} a la tasa oficial BCV de Bs ${fmtBs(Number(tasa.bs_por_usd))})` : "Falta la tasa oficial del día para pagar en bolívares.")
+          : `Pagas USD ${fmtBs(usd)} en dólares.`} />
+      ) : null}
       {metodo && !efectivo ? <Campo etiqueta="Referencia del pago" value={ref} onChangeText={setRef} /> : null}
       {efectivo && conMonto ? <Aviso tono="info" texto="Entrégala en mano a la cuadrilla." /> : null}
       <Aviso texto={error} />
@@ -163,7 +249,7 @@ export function InspeccionCliente({ o, recargar }: { o: any; recargar: () => voi
       ) : null}
       {p?.estado === "enviado" && p.cliente_acepto ? <Aviso tono="info" texto="Aceptaste. Falta la aprobación de AHA HOME." /> : null}
       {p?.estado === "aprobado" ? (
-        <FormPago titulo={`PAGAR USD ${p.a_pagar}`} boton={`Pagar USD ${p.a_pagar}`}
+        <FormPago titulo={`PAGAR USD ${p.a_pagar}`} boton="Registrar pago" usd={Number(p.a_pagar)}
           onEnviar={async (d) => { await api(`/ordenes/${o.id}/presupuesto/pago`, { body: d }); recargar(); }} />
       ) : null}
       <Aviso texto={error} />

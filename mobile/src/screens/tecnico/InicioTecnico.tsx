@@ -172,7 +172,6 @@ function TarjetaOrden({ o, activa, ancho, esAyudante, cargando, accion, retirar 
     { icono: "warning-outline" as const, texto: "Reportar incidencia", onPress: () => nav.push("incidencia", { id: o.id }), peligro: true },
     ...(!o.inspeccion.requerida && o.articulos.some((a) => a.instalar) && antes
       ? [{ icono: "pause-circle-outline" as const, texto: "Pausar: hace falta inspección", onPress: () => accion(`/ordenes/${o.id}/inspeccion`) }] : []),
-    { icono: "call-outline" as const, texto: "Llamar al cliente", onPress: () => Linking.openURL(`tel:${o.cliente.telefono}`) },
     ...(["en_ruta", "en_progreso"].includes(o.estado) ? [
       { icono: "return-up-back-outline" as const, texto: "No se pudo entregar: cliente ausente", peligro: true,
         onPress: () => accion(`/tecnico/ordenes/${o.id}/entrega-fallida`, { motivo: "El cliente no estaba en casa" }) },
@@ -195,7 +194,7 @@ function TarjetaOrden({ o, activa, ancho, esAyudante, cargando, accion, retirar 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: C.gris, fontSize: 12 }}>Cliente</Text>
-            <Text style={{ color: C.texto, fontWeight: "800", fontSize: 15 }}>{o.cliente.nombre} · {o.cliente.telefono}</Text>
+            <Text style={{ color: C.texto, fontWeight: "800", fontSize: 15 }}>{o.cliente.nombre}</Text>
           </View>
           <BotonChat id={o.id} n={0} />
         </View>
@@ -212,6 +211,12 @@ function TarjetaOrden({ o, activa, ancho, esAyudante, cargando, accion, retirar 
             <Text style={{ fontWeight: "800" }}>{a.nombre}{a.modelo ? ` ${a.modelo}` : ""}</Text> — {a.instalar ? "instalar" : "entregar en su caja"}
           </Text>
         ))}
+        {o.pago_instalacion.pagado ? (
+          <Text style={{ color: C.gris, fontSize: 13 }}>
+            Pagado en la tienda: <Text style={{ fontWeight: "800", color: C.texto }}>{o.pago_instalacion.cobrado}</Text> · {o.pago_instalacion.metodo_texto}
+            {o.pago_instalacion.moneda === "Bs" ? ` (USD ${o.pago_instalacion.monto_usd})` : ""}
+          </Text>
+        ) : null}
         {o.ayudantes.length ? <Text style={{ color: C.gris, fontSize: 13 }}>Ayudante: {o.ayudantes.map((a) => a.nombre).join(", ")}</Text> : null}
 
         {!esAyudante ? (

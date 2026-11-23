@@ -13,7 +13,7 @@ router = APIRouter(tags=["banners"])
 COLORES = ("lima", "azul", "marino", "naranja", "verde")
 POR_DEFECTO = [
     ("aha", "", "Instalación + retiro de cajas", "Todo incluido desde la caja de tu tienda", "", "marino"),
-    ("aha", "", "Inspección antes de instalar", "Pídela y te damos el presupuesto sin compromiso", "", "marino"),
+    ("aha", "", "Inspección antes de instalar", "Por USD 10 el técnico revisa y te da el presupuesto", "", "marino"),
     ("aha", "", "Califica a tu técnico", "Tu opinión premia a los mejores", "", "marino"),
     ("aliado", "ALIADO · PRÓXIMAMENTE", "Tu marca aquí", "", "VER BENEFICIO", "lima"),
     ("aliado", "ALIADO · PRÓXIMAMENTE", "Promoción de la tienda", "", "VER MÁS", "azul"),

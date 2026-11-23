@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import config
+from .tasa import cobro, info_pago
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import current_user, require
@@ -172,13 +173,14 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
         o.pausa_desde = ahora()
     if total or insp:
         o.pago_metodo, o.pago_referencia, o.pagado_en, o.cobrado_por = body.pago.metodo, body.pago.referencia.strip(), ahora(), user.id
+        o.pago_moneda, o.pago_tasa = cobro(db, body.pago.metodo)
     o.articulos = [Articulo(tipo=a.tipo, descripcion=a.descripcion.strip(), marca=a.marca.strip(), modelo=a.modelo.strip(),
                             serial=a.serial.strip(), garantia=a.garantia.strip(), instalar=a.instalar,
                             precio_instalacion_centavos=precios.get(a.tipo, 0) if a.instalar else 0) for a in body.articulos]
     db.add(o)
     db.flush()
     o.tienda = tienda
-    pago = (f" · cobrado en caja USD {svc.dinero(total + insp)} ({o.pago_metodo})"
+    pago = (f" · cobrado en caja {info_pago(o.pago_metodo, total + insp, o.pago_moneda, o.pago_tasa)['cobrado']} ({o.pago_metodo})"
             + (f": instalación {svc.dinero(total)} + inspección {svc.dinero(insp)}" if insp else "")) if total or insp else ""
     svc.registrar(db, o, "solicitud_enviada", user, f"Registrada en {tienda.nombre}: {len(o.articulos)} artículo(s){pago}")
     svc.asignar(db, o, user)
