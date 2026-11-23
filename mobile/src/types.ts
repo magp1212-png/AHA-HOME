@@ -28,7 +28,7 @@ export type Orden = {
   pago_instalacion: { monto: string; inspeccion?: string; metodo: string | null; metodo_texto: string; moneda: string; monto_usd: string; monto_bs: string | null;
     tasa: string | null; cobrado: string | null; referencia?: string; pagado: boolean; pagado_en?: string | null; precio_por_definir?: boolean };
   calificacion: number | null; qr?: string;
-  cierre?: { token?: string | null; falta_acta?: boolean; requiere_token?: boolean; intentos?: number } | null;
+  cierre?: { token?: string | null; falta_acta?: boolean; vencido?: boolean; vence_en?: string | null; emitido_en?: string | null; minutos?: number; requiere_token?: boolean; intentos?: number } | null;
   aprobacion?: { aprobada: boolean; en: string | null; puntos: { id: string; texto: string }[] };
   acta?: { confirmada: boolean; puntos: { id: string; texto: string }[]; recibe_nombre: string | null; recibe_cedula: string | null; en: string | null; caja_hasta: string | null };
   residuos: { retirar: boolean; aplica: boolean; puede_cambiar: boolean };

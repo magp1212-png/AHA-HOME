@@ -75,7 +75,7 @@ export function ActaConformidad({ o, onCambio }: { o: Orden; onCambio: (o: Orden
       <Campo etiqueta="Cédula" value={cedula} onChangeText={setCedula} keyboardType="number-pad" />
       <Casilla texto="Soy mayor de edad y estoy presente en el domicilio" marcado={adulto} onPress={() => setAdulto(!adulto)} />
       <Aviso texto={error} />
-      <Boton titulo={faltan ? `Confirma los ${puntos.length} puntos` : "Confirmar acta y ver mi código"} tipo="exito" icono="document-text" deshabilitado={!listo} onPress={confirmar} />
+      <Boton titulo={faltan ? `Confirma los ${puntos.length} puntos` : "Confirmar acta y recibir mi código"} tipo="exito" icono="document-text" deshabilitado={!listo} onPress={confirmar} />
       <Texto gris size={12}>Si hay un daño o falla, no confirmes: díselo al técnico o escribe a Soporte AHA HOME.</Texto>
     </View>
   );

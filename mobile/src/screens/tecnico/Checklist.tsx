@@ -97,7 +97,7 @@ export default function Checklist({ id }: { id: number }) {
       </Tarjeta>
       <Tarjeta>
         <Seccion color={C.naranja}>CÓDIGO DE CIERRE DEL CLIENTE</Seccion>
-        <Texto gris size={13}>Pídele al cliente el código de 6 dígitos que ve en su app. Si no está, se lo envía por el chat de la orden.</Texto>
+        <Texto gris size={13}>Cuando el cliente confirme el acta en su app, le llega un código de 6 dígitos (vale 30 minutos). Pídeselo; si no está, te lo envía por el chat de la orden. Si venció, el cliente toca «Pedir otro código».</Texto>
         <TextInput value={token} onChangeText={(t) => setToken(t.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" maxLength={6}
           accessibilityLabel="Código de cierre" placeholder="••••••" placeholderTextColor="#9AA3B5"
           style={{ height: 64, borderRadius: 16, borderWidth: 2, borderColor: token.length === 6 ? C.ok : C.borde, backgroundColor: C.blanco,

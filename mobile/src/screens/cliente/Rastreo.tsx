@@ -67,21 +67,40 @@ function Rastreador({ f }: { f: Fase[] }) {
 }
 
 /** Código para cerrar el servicio: se lo dicta al técnico o se lo manda por el chat si no está en casa. */
-function CodigoCierre({ id, token, children }: { id: number; token: string; children?: React.ReactNode }) {
-  const [enviado, setEnviado] = useState<string | null>(null);
+function CodigoCierre({ o, onCambio, children }: { o: Orden; onCambio: (o: Orden) => void; children?: React.ReactNode }) {
+  const [visible, setVisible] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const c = o.cierre!;
+  const [ahora, setAhora] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setAhora(Date.now()), 15000); return () => clearInterval(t); }, []);
+  const min = c.vence_en ? Math.max(0, Math.ceil((new Date(c.vence_en).getTime() - ahora) / 60000)) : null;
+  const puedePedir = !c.emitido_en || ahora - new Date(c.emitido_en).getTime() > 60000;
   async function enviar() {
-    try { await api(`/ordenes/${id}/chat`, { body: { texto: `🔐 Mi código para cerrar el servicio es ${token}`, foto: "" } }); setEnviado("Listo: se lo enviaste al técnico por el chat."); }
-    catch (e: any) { setEnviado(e.message); }
+    try { await api(`/ordenes/${o.id}/chat`, { body: { texto: `🔐 Mi código para cerrar el servicio es ${c.token}`, foto: "" } }); setMsg("Listo: se lo enviaste al técnico por el chat."); }
+    catch (e: any) { setMsg(e.message); }
+  }
+  async function otro() {
+    try { onCambio(await api<Orden>(`/ordenes/${o.id}/cierre/nuevo-codigo`, { body: {} })); setVisible(true); setMsg("Te enviamos un código nuevo (también a tu correo). El anterior ya no sirve."); }
+    catch (e: any) { setMsg(e.message); }
   }
   return (
     <View style={{ backgroundColor: C.marino, borderRadius: 20, padding: 16, gap: 10 }}>
       <Text style={{ color: C.lima, fontWeight: "900", fontSize: 13, letterSpacing: 0.6 }}>CIERRE DEL SERVICIO · TU CÓDIGO</Text>
-      <Text accessibilityLabel={`Código ${token.split("").join(" ")}`} style={{ color: C.blanco, fontSize: 42, fontWeight: "900", letterSpacing: 12, textAlign: "center" }}>{token}</Text>
+      {c.token ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={visible ? `Código ${c.token.split("").join(" ")}` : "Toca para ver el código"} onPress={() => setVisible(!visible)}
+          style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 14, paddingVertical: 10 }}>
+          <Text style={{ color: C.blanco, fontSize: 42, fontWeight: "900", letterSpacing: 12, textAlign: "center" }}>{visible ? c.token : "••••••"}</Text>
+          <Text style={{ color: "#DCDEF0", fontSize: 12, textAlign: "center" }}>{visible ? "Toca para ocultarlo" : "Toca para verlo"}{min !== null ? ` · vale ${min} min más` : ""}</Text>
+        </Pressable>
+      ) : (
+        <Text style={{ color: C.blanco, fontSize: 15, fontWeight: "800" }}>Tu código venció. Pide otro para cerrar el servicio.</Text>
+      )}
       <Text style={{ color: "#DCDEF0", fontSize: 13.5 }}>
-        Cuando el técnico termine y revises la instalación, díctale este código para cerrar el servicio. ¿No estás en casa? Envíaselo por el chat.
+        Díctaselo al técnico para cerrar el servicio. También está en tus notificaciones y en tu correo. ¿No estás en casa? Envíaselo por el chat.
       </Text>
-      <Boton titulo="Enviar el código por el chat" tipo="lima" icono="chatbubble-ellipses" onPress={enviar} />
-      {enviado ? <Text style={{ color: C.lima, fontWeight: "700", fontSize: 13 }}>{enviado}</Text> : null}
+      {c.token ? <Boton titulo="Enviar el código por el chat" tipo="lima" icono="chatbubble-ellipses" onPress={enviar} /> : null}
+      <Boton titulo={puedePedir ? "Pedir otro código" : "Pedir otro código (espera un minuto)"} tipo="secundario" icono="refresh" onPress={otro} deshabilitado={!puedePedir} />
+      {msg ? <Text style={{ color: C.lima, fontWeight: "700", fontSize: 13 }}>{msg}</Text> : null}
       {children}
     </View>
   );
@@ -231,8 +250,8 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
         {o.pago_instalacion.pagado ? <PagoServicio pago={o.pago_instalacion} titulo="TU PAGO EN LA TIENDA" donde="pagado en la tienda" /> : null}
       </Tarjeta>
 
-      {o.cierre?.falta_acta ? <ActaConformidad o={o} onCambio={setO} /> : o.cierre?.token ? (
-        <CodigoCierre id={o.id} token={o.cierre.token}>
+      {o.cierre?.falta_acta ? <ActaConformidad o={o} onCambio={setO} /> : o.cierre && !o.cierre.falta_acta ? (
+        <CodigoCierre o={o} onCambio={setO}>
           <View style={{ backgroundColor: C.blanco, borderRadius: 16, padding: 14, gap: 8 }}>{resena}</View>
         </CodigoCierre>
       ) : o.estado === "en_ruta" ? (
