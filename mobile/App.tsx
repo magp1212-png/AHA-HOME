@@ -11,6 +11,8 @@ import MapaVivo from "./src/screens/control/Mapa";
 import Pagos from "./src/screens/control/Pagos";
 import Banners from "./src/screens/control/Banners";
 import TiendasQR from "./src/screens/control/TiendasQR";
+import { BandejaMensajes, SoporteBandeja, SoporteChat } from "./src/fusion";
+import { MenuCliente } from "./src/menus";
 import VisitaTienda from "./src/screens/tecnico/VisitaTienda";
 import InicioCaja from "./src/screens/agente/InicioCaja";
 import NuevaOrden from "./src/screens/agente/NuevaOrden";
@@ -90,6 +92,9 @@ function Router() {
           case "pagos": return <Pagos />;
           case "banners": return <Banners />;
           case "tiendasQR": return <TiendasQR />;
+          case "mensajes": return <BandejaMensajes abajo={<MenuCliente activo="avisos" />} />;
+          case "soporte": return <SoporteChat hilo={p?.hilo} />;
+          case "soporteBandeja": return <SoporteBandeja />;
           case "visitaTienda": return <VisitaTienda />;
           default: return <Inicio />;
         }

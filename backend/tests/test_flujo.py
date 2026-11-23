@@ -38,6 +38,14 @@ def nueva(client, h, **cambios):
     return r.json()
 
 
+def firmar_acta(client, orden_id, cliente):
+    v = client.get(f"/ordenes/{orden_id}", headers=cliente).json()
+    r = client.post(f"/ordenes/{orden_id}/acta", json={"puntos": {p["id"]: True for p in v["acta"]["puntos"]}, "recibe_nombre": "María González",
+                                                       "recibe_cedula": "V-15.678.901", "mayor_edad": True}, headers=cliente)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
 def token_de(orden_id):
     with SessionLocal() as db:
         return db.get(Orden, orden_id).token_cierre
@@ -828,6 +836,9 @@ def test_cierre_con_codigo_del_cliente(client):
     assert client.get(f"/ordenes/{o['id']}", headers=cliente).json()["cierre"] is None  # en ruta: todavía no
     client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
     vc = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
+    assert vc["cierre"] == {"token": None, "falta_acta": True}  # primero el acta de conformidad
+    firmar_acta(client, o["id"], cliente)
+    vc = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
     token = vc["cierre"]["token"]
     assert len(token) == 6 and token.isdigit()
     vt = client.get(f"/ordenes/{o['id']}", headers=tecnico).json()
@@ -864,7 +875,7 @@ def test_calificar_en_la_pantalla_de_cierre(client):
     client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico)
     client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
     r = client.post(f"/ordenes/{o['id']}/calificar", json={"estrellas": 5}, headers=cliente).json()
-    assert r["calificacion"] == 5 and r["cierre"]["token"]
+    assert r["calificacion"] == 5 and r["cierre"]["falta_acta"]
 
 
 def test_verificacion_facial_cedula_en_el_pecho_contra_escaneo(client, monkeypatch):
@@ -886,3 +897,62 @@ def test_verificacion_facial_cedula_en_el_pecho_contra_escaneo(client, monkeypat
     sup = login(client, "supervisor@ahahome.test")
     exp = client.get(f"/supervisor/tecnicos/{r['usuario']['tecnico']['id']}/expediente", headers=sup).json()
     assert exp["verificacion_facial"] == {"resultado": "coincide", "similitud": 0.82, "similitud_cedula": 0.7}
+
+
+def test_fusion_aha_hogar_aprobar_acta_y_cierre(client):
+    agente = login(client, "agente@ahahome.test")
+    cliente = login(client, "maria@ahahome.test")
+    o = nueva(client, agente, pago=None, articulos=[{"tipo": "lavadora", "instalar": True}], retirar_residuos=False)
+    v = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
+    assert v["aprobacion"]["aprobada"] is False and [p["id"] for p in v["aprobacion"]["puntos"]] == ["acceso", "tomas", "adulto"]
+    assert client.post(f"/ordenes/{o['id']}/aprobar", json={"puntos": {"acceso": True}}, headers=cliente).status_code == 422
+    r = client.post(f"/ordenes/{o['id']}/aprobar", json={"puntos": {"acceso": True, "tomas": True, "adulto": True}}, headers=cliente).json()
+    assert r["aprobacion"]["aprobada"]
+    sup = login(client, "supervisor@ahahome.test")
+    assert client.get(f"/ordenes/{o['id']}", headers=sup).json()["aprobacion"]["aprobada"]
+    # el acta: con la cuadrilla en casa; si el cliente guarda el empaque, el 4.º punto es conservar la caja 30 días
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    client.post(f"/tecnico/ordenes/{o['id']}/confirmar", headers=tecnico)
+    client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico)
+    puntos = {p["id"]: True for p in v["acta"]["puntos"]}
+    assert client.post(f"/ordenes/{o['id']}/acta", json={"puntos": puntos, "recibe_nombre": "María", "recibe_cedula": "15678901", "mayor_edad": True}, headers=cliente).status_code == 409
+    client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
+    v = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
+    assert "caja" in [p["id"] for p in v["acta"]["puntos"]] and v["cierre"]["token"] is None
+    assert client.post(f"/ordenes/{o['id']}/acta", json={"puntos": puntos, "recibe_nombre": "María", "recibe_cedula": "123", "mayor_edad": True}, headers=cliente).status_code == 422
+    assert client.post(f"/ordenes/{o['id']}/acta", json={"puntos": puntos, "recibe_nombre": "María", "recibe_cedula": "15678901", "mayor_edad": False}, headers=cliente).status_code == 422
+    v = firmar_acta(client, o["id"], cliente)
+    assert v["acta"]["confirmada"] and v["acta"]["recibe_cedula"] == "15678901" and len(v["cierre"]["token"]) == 6
+    req = client.get(f"/ordenes/{o['id']}", headers=tecnico).json()
+    client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {k: True for k in req["checklist_requerido"]}}, headers=tecnico)
+    client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {k: "x.jpg" for k in req["fotos_requeridas"]}}, headers=tecnico)
+    r = client.post(f"/tecnico/ordenes/{o['id']}/completar", json={"token": v["cierre"]["token"]}, headers=tecnico).json()
+    assert r["estado"] == "completado"
+    fin = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
+    assert fin["acta"]["caja_hasta"] and fin["cierre"] is None
+
+
+def test_no_reconozco_la_orden_y_soporte_directo(client):
+    agente = login(client, "agente@ahahome.test")
+    cliente = login(client, "maria@ahahome.test")
+    sup = login(client, "supervisor@ahahome.test")
+    o = nueva(client, agente, pago=None)
+    client.post(f"/ordenes/{o['id']}/no-reconozco", json={"motivo": "Yo no compré esto"}, headers=cliente)
+    assert any("no reconoce" in t for t in titulos(client, sup))
+    hilo = client.get("/soporte", headers=cliente).json()
+    assert hilo["mensajes"][0]["sistema"] and o["codigo"] in hilo["mensajes"][0]["texto"] and hilo["llamar"]
+    # el técnico escribe una emergencia: el centro de control la ve primero
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    assert client.post("/soporte", json={"texto": "", "tema": "pagos"}, headers=tecnico).status_code == 422
+    client.post("/soporte", json={"texto": "¿Ya me pagaron los materiales?", "tema": "pagos"}, headers=cliente)
+    client.post("/soporte", json={"texto": "Se espichó un caucho con la nevera", "tema": "emergencia"}, headers=tecnico)
+    assert any(t.startswith("🚨 EMERGENCIA") for t in titulos(client, sup))
+    b = client.get("/supervisor/soporte", headers=sup).json()
+    assert b[0]["emergencia"] and b[0]["rol"] == "técnico" and b[1]["rol"] == "cliente"
+    tid = b[0]["hilo_id"]
+    client.post(f"/supervisor/soporte/{tid}", json={"texto": "Voy contigo, mandamos apoyo"}, headers=sup)
+    assert client.get("/soporte?solo_resumen=true", headers=tecnico).json()["no_leidos"] == 1
+    h = client.get("/soporte", headers=tecnico).json()
+    assert h["mensajes"][-1]["control"] and "Mi guardia" in h["temas"].values()
+    assert client.get("/soporte?solo_resumen=true", headers=tecnico).json()["no_leidos"] == 0
+    assert client.get("/supervisor/soporte", headers=cliente).status_code == 403

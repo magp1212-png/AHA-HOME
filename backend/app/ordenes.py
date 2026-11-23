@@ -218,6 +218,8 @@ def vista(orden: Orden, rol: str) -> dict:
     d["presupuesto"] = vista_presupuesto(p, rol) if p else None
     d["listo_para_instalar"] = listo_para_instalar(orden)
     d["pausa"] = info_pausa(orden)
+    from .routers.conformidad import info as info_conformidad
+    d.update(info_conformidad(orden))
     from .routers.penalidad import info_penalidad, info_reprogramar
     d["reprogramar"] = info_reprogramar(orden)
     d["penalidad"] = info_penalidad(orden)
@@ -231,7 +233,9 @@ def vista(orden: Orden, rol: str) -> dict:
         d["ayudantes"] = [ficha_cliente(a) for a in orden.ayudantes] if en_camino else []
         d["tecnico_asignado"] = orden.tecnico is not None
         # Código de cierre: el cliente se lo dicta al técnico (o se lo manda por el chat) cuando termina el servicio
-        d["cierre"] = {"token": orden.token_cierre} if orden.estado == "en_progreso" and orden.token_cierre else None
+        # el código aparece cuando el cliente confirma el acta de conformidad (fusión AHA HOGAR)
+        d["cierre"] = ({"token": orden.token_cierre} if orden.estado == "en_progreso" and orden.token_cierre and (orden.acta or {}).get("en")
+                       else {"token": None, "falta_acta": True} if orden.estado == "en_progreso" else None)
     else:
         d["tecnico"] = ficha(orden.tecnico)
         d["ayudantes"] = [ficha(a) for a in orden.ayudantes]

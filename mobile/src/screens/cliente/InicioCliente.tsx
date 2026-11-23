@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 
 import { api } from "../../api";
 import { useNav } from "../../nav";
@@ -27,6 +27,8 @@ export default function InicioCliente({ lista }: { lista?: boolean }) {
   const [ordenes, setOrdenes] = useState<Orden[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refrescando, setRefrescando] = useState(false);
+  const [buscar, setBuscar] = useState("");
+  const [recientes, setRecientes] = useState(true);
 
   const cargar = useCallback(async () => {
     try { setOrdenes(await api<Orden[]>("/ordenes")); setError(null); } catch (e: any) { setError(e.message); }
@@ -74,9 +76,36 @@ export default function InicioCliente({ lista }: { lista?: boolean }) {
       {ordenes && ordenes.length === 0 ? (
         <Aviso tono="info" texto="Aún no tienes pedidos. Cuando compres en Damasco y pidas AHA HOME en la caja, tu pedido aparecerá aquí con el mismo teléfono." />
       ) : null}
-      {activas.map((o) => <TarjetaOrden key={o.id} o={o} onPress={() => nav.push("rastreo", { id: o.id })} />)}
-      {pasadas.length ? <Text style={{ fontSize: 13, fontWeight: "800", color: C.gris, marginTop: 8 }}>ANTERIORES</Text> : null}
-      {pasadas.map((o) => <TarjetaOrden key={o.id} o={o} onPress={() => nav.push("rastreo", { id: o.id })} />)}
+      {lista && ordenes?.length ? (
+        <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: C.blanco, borderRadius: 14, borderWidth: 1, borderColor: C.linea, paddingHorizontal: 12, minHeight: 48 }}>
+            <Ionicons name="search" size={18} color={C.gris} />
+            <TextInput value={buscar} onChangeText={setBuscar} placeholder="Tienda, orden, artículo o fecha" placeholderTextColor="#6B7789" style={{ flex: 1, fontSize: 15, color: C.texto }} />
+            {buscar ? <Pressable accessibilityLabel="Borrar búsqueda" onPress={() => setBuscar("")}><Ionicons name="close-circle" size={20} color={C.gris} /></Pressable> : null}
+          </View>
+          <Pressable accessibilityRole="button" onPress={() => setRecientes(!recientes)} style={{ minHeight: 48, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: C.linea, backgroundColor: C.blanco, flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Ionicons name={recientes ? "arrow-down" : "arrow-up"} size={16} color={C.marino} /><Text style={{ fontWeight: "800", color: C.marino, fontSize: 13 }}>{recientes ? "Recientes" : "Antiguas"}</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {(() => {
+        const norm = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        const palabras = norm(buscar).split(/\s+/).filter(Boolean);
+        const pasa = (o: Orden) => { const t = norm([o.codigo, o.codigo.replace("-", ""), o.tienda?.nombre ?? "", o.fecha, o.tipo_servicio_texto, ...o.articulos.map((a) => `${a.nombre} ${a.marca} ${a.modelo}`)].join(" "));
+          return palabras.every((p) => t.includes(p)); };
+        const ord = (xs: Orden[]) => [...xs].filter(pasa).sort((a, b) => (recientes ? -1 : 1) * a.fecha.localeCompare(b.fecha));
+        const act = ord(activas), pas = ord(pasadas);
+        return (
+          <>
+            {lista && buscar ? <Texto gris size={13}>{act.length + pas.length} resultado(s)</Texto> : null}
+            {lista && act.length ? <Text style={{ fontSize: 13, fontWeight: "800", color: C.gris }}>EN CURSO</Text> : null}
+            {act.map((o) => <TarjetaOrden key={o.id} o={o} onPress={() => nav.push("rastreo", { id: o.id })} />)}
+            {pas.length ? <Text style={{ fontSize: 13, fontWeight: "800", color: C.gris, marginTop: 8 }}>HISTORIAL</Text> : null}
+            {pas.map((o) => <TarjetaOrden key={o.id} o={o} onPress={() => nav.push("rastreo", { id: o.id })} />)}
+            {lista && pas.length ? <Texto gris size={12.5}>Si guardaste el empaque, consérvalo 30 días después del acta por si necesitas la garantía.</Texto> : null}
+          </>
+        );
+      })()}
     </Pantalla>
   );
 }

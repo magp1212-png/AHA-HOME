@@ -5,6 +5,7 @@ import { api, getServer } from "../api";
 import { useNav } from "../nav";
 import { useSession } from "../session";
 import { MenuCliente, MenuTecnico } from "../menus";
+import { ComunicacionDirecta } from "../fusion";
 import { Aviso, Avatar, Boton, C, Pantalla, Tarjeta, Texto } from "../ui";
 
 const ROL: Record<string, string> = { cliente: "Cliente", agente: "Agente en caja", tecnico: "Técnico", ayudante: "Ayudante",
@@ -31,6 +32,7 @@ export default function MiCuenta() {
         {perfil.cedula ? <Texto gris>{perfil.cedula}</Texto> : null}
         <Texto gris>{[perfil.telefono, perfil.email].filter(Boolean).join(" · ")}</Texto>
       </Tarjeta>
+      {perfil.rol === "tecnico" || perfil.rol === "ayudante" ? <ComunicacionDirecta /> : null}
       {perfil.rol === "tecnico" ? (
         <>
           <Boton titulo="Mis ayudantes" tipo="secundario" icono="people-outline" onPress={() => nav.push("ayudantes")} />

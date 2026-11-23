@@ -222,6 +222,9 @@ class Orden(Base):
 
     # pago de la instalación (se cobra en caja al solicitarla)
     monto_instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    # Fusión AHA HOGAR: el cliente aprueba la orden (3 puntos) y firma el acta de conformidad antes del código
+    cliente_aprobo_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    acta: Mapped[dict] = mapped_column(JSON, default=dict)  # {puntos, recibe_nombre, recibe_cedula, mayor_edad, en}
     token_cierre: Mapped[str] = mapped_column(String(8), default="")   # código que el cliente dicta al técnico para cerrar
     token_intentos: Mapped[int] = mapped_column(Integer, default=0)
     tipo_inmueble: Mapped[str] = mapped_column(String(10), default="")  # casa | edificio | oficina (dónde se instala)
@@ -440,6 +443,26 @@ class ChatLectura(Base):
     """Hasta qué mensaje leyó cada persona el chat de cada orden."""
     __tablename__ = "chat_lecturas"
     orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), primary_key=True)
+    ultimo_id: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class SoporteMensaje(Base):
+    """Comunicación directa con AHA HOME (no es de una orden): cada cliente o técnico tiene su conversación
+    con el centro de control. hilo_id = el usuario dueño de la conversación."""
+    __tablename__ = "soporte_mensajes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hilo_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    autor_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    tema: Mapped[str] = mapped_column(String(20), default="")
+    texto: Mapped[str] = mapped_column(String(1000), default="")
+    foto: Mapped[str] = mapped_column(String(200), default="")
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
+
+
+class SoporteLectura(Base):
+    __tablename__ = "soporte_lecturas"
+    hilo_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), primary_key=True)
     ultimo_id: Mapped[int] = mapped_column(Integer, default=0)
 

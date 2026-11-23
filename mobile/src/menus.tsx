@@ -16,7 +16,7 @@ export function MenuCliente({ activo }: { activo: "inicio" | "pedidos" | "avisos
     <MenuInferior items={[
       { icono: activo === "inicio" ? "home" : "home-outline", texto: "Inicio", activo: activo === "inicio", onPress: () => nav.reset("cliente") },
       { icono: "receipt-outline", texto: "Mis pedidos", activo: activo === "pedidos", onPress: () => activo !== "pedidos" && nav.push("misPedidos") },
-      { icono: "notifications-outline", texto: "Avisos", activo: activo === "avisos", aviso: avisos, onPress: () => activo !== "avisos" && nav.push("notificaciones") },
+      { icono: "chatbubbles-outline", texto: "Mensajes", activo: activo === "avisos", onPress: () => activo !== "avisos" && nav.push("mensajes") },
       { icono: "person-outline", texto: "Mi cuenta", activo: activo === "cuenta", onPress: () => activo !== "cuenta" && nav.push("miCuenta") },
     ]} />
   );
@@ -29,7 +29,9 @@ export function HamburguesaCliente() {
     <MenuHamburguesa opciones={[
       { icono: "home-outline", texto: "Inicio", onPress: () => nav.reset("cliente") },
       { icono: "receipt-outline", texto: "Mis pedidos", onPress: () => nav.push("misPedidos") },
+      { icono: "chatbubbles-outline", texto: "Mensajes", onPress: () => nav.push("mensajes") },
       { icono: "notifications-outline", texto: "Avisos", onPress: () => nav.push("notificaciones") },
+      { icono: "headset-outline", texto: "Soporte AHA HOME", onPress: () => nav.push("soporte") },
       { icono: "person-outline", texto: "Mi cuenta", onPress: () => nav.push("miCuenta") },
       { icono: "log-out-outline", texto: "Cerrar sesión", onPress: salir, peligro: true },
     ]} />
@@ -61,6 +63,7 @@ export function HamburguesaTecnico() {
         { icono: "people-outline" as const, texto: "Mis ayudantes", onPress: () => nav.push("ayudantes") },
         { icono: "card-outline" as const, texto: "Mi cuenta de pago", onPress: () => nav.push("cuentaPago") },
       ] : []),
+      { icono: "headset-outline", texto: "Hablar con AHA HOME", onPress: () => nav.push("soporte") },
       { icono: "person-outline", texto: "Mi perfil", onPress: () => nav.push("perfilTecnico") },
       { icono: "log-out-outline", texto: "Cerrar sesión", onPress: salir, peligro: true },
     ]} />
@@ -75,7 +78,7 @@ export function MenuFlotanteCliente({ activo, onCentro }: { activo: "inicio" | "
   const items: { k: typeof activo; icono: React.ComponentProps<typeof Ionicons>["name"]; texto: string; ir: () => void; n?: number }[] = [
     { k: "inicio", icono: "home-outline", texto: "Inicio", ir: () => nav.reset("cliente") },
     { k: "pedidos", icono: "receipt-outline", texto: "Pedidos", ir: () => nav.push("misPedidos") },
-    { k: "avisos", icono: "notifications-outline", texto: "Avisos", ir: () => nav.push("notificaciones"), n: avisos },
+    { k: "avisos", icono: "chatbubbles-outline", texto: "Mensajes", ir: () => nav.push("mensajes") },
     { k: "cuenta", icono: "person-outline", texto: "Cuenta", ir: () => nav.push("miCuenta") },
   ];
   const Item = ({ it }: { it: (typeof items)[number] }) => {

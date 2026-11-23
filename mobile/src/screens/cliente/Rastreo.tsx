@@ -5,6 +5,7 @@ import { Pressable, Switch, Text, View } from "react-native";
 import { api } from "../../api";
 import { useNav } from "../../nav";
 import { FormPago, InspeccionCliente, PagoServicio } from "../../components";
+import { ActaConformidad, AprobarOrden, ProductoDesplegable, ServicioCerrado } from "../../fusion";
 import { HamburguesaCliente, MenuCliente } from "../../menus";
 import type { Orden, Persona } from "../../types";
 import { Aviso, Avatar, Boton, C, Campana, Cargando, Etiqueta, Pantalla, Tarjeta, Texto, Titulo } from "../../ui";
@@ -157,6 +158,8 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
         <Titulo>Rastreador de estado</Titulo>
         <Text style={{ fontSize: 14, fontWeight: "900", color: colorEstado }}>{estadoCorto}</Text>
       </View>
+      {o.aprobacion && !o.aprobacion.aprobada && ["solicitud_enviada", "tecnico_asignado", "cita_confirmada"].includes(o.estado)
+        ? <AprobarOrden o={o} onCambio={setO} /> : null}
       <Rastreador f={f} />
       <Text style={{ fontSize: 12.5, color: C.gris, marginTop: -6 }}>{o.codigo} · {o.tipo_servicio_texto}</Text>
 
@@ -186,25 +189,8 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
       ) : null}
       <InspeccionCliente o={o} recargar={cargar} />
 
-      <Titulo>Tus artículos</Titulo>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-        {o.articulos.map((a) => {
-          const listo = ["Entregado", "Instalado"].includes(a.estado);
-          return (
-            <View key={a.id} style={{ flexBasis: "47%", flexGrow: 1, backgroundColor: C.blanco, borderRadius: 16, borderWidth: 1, borderColor: C.linea, padding: 12, alignItems: "center", gap: 5 }}>
-              {listo ? <View style={{ position: "absolute", top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: C.ok, alignItems: "center", justifyContent: "center" }}>
-                <Ionicons name="checkmark" size={15} color={C.blanco} /></View> : null}
-              <View style={{ width: 84, height: 76, borderRadius: 14, backgroundColor: C.limaSuave, alignItems: "center", justifyContent: "center" }}>
-                <Ionicons name={ICONO[a.tipo] ?? "cube-outline"} size={42} color={C.marino} />
-              </View>
-              <Text style={{ fontSize: 14, fontWeight: "800", color: C.texto, textAlign: "center" }}>{a.nombre}</Text>
-              {a.modelo ? <Text style={{ fontSize: 12, color: C.gris }}>{a.modelo}</Text> : null}
-              <Text style={{ fontSize: 13, fontWeight: "800", color: listo ? C.ok : C.naranja }}>{a.estado}</Text>
-              {a.instalar ? <Etiqueta texto="Con instalación" tono="lima" /> : <Etiqueta texto="En su caja" />}
-            </View>
-          );
-        })}
-      </View>
+      <Titulo>Tus artículos <Text style={{ fontSize: 13, color: C.gris, fontWeight: "600" }}>· toca para ver la ficha</Text></Titulo>
+      <View style={{ gap: 8 }}>{o.articulos.map((a) => <ProductoDesplegable key={a.id} a={a} />)}</View>
 
       <Titulo>{o.tipo_servicio === "traslado" ? "Tu técnico de entrega" : "Tu técnico de instalación"}</Titulo>
       <Tarjeta>
@@ -245,7 +231,7 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
         {o.pago_instalacion.pagado ? <PagoServicio pago={o.pago_instalacion} titulo="TU PAGO EN LA TIENDA" donde="pagado en la tienda" /> : null}
       </Tarjeta>
 
-      {o.cierre?.token ? (
+      {o.cierre?.falta_acta ? <ActaConformidad o={o} onCambio={setO} /> : o.cierre?.token ? (
         <CodigoCierre id={o.id} token={o.cierre.token}>
           <View style={{ backgroundColor: C.blanco, borderRadius: 16, padding: 14, gap: 8 }}>{resena}</View>
         </CodigoCierre>
@@ -256,7 +242,7 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
         </View>
       ) : null}
 
-      {o.estado === "completado" ? <Tarjeta>{resena}</Tarjeta> : null}
+      {o.estado === "completado" ? <><ServicioCerrado o={o} /><Tarjeta>{resena}</Tarjeta></> : null}
 
       <Aviso texto={error} />
       {puedeCambiar && !o.pausa?.activa && !o.reprogramar?.puede && o.reprogramar?.motivo ? <Aviso tono="info" texto={o.reprogramar.motivo} /> : null}
