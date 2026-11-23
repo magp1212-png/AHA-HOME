@@ -30,13 +30,18 @@
     { g: "Órdenes", i: "🛒", hijos: [["ordenes", "Lista"], ["transacciones", "Transacciones"], ["liquidaciones", "Liquidaciones"]] },
     { g: "Centro de soporte", i: "◎", hijos: [["mensajeria", "Mensajería"], ["reportes", "Reportes", "rep"], ["resenas", "Reseñas"]] },
     { k: "anuncios", t: "Banners y aliados", i: "▤" },
+    { sec: "NEGOCIO" },
+    { k: "tasa", t: "Tasa BCV", i: "💱" },
+    { k: "tarifas", t: "Tarifas de instalación", i: "🏷" },
+    { k: "qrs", t: "QR de las tiendas", i: "▦" },
     { sec: "ADMINISTRACIÓN AHA HOME" },
     { g: "Personal interno", i: "🛡", hijos: [["administradores", "Superadministradores"], ["control", "Centro de control"], ["caja", "Operadores de caja"]] },
   ];
   const TITULOS = { inicio: ["Tableros", "Panel principal"], tecnicos: ["Técnicos", "Técnicos y ayudantes"], empresas: ["Registros", "Empresas aliadas"], clientes: ["Registros", "Clientes"],
     equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Órdenes", "Lista"], transacciones: ["Órdenes", "Transacciones"],
     mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Órdenes", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
-    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"] };
+    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"],
+    tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], qrs: ["Negocio", "QR de las tiendas"] };
 
   function menuHTML() {
     const it = (k, t, i) => `<a class="it ${S.ruta === k ? "on" : ""}" href="#${k}"><span class="i">${i}</span>${t}</a>`;
@@ -92,6 +97,14 @@
     { id: "caja", t: "Total cobrado en caja", f: (r) => kpi("$", usd(r.cobrado_en_caja.usd), r.cobrado_en_caja.pct, `${r.cobrado_en_caja.pct_bs}% cobrado en bolívares`) },
     { id: "presupuestos", t: "Total de pagos de presupuestos", f: (r) => kpi("$", usd(r.pagos_de_presupuestos.usd), r.pagos_de_presupuestos.pct, `${r.pagos_de_presupuestos.pct_bs}% en bolívares`) },
     { id: "por_estado", t: "Órdenes por estado", total: (r) => Object.values(r.ordenes_por_estado).reduce((a, b) => a + b, 0), f: (r) => dona(r.ordenes_por_estado) },
+    { id: "por_tienda", t: "Órdenes por tienda aliada", total: (r) => Object.values(r.ordenes_por_tienda).reduce((a, b) => a + b, 0), f: (r) => dona(r.ordenes_por_tienda) },
+    { id: "inspecciones", t: "Inspecciones (USD 10)", f: (r) => kpi("🔍", r.inspecciones.pedidas, undefined, `${usd(r.inspecciones.cobradas_usd)} cobrado · ${r.inspecciones.en_pausa} en pausa ahora`) },
+    { id: "cumplimiento", t: "Cumplimiento del servicio", f: (r) => kpi("✔", r.cumplimiento.completados, undefined,
+        `${r.cumplimiento.con_acta ?? "—"}% con acta · ${r.cumplimiento.cancelados} cancelados · ${r.cumplimiento.fallidos} fallidos`) },
+    { id: "penalidades", t: "Penalidades por entrega fallida", f: (r) => kpi("⚠", r.penalidades.cantidad, undefined, `${usd(r.penalidades.cobradas_usd)} cobrado`) },
+    { id: "materiales", t: "Materiales por pagar a técnicos", sinDias: true, f: (r) => kpi("🧰", usd(r.materiales_por_pagar.usd), undefined, `${r.materiales_por_pagar.cantidad} presupuesto(s) pendientes`) },
+    { id: "residuos", t: "Retiro de residuos", total: (r) => r.residuos.retirados + r.residuos.cliente_guarda, f: (r) => dona({ "Se retiraron (reciclaje)": r.residuos.retirados, "Cliente guardó el empaque": r.residuos.cliente_guarda }) },
+    { id: "tasa", t: "Tasa oficial BCV", sinDias: true, f: (r) => kpi("Bs", r.tasa.bs_por_usd ? Number(r.tasa.bs_por_usd).toLocaleString("es-VE", { minimumFractionDigits: 2 }) : "—", undefined, r.tasa.fecha ? `Bs por USD · ${r.tasa.fecha}` : "Sin cargar: no se puede cobrar en Bs") },
     { id: "empresas", t: "Total de empresas", sinDias: true, f: (r) => kpi("🏬", r.empresas.total, undefined, "Tiendas aliadas") },
     { id: "calificacion", t: "Calificación de técnicos", sinDias: true, f: (r) => kpi("★", r.calificacion.promedio ?? "—", undefined, `${r.calificacion.resenas} reseñas`) },
     { id: "dispositivos", t: "Dispositivos con notificaciones", sinDias: true, total: (r) => r.dispositivos.total, f: (r) => dona(r.dispositivos.por_rol) },
@@ -198,6 +211,47 @@
       <div class="tabla"><div class="barra"><span style="flex:1;color:var(--suave)">Lo que hizo el equipo · ${act.length} acciones</span></div><table><thead><tr><th>Fecha</th><th>Quién</th><th>Rol</th><th>Acción</th><th>IP</th></tr></thead><tbody>${act.map((a) => `<tr><td>${fmt("", a.en)}</td><td class="nombre">${esc(a.quien)}</td><td>${esc(a.rol_texto)}</td><td style="${a.estado >= 400 ? "color:var(--rojo)" : ""}">${esc(a.accion)}</td><td>${esc(a.ip || "—")}</td></tr>`).join("")}</tbody></table></div></div>`;
   }
 
+  // ---------- Negocio: tasa, tarifas y QR ----------
+  const esSA = () => S.yo?.rol === "superadmin";
+  async function pagTasa(main) {
+    const [t, h] = await Promise.all([api("/tasa"), esSA() ? api("/admin/tasas") : Promise.resolve([])]);
+    main.innerHTML += `<div class="grid" style="grid-template-columns:1fr 1.4fr"><div class="card"><div class="tit">Tasa vigente</div>
+      <div class="grande">${t.bs_por_usd ? "Bs " + Number(t.bs_por_usd).toLocaleString("es-VE", { minimumFractionDigits: 2 }) : "Sin cargar"}</div><div class="total">${t.fecha ? `por USD · del ${t.fecha} · fuente ${esc(t.fuente)}` : "Sin tasa la caja solo cobra en dólares."}</div>
+      ${esSA() ? `<div style="display:flex;gap:8px;margin-top:18px"><input id="nt" placeholder="Nueva tasa (Bs por USD)" style="flex:1;height:42px;border-radius:10px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 12px"><button class="btn pri" id="gt">Guardar</button></div><p class="error" id="et"></p>` : ""}
+      <p class="total" style="margin-top:10px">Cada cobro guarda la tasa del momento: si la tasa cambia, los cobros anteriores no se alteran.</p></div>
+      <div class="tabla"><div class="barra">Historial</div><table><thead><tr><th>Fecha</th><th>Bs por USD</th><th>Cargada</th></tr></thead><tbody>${h.map((x) => `<tr><td>${esc(x.fecha)}</td><td class="nombre">${esc(x.bs_por_usd)}</td><td>${fmt("", x.creado)}</td></tr>`).join("")}</tbody></table></div></div>`;
+    const gt = $("#gt"); if (gt) gt.onclick = () => api("/admin/tasa", { method: "PUT", body: { bs_por_usd: Number($("#nt").value.replace(/\./g, "").replace(",", ".")) } }).then(() => { S.cache = {}; pintar(); }).catch((e) => ($("#et").textContent = e.message));
+  }
+  async function pagTarifas(main) {
+    const [ts, t, c] = await Promise.all([api("/admin/tarifas"), api("/tasa"), api("/inspeccion/costo")]);
+    const bs = (v) => t.bs_por_usd && v ? "Bs " + (Number(v) * Number(t.bs_por_usd)).toLocaleString("es-VE", { minimumFractionDigits: 2 }) : "—";
+    main.innerHTML += `<p class="total" style="margin-top:-6px">Precio de la instalación por tipo de artículo. Se cobra en caja junto con la compra. Sin precio, la caja lo registra como «precio por definir».</p>
+      <div class="tabla"><table><thead><tr><th>Artículo</th><th>Precio USD</th><th>Equivale (tasa BCV)</th><th>Estado</th>${esSA() ? "<th></th>" : ""}</tr></thead><tbody>
+      ${ts.map((x) => `<tr><td class="nombre">${esc(x.tipo_texto)}</td><td>${esSA() ? `<input data-p="${x.tipo}" value="${x.precio ?? ""}" placeholder="por definir" style="width:120px;height:34px;border-radius:8px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 10px">` : x.precio ? usd(x.precio) : "por definir"}</td>
+        <td>${bs(x.precio)}</td><td><span class="est ${x.activa ? "ok" : "neutro"}">${x.activa ? "Activa" : x.precio ? "Pausada" : "Por definir"}</span></td>${esSA() ? `<td><button class="btn sec" data-g="${x.tipo}">Guardar</button></td>` : ""}</tr>`).join("")}
+      <tr><td class="nombre">Inspección del técnico</td><td>${usd(c.costo)}</td><td>${bs(c.costo)}</td><td><span class="est ok">Fija</span></td>${esSA() ? "<td class='total'>Se cambia en el servidor</td>" : ""}</tr></tbody></table></div><p class="error" id="ef"></p>`;
+    main.querySelectorAll("[data-g]").forEach((b) => (b.onclick = () => {
+      const v = Number(main.querySelector(`[data-p="${b.dataset.g}"]`).value.replace(",", "."));
+      api(`/admin/tarifas/${b.dataset.g}`, { method: "PUT", body: { precio: v || 0, activa: v > 0 } }).then(() => pintar()).catch((e) => ($("#ef").textContent = e.message));
+    }));
+  }
+  async function pagQrs(main) {
+    const ts = await api("/admin/tiendas-qr");
+    main.innerHTML += `<p class="total" style="margin-top:-6px">QR fijo de cada tienda aliada. Se imprime y se pega en la caja: el técnico lo escanea al llegar y la caja autoriza el retiro con un OK.</p>
+      <div class="grid">${ts.map((t) => `<div class="card" style="text-align:center"><div class="tit" style="justify-content:center">${esc(t.nombre)}</div><div class="total">${esc(t.zona)} · ${esc(t.direccion)}</div>
+        ${t.qr ? `<canvas data-c="${t.id}" width="200" height="200" style="margin:16px auto;display:block;background:#fff;border-radius:10px"></canvas><div class="total">${esc(t.qr)}</div>` : `<p class="total" style="margin:30px 0">Sin QR todavía.</p>`}
+        ${esSA() ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn ${t.qr ? "sec" : "pri"}" data-n="${t.id}">${t.qr ? "Cambiar QR" : "Generar QR"}</button>${t.qr ? `<a class="btn sec" href="#" data-im="${t.id}">Imprimir</a>` : ""}</div>` : ""}</div>`).join("")}</div>`;
+    for (const t of ts) if (t.qr) dibujarQR(main.querySelector(`[data-c="${t.id}"]`), t.id);
+    main.querySelectorAll("[data-n]").forEach((b) => (b.onclick = () => { if (b.textContent.includes("Cambiar") && !confirm("El QR impreso dejará de servir. ¿Cambiarlo?")) return; api(`/admin/tiendas/${b.dataset.n}/qr`, { body: {} }).then(() => pintar()); }));
+    main.querySelectorAll("[data-im]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); const cv = main.querySelector(`[data-c="${a.dataset.im}"]`); const w = window.open(""); w.document.write(`<img src="${cv.toDataURL()}" style="width:80%"><script>print()<\/script>`); }));
+  }
+  async function dibujarQR(canvas, tiendaId) {
+    // el servidor genera la imagen del QR; se pinta en un canvas para poder imprimirla
+    const r = await fetch(`/admin/tiendas/${tiendaId}/qr.png`, { headers: { Authorization: "Bearer " + S.token } });
+    if (!r.ok) return;
+    const img = new Image(); img.onload = () => canvas.getContext("2d").drawImage(img, 0, 0, 200, 200); img.src = URL.createObjectURL(await r.blob());
+  }
+
   // ---------- Armado ----------
   async function pintar(soloContenido) {
     const app = $("#app");
@@ -236,6 +290,9 @@
       if (S.ruta === "inicio") await inicio(main);
       else if (S.ruta === "anuncios") await anuncios(main);
       else if (S.ruta === "auditoria") await auditoria(main);
+      else if (S.ruta === "tasa") await pagTasa(main);
+      else if (S.ruta === "tarifas") await pagTarifas(main);
+      else if (S.ruta === "qrs") await pagQrs(main);
       else await tabla(main, S.ruta);
     } catch (e) { main.innerHTML += `<p class="error">${esc(e.message)}</p>`; }
   }
@@ -252,7 +309,7 @@
     };
   }
 
-  window.addEventListener("hashchange", () => { S.ruta = location.hash.slice(1) || "inicio"; document.querySelector(".cajon")?.remove(); pintar(true); });
+  window.addEventListener("hashchange", () => { S.ruta = location.hash.slice(1) || "inicio"; document.querySelector(".cajon")?.remove(); window.scrollTo(0, 0); pintar(true); });
   document.addEventListener("keydown", (e) => { if (e.key === "/" && document.activeElement?.tagName !== "INPUT") { e.preventDefault(); $("#bg")?.focus(); } });
   pintar();
 })();

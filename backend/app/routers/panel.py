@@ -70,6 +70,7 @@ def resumen(dias: int = 30, user: User = Depends(panel), db: Session = Depends(g
                 "serie": [sum(x[1] for x in act if x[0].date() == (desde + dt.timedelta(days=i)).date()) / 100 for i in range(dias)]}
 
     en_periodo = [o for o in ords if o.creado >= desde]
+    from .presupuestos import info_pausa
     arts = [a for o in en_periodo for a in o.articulos]
     califs = [o.calificacion for o in ords if o.calificacion]
     return {
@@ -87,9 +88,35 @@ def resumen(dias: int = 30, user: User = Depends(panel), db: Session = Depends(g
         "pagos_de_presupuestos": dinero(pagos_pres),
         "calificacion": {"promedio": round(sum(califs) / len(califs), 2) if califs else None, "resenas": len(califs)},
         "dispositivos": {"total": sum(1 for u in us if u.push_token), "por_rol": dict(Counter(ROL_TEXTO.get(u.rol, u.rol) for u in us if u.push_token))},
+        # ---- propio del negocio AHA HOME ----
+        "ordenes_por_tienda": dict(Counter(o.tienda.nombre for o in en_periodo)),
+        "inspecciones": {"pedidas": sum(1 for o in en_periodo if o.requiere_inspeccion),
+                         "cobradas_usd": svc.dinero(sum(o.inspeccion_centavos for o in en_periodo) + sum(p.inspeccion_centavos for p in pres if p.pago_confirmado_en and p.pago_confirmado_en >= desde)),
+                         "en_pausa": sum(1 for o in ords if info_pausa(o)["activa"])},
+        "cumplimiento": _cumplimiento(en_periodo),
+        "penalidades": {"cantidad": sum(1 for o in en_periodo if o.penalidad_estado), "cobradas_usd": svc.dinero(sum(o.penalidad_centavos or 0 for o in en_periodo if o.penalidad_estado == "pagada"))},
+        "materiales_por_pagar": {"cantidad": sum(1 for p in pres if p.pago_confirmado_en and not p.compra_cliente and p.materiales_centavos and not p.materiales_pagados_en),
+                                 "usd": svc.dinero(sum(p.materiales_centavos for p in pres if p.pago_confirmado_en and not p.compra_cliente and p.materiales_centavos and not p.materiales_pagados_en))},
+        "residuos": {"retirados": sum(1 for o in en_periodo if o.tipo_servicio != "traslado" and o.retirar_residuos is not False),
+                     "cliente_guarda": sum(1 for o in en_periodo if o.tipo_servicio != "traslado" and o.retirar_residuos is False)},
+        "tasa": _tasa(db),
         "verificaciones_pendientes": sum(1 for t in tecs if not t.verificado and t.user.activo),
         "reportes_abiertos": db.query(Incidencia).filter(Incidencia.abierta.is_(True)).count(),
     }
+
+
+def _cumplimiento(ords: list) -> dict:
+    """Servicios cerrados, cancelados, entregas fallidas y % cerrados con acta de conformidad."""
+    cerr = [o for o in ords if o.estado == "completado"]
+    return {"completados": len(cerr), "cancelados": sum(1 for o in ords if o.estado == "cancelado"),
+            "fallidos": sum(1 for o in ords if o.estado == "entrega_fallida" or o.penalidad_estado),
+            "con_acta": round(sum(1 for o in cerr if (o.acta or {}).get("en")) * 100 / len(cerr)) if cerr else None,
+            "aprobadas_por_cliente": sum(1 for o in ords if o.cliente_aprobo_en)}
+
+
+def _tasa(db):
+    from .tasa import tasa_vigente, vista_tasa
+    return vista_tasa(tasa_vigente(db))
 
 
 # ---------- Tablas ----------

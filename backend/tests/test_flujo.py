@@ -987,6 +987,7 @@ def test_panel_superadmin_resumen_y_tablas(client):
     r = client.get("/panel-api/resumen?dias=30", headers=sa).json()
     assert r["clientes"]["total"] >= 1 and len(r["ordenes"]["serie"]) == 30 and r["ordenes"]["nuevos"] >= 1 and r["empresas"]["total"] >= 1
     assert sum(r["ordenes_por_servicio"].values()) >= 1
+    assert sum(r["ordenes_por_tienda"].values()) >= 1 and "inspecciones" in r and "cumplimiento" in r and r["tasa"]["bs_por_usd"]
     assert client.get("/panel-api/resumen", headers=agente).status_code == 403
     adm = client.get("/panel-api/tabla/administradores", headers=sa).json()["filas"]
     assert adm and all(x["rol"] in ("Superadmin", "CEO") for x in adm)
