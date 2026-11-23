@@ -978,3 +978,21 @@ def test_centro_de_mando_ceo_ve_quien_esta_y_que_hizo(client):
     cliente = login(client, "maria@ahahome.test")
     client.post("/soporte", json={"texto": "hola"}, headers=cliente)
     assert not any(a["quien"] == "María González" for a in client.get("/ceo/actividad", headers=ceo).json())  # los clientes no se auditan
+
+
+def test_panel_superadmin_resumen_y_tablas(client):
+    sa = login(client, "superadmin@ahahome.test")
+    agente = login(client, "agente@ahahome.test")
+    nueva(client, agente, pago=None)
+    r = client.get("/panel-api/resumen?dias=30", headers=sa).json()
+    assert r["clientes"]["total"] >= 1 and len(r["ordenes"]["serie"]) == 30 and r["ordenes"]["nuevos"] >= 1 and r["empresas"]["total"] >= 1
+    assert sum(r["ordenes_por_servicio"].values()) >= 1
+    assert client.get("/panel-api/resumen", headers=agente).status_code == 403
+    for t in ("clientes", "tecnicos", "empresas", "equipo", "ordenes", "transacciones", "liquidaciones", "verificaciones", "reportes", "resenas", "mensajeria"):
+        x = client.get(f"/panel-api/tabla/{t}", headers=sa).json()
+        assert x["columnas"] and "filas" in x, t
+    v = client.get("/panel-api/tabla/verificaciones?estado=Aprobado", headers=sa).json()
+    assert v["filas"] and all(f["estado"] == "Aprobado" for f in v["filas"])
+    c = client.get("/panel-api/tabla/clientes?q=maria gonzalez", headers=sa).json()
+    assert c["total"] == 1
+    assert client.get("/panel-api/buscar?q=WO", headers=sa).json()[0]["tipo"] == "Orden"

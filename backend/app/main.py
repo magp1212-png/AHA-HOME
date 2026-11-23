@@ -1,6 +1,7 @@
 """AHA HOME API · Hacemos todo por ti."""
 import logging
 import os
+import pathlib
 import threading
 import time
 
@@ -11,7 +12,7 @@ from sqlalchemy import text
 
 from . import config
 from .db import Base, engine
-from .routers import admin, archivos, auth, banners, chat, legal, ordenes, ceo, conformidad, penalidad, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
+from .routers import admin, archivos, auth, banners, chat, legal, ordenes, ceo, conformidad, panel, penalidad, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
 
 log = logging.getLogger("ahahome")
 app = FastAPI(title="AHA HOME API", version=config.APP_VERSION)
@@ -58,7 +59,7 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router, ceo.router):
+for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router, ceo.router, panel.router):
     app.include_router(r)
 
 
@@ -110,5 +111,9 @@ def salud():
 
 
 # La app web (misma app que el teléfono) en "/", después de todas las rutas de la API
+# Panel web del superadministrador y del equipo (computadora): /panel
+_PANEL = pathlib.Path(__file__).resolve().parent / "panel_web"
+if _PANEL.is_dir():
+    app.mount("/panel", StaticFiles(directory=_PANEL, html=True), name="panel")
 if config.WEB_DIR.is_dir():
     app.mount("/", StaticFiles(directory=config.WEB_DIR, html=True), name="web")
