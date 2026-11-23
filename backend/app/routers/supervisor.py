@@ -41,6 +41,8 @@ def tecnico_dict(db: Session, t: Tecnico, fecha: str) -> dict:
             "rol": "ayudante" if t.es_ayudante else "tecnico", "grupo": t.grupo, "tienda": t.tienda.nombre,
             "zona": t.tienda.zona, "verificado": t.verificado, "disponible": t.disponible, "reten_activo": t.reten_activo,
             "foto_rostro": t.foto_rostro, "selfie_cedula": t.selfie_cedula, "foto_perfil": t.foto_perfil,
+            "verificacion_facial": {"resultado": t.rostro_resultado, "similitud": round(t.rostro_similitud, 3),
+                                    "similitud_cedula": round(t.rostro_similitud_cedula, 3) if t.rostro_similitud_cedula else None},
             "huella_registrada": t.huella_registrada, "email": t.user.email,
             "registro_app_completo": bool(t.foto_rostro and t.selfie_cedula and t.huella_registrada),
             "documentos_faltantes": [d for d in DOCUMENTOS_OBLIGATORIOS if d not in {x.tipo for x in t.documentos}],

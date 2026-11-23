@@ -39,4 +39,6 @@ PAUSA_INSPECCION_HORAS = int(os.environ.get("AHAHOME_PAUSA_INSPECCION_HORAS", "4
 # Costo de la visita de inspección (USD); se suma al pago del presupuesto cuando el cliente la pidió.
 # Teléfono del centro de control (si está vacío, se usa el del técnico supervisor de la tienda o el del supervisor)
 TELEFONO_CONTROL = os.environ.get("AHAHOME_TELEFONO_CONTROL", "").strip()
+# Modelos de verificación facial (python descargar_modelos.py)
+MODELOS_DIR = pathlib.Path(os.environ.get("AHAHOME_MODELOS_DIR", pathlib.Path(__file__).resolve().parent.parent / "modelos"))
 INSPECCION_USD = float(os.environ.get("AHAHOME_INSPECCION_USD", "10"))

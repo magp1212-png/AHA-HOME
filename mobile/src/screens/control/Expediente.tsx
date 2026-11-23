@@ -7,7 +7,8 @@ import { Aviso, Boton, C, Campo, Cargando, Etiqueta, Fila, Opcion, Pantalla, Sec
 
 type Exp = {
   id: number; nombre: string; rol: string; cedula: string | null; telefono: string; email: string | null; tienda: string; grupo: string | null; jefe: string | null;
-  foto_rostro: string | null; selfie_cedula: string | null; huella_registrada: boolean; verificado: boolean; alta_en: string | null;
+  foto_rostro: string | null; selfie_cedula: string | null; huella_registrada: boolean;
+  verificacion_facial?: { resultado: string; similitud: number; similitud_cedula: number | null }; verificado: boolean; alta_en: string | null;
   documentos: { id: number; tipo: string; tipo_texto: string; url: string }[]; documentos_faltantes: string[]; tipos_documento: Record<string, string>;
   cuenta_pago: { banco: string; tipo: string; numero: string; titular: string; cedula: string; pago_movil_telefono: string; pago_movil_banco: string; registrada: boolean };
 };
@@ -64,6 +65,9 @@ export default function Expediente({ id }: { id: number }) {
           {e.selfie_cedula ? <Image source={{ uri: fileUrl(e.selfie_cedula) }} style={{ width: 100, height: 100, borderRadius: 12 }} /> : <Texto gris>Sin foto con cédula</Texto>}
         </View>
         <Texto>{e.huella_registrada ? "✓ Huella registrada" : "✗ Huella sin registrar"}</Texto>
+        <Texto>{e.verificacion_facial?.resultado === "coincide" ? `✓ Verificación facial aprobada (la foto con la cédula y el escaneo son la misma persona · similitud ${e.verificacion_facial.similitud.toFixed(2)}${e.verificacion_facial.similitud_cedula ? ` · cédula ${e.verificacion_facial.similitud_cedula.toFixed(2)}` : ""})`
+          : e.verificacion_facial?.resultado === "revision_manual" ? "⚠ Verificación facial: revisar a mano en la oficina"
+          : e.verificacion_facial?.resultado === "no_coincide" ? "✗ Verificación facial: las caras no coinciden" : "Verificación facial pendiente"}</Texto>
       </Tarjeta>
       <Tarjeta>
         <Seccion>EXPEDIENTE EN OFICINA</Seccion>

@@ -138,11 +138,44 @@ class Onboarding(BaseModel):
     pin: str | None = Field(default=None, min_length=4, max_length=8, pattern=r"^\d+$")
 
 
+class VerificarRostro(BaseModel):
+    selfie_cedula: str = Field(max_length=200)
+    foto_rostro: str = Field(max_length=200)
+
+
+def _archivo(url: str):
+    from .. import config
+    nombre = url.rsplit("/", 1)[-1]
+    ruta = config.UPLOADS_DIR / nombre
+    if not url.startswith("/archivos/") or "/" in nombre or not ruta.exists():
+        raise HTTPException(422, "Foto no encontrada: vuelve a tomarla")
+    return ruta
+
+
+@router.post("/verificar-rostro")
+def verificar_rostro(body: VerificarRostro, user: User = Depends(campo), db: Session = Depends(get_db)):
+    """Compara la foto con la cédula en el pecho con el escaneo de la cara. Tienen que ser la misma persona."""
+    from .. import rostro
+    t = mi_tecnico(user)
+    t.rostro_intentos += 1
+    if t.rostro_intentos > 10:
+        raise HTTPException(429, "Demasiados intentos. Pasa por la oficina de AHA HOME para tu alta.")
+    r = rostro.comparar(_archivo(body.selfie_cedula), _archivo(body.foto_rostro))
+    t.selfie_cedula, t.foto_rostro = body.selfie_cedula, body.foto_rostro
+    t.rostro_resultado = "revision_manual" if not r["disponible"] else "coincide" if r["coincide"] else "no_coincide"
+    t.rostro_similitud = r.get("similitud") or 0.0
+    t.rostro_similitud_cedula = r.get("similitud_cedula") or 0.0
+    db.commit()
+    return r
+
+
 @router.post("/onboarding")
 def onboarding(body: Onboarding, user: User = Depends(campo), db: Session = Depends(get_db)):
     t = mi_tecnico(user)
     if not body.huella_registrada:
         raise HTTPException(422, "Registra tu huella en el teléfono para continuar")
+    if t.rostro_resultado not in ("coincide", "revision_manual") or t.foto_rostro != body.foto_rostro or t.selfie_cedula != body.selfie_cedula:
+        raise HTTPException(422, "Primero verifica tu cara: la foto con la cédula y el escaneo tienen que coincidir")
     t.foto_rostro, t.selfie_cedula, t.huella_registrada = body.foto_rostro, body.selfie_cedula, True
     if body.pin:
         t.pin_hash = hash_password(body.pin)

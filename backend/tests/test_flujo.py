@@ -161,7 +161,18 @@ def test_sin_guardia_disponible_activa_reten(client):
     assert o["tecnico"]["grupo"] == "RETEN" and len(o["ayudantes"]) == 1
 
 
-def test_registro_en_app_y_alta_en_oficina(client):
+def preparar_rostro(monkeypatch, coincide=True):
+    """Las pruebas no usan fotos de personas: se simula el resultado del análisis facial."""
+    from app import config, rostro
+    config.UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    for n in ("r.jpg", "c.jpg"):
+        (config.UPLOADS_DIR / n).write_bytes(b"x")
+    monkeypatch.setattr(rostro, "comparar", lambda a, b: {"disponible": True, "coincide": coincide, "similitud": 0.82 if coincide else 0.12,
+                                                           "similitud_cedula": 0.7, "motivo": "prueba"})
+
+
+def test_registro_en_app_y_alta_en_oficina(client, monkeypatch):
+    preparar_rostro(monkeypatch)
     tienda_id = client.get("/tiendas").json()[0]["id"]
     datos = {"nombre": "Kevin Suárez", "cedula": "v 25.123.456", "telefono": "0412-999-0000", "email": "kevin@correo.com",
              "password": "clave123", "pin": "4321", "tienda_id": tienda_id}
@@ -172,6 +183,8 @@ def test_registro_en_app_y_alta_en_oficina(client):
     tec_id = r.json()["usuario"]["tecnico"]["id"]
 
     fotos = {"foto_rostro": "/archivos/r.jpg", "selfie_cedula": "/archivos/c.jpg"}
+    assert client.post("/tecnico/onboarding", json=fotos | {"huella_registrada": True}, headers=h).status_code == 422  # sin verificar la cara
+    assert client.post("/tecnico/verificar-rostro", json=fotos, headers=h).json()["coincide"]
     assert client.post("/tecnico/onboarding", json=fotos | {"huella_registrada": False}, headers=h).status_code == 422
     assert client.post("/tecnico/onboarding", json=fotos | {"huella_registrada": True}, headers=h).json()["ok"]
 
@@ -197,6 +210,7 @@ def test_registro_en_app_y_alta_en_oficina(client):
                                                         "email": "luis@correo.com", "rol": "ayudante"})
     ha = {"Authorization": "Bearer " + r.json()["token"]}
     ay_id = r.json()["usuario"]["tecnico"]["id"]
+    client.post("/tecnico/verificar-rostro", json=fotos, headers=ha)
     client.post("/tecnico/onboarding", json=fotos | {"huella_registrada": True}, headers=ha)
     for tipo in ("foto_perfil", "cedula"):
         client.post(f"/supervisor/tecnicos/{ay_id}/documentos", json={"tipo": tipo, "url": "/archivos/x.jpg"}, headers=oficina)
@@ -851,3 +865,24 @@ def test_calificar_en_la_pantalla_de_cierre(client):
     client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
     r = client.post(f"/ordenes/{o['id']}/calificar", json={"estrellas": 5}, headers=cliente).json()
     assert r["calificacion"] == 5 and r["cierre"]["token"]
+
+
+def test_verificacion_facial_cedula_en_el_pecho_contra_escaneo(client, monkeypatch):
+    preparar_rostro(monkeypatch, coincide=False)
+    tienda_id = client.get("/tiendas").json()[0]["id"]
+    r = client.post("/tecnico/registro", json={"nombre": "Otro Técnico", "cedula": "V-27111222", "telefono": "04125551111",
+                                              "email": "otro@correo.com", "password": "clave123", "pin": "1111", "tienda_id": tienda_id}).json()
+    h = {"Authorization": "Bearer " + r["token"]}
+    fotos = {"foto_rostro": "/archivos/r.jpg", "selfie_cedula": "/archivos/c.jpg"}
+    v = client.post("/tecnico/verificar-rostro", json=fotos, headers=h).json()
+    assert v["coincide"] is False
+    assert client.post("/tecnico/onboarding", json=fotos | {"huella_registrada": True}, headers=h).status_code == 422
+    assert client.post("/tecnico/verificar-rostro", json={"foto_rostro": "/archivos/no-existe.jpg", "selfie_cedula": "/archivos/c.jpg"}, headers=h).status_code == 422
+    preparar_rostro(monkeypatch, coincide=True)
+    assert client.post("/tecnico/verificar-rostro", json=fotos, headers=h).json()["coincide"]
+    # si cambia una foto después de verificar, hay que verificar de nuevo
+    assert client.post("/tecnico/onboarding", json=fotos | {"foto_rostro": "/archivos/otra.jpg", "huella_registrada": True}, headers=h).status_code == 422
+    assert client.post("/tecnico/onboarding", json=fotos | {"huella_registrada": True}, headers=h).json()["ok"]
+    sup = login(client, "supervisor@ahahome.test")
+    exp = client.get(f"/supervisor/tecnicos/{r['usuario']['tecnico']['id']}/expediente", headers=sup).json()
+    assert exp["verificacion_facial"] == {"resultado": "coincide", "similitud": 0.82, "similitud_cedula": 0.7}

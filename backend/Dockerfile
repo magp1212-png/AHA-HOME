@@ -2,6 +2,8 @@ FROM python:3.12-slim
 WORKDIR /srv
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+COPY descargar_modelos.py ./
+RUN python descargar_modelos.py
 COPY app ./app
 COPY seed.py crear_superadmin.py ./
 ENV AHAHOME_DATABASE_URL=sqlite:////datos/ahahome.db \

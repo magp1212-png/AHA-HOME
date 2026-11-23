@@ -23,3 +23,4 @@ backend/respaldos/
 backend/cf-api.log
 ops/r2.json
 backend/.superadmin-listo
+backend/modelos/

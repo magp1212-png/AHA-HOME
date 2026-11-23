@@ -159,6 +159,11 @@ class Tecnico(Base):
     pin_hash: Mapped[str | None] = mapped_column(String(200))
     foto_rostro: Mapped[str | None] = mapped_column(String(200))   # captura facial del alta
     selfie_cedula: Mapped[str | None] = mapped_column(String(200))  # cédula a la altura del pecho
+    # verificación facial automática: la foto con la cédula contra el escaneo de la cara
+    rostro_resultado: Mapped[str] = mapped_column(String(20), default="")  # coincide | no_coincide | revision_manual
+    rostro_similitud: Mapped[float] = mapped_column(Float, default=0.0)
+    rostro_similitud_cedula: Mapped[float] = mapped_column(Float, default=0.0)
+    rostro_intentos: Mapped[int] = mapped_column(Integer, default=0)
     huella_registrada: Mapped[bool] = mapped_column(Boolean, default=False)  # huella del teléfono activada para la app
     foto_perfil: Mapped[str | None] = mapped_column(String(200))  # tomada en la oficina; es la que ve el cliente
     verificado: Mapped[bool] = mapped_column(Boolean, default=False)  # alta dada en la oficina
