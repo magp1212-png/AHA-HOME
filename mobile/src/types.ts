@@ -17,7 +17,7 @@ export type Paso = { estado: string; texto: string; hecho: boolean; actual: bool
 export type Orden = {
   id: number; codigo: string; estado: string; estado_texto: string; tipo_servicio: string; tipo_servicio_texto: string;
   con_retiro_en_tienda: boolean;
-  cliente: { nombre: string; telefono?: string; direccion: string; referencia: string; zona: string; lat: number | null; lng: number | null };
+  cliente: { nombre: string; telefono?: string; tipo_inmueble?: string; tipo_inmueble_texto?: string; direccion: string; referencia: string; zona: string; lat: number | null; lng: number | null };
   articulos: Articulo[]; fecha: string; franja: string;
   tienda: { id: number; nombre: string; direccion: string; lat?: number | null; lng?: number | null };
   tecnico_gps?: { lat: number; lng: number; en: string | null } | null;

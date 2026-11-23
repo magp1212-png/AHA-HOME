@@ -33,6 +33,9 @@ TIPO_EQUIPO_TEXTO = {"nevera": "Nevera", "lavadora": "Lavadora", "secadora": "Se
                      "cocina": "Cocina", "televisor": "Televisor", "otro": "Otro artículo"}
 METODOS_PAGO = ("pago_movil", "efectivo_bs", "efectivo_usd", "zelle", "punto_de_venta")
 # Métodos que se cobran en bolívares (a la tasa oficial del BCV del día); el resto, en dólares.
+TIPOS_INMUEBLE = ("casa", "edificio", "oficina")
+TIPO_INMUEBLE_TEXTO = {"casa": "Casa", "edificio": "Edificio", "oficina": "Oficina"}
+
 METODOS_BS = ("pago_movil", "efectivo_bs", "punto_de_venta")
 
 
@@ -214,6 +217,7 @@ class Orden(Base):
 
     # pago de la instalación (se cobra en caja al solicitarla)
     monto_instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    tipo_inmueble: Mapped[str] = mapped_column(String(10), default="")  # casa | edificio | oficina (dónde se instala)
     retirar_residuos: Mapped[bool] = mapped_column(Boolean, default=True)  # opcional: el cliente puede quedarse el empaque (garantía)
     inspeccion_centavos: Mapped[int] = mapped_column(Integer, default=0)  # inspección cobrada en caja junto con la instalación
     pago_metodo: Mapped[str | None] = mapped_column(String(20))

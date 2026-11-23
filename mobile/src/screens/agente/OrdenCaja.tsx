@@ -39,7 +39,7 @@ export default function OrdenCaja({ id }: { id: number }) {
       <Tarjeta>
         <Seccion>CLIENTE Y ARTÍCULOS</Seccion>
         <Texto negrita>{o.cliente.nombre} · {o.cliente.telefono}</Texto>
-        <Texto gris>{o.cliente.direccion}</Texto>
+        <Texto gris>{o.cliente.tipo_inmueble_texto ? `${o.cliente.tipo_inmueble_texto} · ` : ""}{o.cliente.direccion}</Texto>
         {o.articulos.map((a) => <Texto key={a.id}>• {a.nombre} {a.modelo} {a.instalar ? "— con instalación" : "— en su caja"}</Texto>)}
         <Texto gris>Cita: {o.fecha} · {o.franja}</Texto>
         {o.pago_instalacion.pagado ? <PagoServicio pago={o.pago_instalacion as any} titulo="COBRADO EN CAJA" donde="pagado en la tienda" />

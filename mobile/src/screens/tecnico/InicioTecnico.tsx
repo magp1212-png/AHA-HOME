@@ -200,7 +200,7 @@ function TarjetaOrden({ o, activa, ancho, esAyudante, cargando, accion, retirar 
         </View>
         <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: C.gris, fontSize: 12 }}>Dirección</Text>
+            <Text style={{ color: C.gris, fontSize: 12 }}>Dirección{o.cliente.tipo_inmueble_texto ? ` · ${o.cliente.tipo_inmueble_texto.toUpperCase()}` : ""}</Text>
             <Text style={{ color: C.texto, fontSize: 14 }}>{o.cliente.direccion}{o.cliente.referencia ? ` (${o.cliente.referencia})` : ""}</Text>
           </View>
           <MiniMapa onPress={() => navegarA(o, false)} />

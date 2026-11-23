@@ -147,7 +147,7 @@ export default function Control() {
                 <Texto negrita>{o.codigo} · {o.tipo_servicio_texto}</Texto>
                 <Etiqueta texto={o.estado_texto} tono={tonoEstado(o.estado)} />
               </View>
-              <Texto gris size={13}>{o.franja} · {o.cliente.nombre} · {o.cliente.direccion}</Texto>
+              <Texto gris size={13}>{o.franja} · {o.cliente.nombre} · {o.cliente.tipo_inmueble_texto ? `${o.cliente.tipo_inmueble_texto} · ` : ""}{o.cliente.direccion}</Texto>
               {o.pago_instalacion?.pagado ? (
                 <Texto size={13}>💳 Pagado en tienda: {o.pago_instalacion.cobrado} · {o.pago_instalacion.metodo_texto}
                   {o.pago_instalacion.moneda === "Bs" ? ` (USD ${o.pago_instalacion.monto_usd} · tasa ${o.pago_instalacion.tasa})` : " · en dólares"}</Texto>

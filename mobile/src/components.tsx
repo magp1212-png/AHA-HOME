@@ -265,7 +265,7 @@ export type Visita = {
   tienda: { id: number; nombre: string };
   tecnico: { nombre: string; cedula: string; foto: string | null; grupo: string } ;
   ayudantes: { nombre: string; cedula: string; foto: string | null }[];
-  ordenes: { id: number; codigo: string; tipo_servicio: string; tipo_servicio_texto: string; retiro: string; cliente: string; zona: string;
+  ordenes: { id: number; codigo: string; tipo_servicio: string; tipo_servicio_texto: string; retiro: string; cliente: string; zona: string; inmueble: string;
     fecha: string; franja: string; numero_factura: string; articulos: { nombre: string; modelo: string; serial: string; instalar: boolean }[] }[];
   total_articulos: number;
 };
@@ -289,7 +289,7 @@ export function DetalleVisita({ v }: { v: Visita }) {
             <Text style={{ fontWeight: "900", color: C.texto, fontSize: 15 }}>{o.codigo}</Text>
             <Etiqueta texto={o.retiro.toUpperCase()} tono={o.tipo_servicio === "traslado" ? "neutro" : "lima"} />
           </View>
-          <Text style={{ color: C.gris, fontSize: 13 }}>Cliente: {o.cliente} · zona {o.zona} · cita {o.fecha} {o.franja}{o.numero_factura ? ` · factura ${o.numero_factura}` : ""}</Text>
+          <Text style={{ color: C.gris, fontSize: 13 }}>Cliente: {o.cliente}{o.inmueble ? ` · ${o.inmueble}` : ""} · zona {o.zona} · cita {o.fecha} {o.franja}{o.numero_factura ? ` · factura ${o.numero_factura}` : ""}</Text>
           {o.articulos.map((a, k) => (
             <Text key={k} style={{ color: C.texto, fontSize: 14 }}>
               • <Text style={{ fontWeight: "800" }}>{a.nombre}{a.modelo ? ` ${a.modelo}` : ""}</Text>{a.serial ? ` · serial ${a.serial}` : ""} — {a.instalar ? "para instalar" : "en su caja"}

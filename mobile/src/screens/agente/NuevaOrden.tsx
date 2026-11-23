@@ -20,6 +20,7 @@ export default function NuevaOrden() {
   const dias = proximosDias();
   const [c, setC] = useState({ nombre: "", telefono: "", direccion: "", referencia: "", numero_factura: "" });
   const [zona, setZona] = useState("Central");
+  const [inmueble, setInmueble] = useState<"" | "casa" | "edificio" | "oficina">("");
   const [arts, setArts] = useState<Art[]>([nuevoArt()]);
   const [soloInst, setSoloInst] = useState(false);
   const [fecha, setFecha] = useState(dias[0].iso);
@@ -59,7 +60,7 @@ export default function NuevaOrden() {
         cliente_nombre: c.nombre, cliente_telefono: c.telefono, direccion: c.direccion, referencia: c.referencia, zona,
         articulos: arts.map((a) => ({ ...a, instalar: soloInst ? true : a.instalar })), solo_instalacion: soloInst,
         pago: total > 0 && metodo ? { metodo, referencia: ref } : null, numero_factura: c.numero_factura,
-        fecha, franja, acepta_terminos: terminos, requiere_inspeccion: conInsp, retirar_residuos: residuos,
+        fecha, franja, acepta_terminos: terminos, tipo_inmueble: inmueble, requiere_inspeccion: conInsp, retirar_residuos: residuos,
       } });
       nav.back();
       nav.push("ordenCaja", { id: o.id });
@@ -67,7 +68,7 @@ export default function NuevaOrden() {
     setCargando(false);
   }
 
-  const listo = c.nombre && c.telefono && c.direccion && terminos && arts.every((a) => a.tipo !== "otro" || a.descripcion) && (total === 0 || metodo);
+  const listo = c.nombre && c.telefono && c.direccion && inmueble && terminos && arts.every((a) => a.tipo !== "otro" || a.descripcion) && (total === 0 || metodo);
 
   return (
     <Pantalla titulo="Nueva orden" subtitulo={servicio}
@@ -77,6 +78,17 @@ export default function NuevaOrden() {
         <Campo etiqueta="Nombre y apellido" value={c.nombre} onChangeText={(v) => setC({ ...c, nombre: v })} />
         <Campo etiqueta="Teléfono (WhatsApp)" value={c.telefono} onChangeText={(v) => setC({ ...c, telefono: v })} keyboardType="phone-pad" />
         <Campo etiqueta="Dirección exacta" value={c.direccion} onChangeText={(v) => setC({ ...c, direccion: v })} />
+        <Text style={{ fontSize: 13, fontWeight: "700", color: C.texto }}>¿Dónde se instala?</Text>
+        <Fila>
+          {([["casa", "Casa", "home-outline"], ["edificio", "Edificio", "business-outline"], ["oficina", "Oficina", "briefcase-outline"]] as const).map(([k, t, ic]) => (
+            <Pressable key={k} accessibilityRole="radio" accessibilityState={{ checked: inmueble === k }} onPress={() => setInmueble(k)}
+              style={{ flex: 1, minHeight: 64, borderRadius: 14, borderWidth: 2, borderColor: inmueble === k ? C.marino : C.borde,
+                backgroundColor: inmueble === k ? C.limaSuave : C.blanco, alignItems: "center", justifyContent: "center", gap: 2 }}>
+              <Ionicons name={ic} size={22} color={C.marino} />
+              <Text style={{ fontWeight: inmueble === k ? "900" : "700", color: C.marino, fontSize: 14 }}>{t}</Text>
+            </Pressable>
+          ))}
+        </Fila>
         <Campo etiqueta="Punto de referencia" value={c.referencia} onChangeText={(v) => setC({ ...c, referencia: v })} />
         <Fila>{["Oeste", "Central", "Este"].map((z) => <Opcion key={z} texto={z} activo={zona === z} onPress={() => setZona(z)} />)}</Fila>
         <Campo etiqueta="N.º de factura Damasco" value={c.numero_factura} onChangeText={(v) => setC({ ...c, numero_factura: v })} />

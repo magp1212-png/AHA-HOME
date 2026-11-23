@@ -6,7 +6,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from . import asignacion, config
-from .models import (ESTADO_CANCELADO, ESTADO_TEXTO, ESTADOS, TIPO_EQUIPO_TEXTO, TIPO_SERVICIO_TEXTO, Articulo, Evento, Orden,
+from .models import (ESTADO_CANCELADO, ESTADO_TEXTO, TIPO_INMUEBLE_TEXTO, ESTADOS, TIPO_EQUIPO_TEXTO, TIPO_SERVICIO_TEXTO, Articulo, Evento, Orden,
                      Tecnico, User, ahora, checklist_de, con_retiro, fotos_de)
 from .notificar import notificar
 
@@ -183,7 +183,8 @@ def vista(orden: Orden, rol: str) -> dict:
         "tipo_servicio": orden.tipo_servicio, "tipo_servicio_texto": TIPO_SERVICIO_TEXTO.get(orden.tipo_servicio),
         "con_retiro_en_tienda": con_retiro(orden.tipo_servicio),
         "cliente": {"nombre": orden.cliente_nombre, "telefono": orden.cliente_telefono, "direccion": orden.direccion,
-                    "referencia": orden.referencia, "lat": orden.lat, "lng": orden.lng, "zona": orden.zona},
+                    "referencia": orden.referencia, "lat": orden.lat, "lng": orden.lng, "zona": orden.zona,
+                    "tipo_inmueble": orden.tipo_inmueble, "tipo_inmueble_texto": TIPO_INMUEBLE_TEXTO.get(orden.tipo_inmueble, "")},
         "articulos": articulos_vista(orden),
         "compra": {"factura": orden.factura, "numero_factura": orden.numero_factura, "fecha_compra": orden.fecha_compra},
         "pago_instalacion": {**info_pago(orden.pago_metodo, orden.monto_instalacion_centavos + orden.inspeccion_centavos, orden.pago_moneda, orden.pago_tasa),

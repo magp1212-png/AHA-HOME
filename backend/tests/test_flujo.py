@@ -787,3 +787,13 @@ def test_qr_de_tienda_tecnico_escanea_y_caja_autoriza(client):
     assert client.post(f"/caja/visitas/{v['id']}/autorizar", headers=agente).status_code == 409
     # ya no le queda nada por retirar en esa tienda
     assert client.post("/tecnico/tienda/escanear", json={"qr": qr}, headers=tecnico).status_code == 404
+
+
+def test_tipo_de_inmueble_casa_edificio_u_oficina(client):
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente, tipo_inmueble="edificio", pago=None)
+    assert o["cliente"]["tipo_inmueble"] == "edificio" and o["cliente"]["tipo_inmueble_texto"] == "Edificio"
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    assert client.get(f"/ordenes/{o['id']}", headers=tecnico).json()["cliente"]["tipo_inmueble_texto"] == "Edificio"
+    r = client.post("/ordenes", json=ORDEN | {"tipo_inmueble": "galpon", "pago": None}, headers=agente)
+    assert r.status_code == 422 and "casa, edificio u oficina" in r.json()["detail"]

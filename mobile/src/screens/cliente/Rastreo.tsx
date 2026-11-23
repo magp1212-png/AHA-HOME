@@ -193,7 +193,7 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
         <Texto negrita size={16}>{o.tipo_servicio === "traslado" ? "Cita de entrega" : "Cita de instalación"}</Texto>
         <Texto>{o.articulos.map((a) => a.nombre).join(" y ")}</Texto>
         <Texto gris>Fecha: {o.fecha} · Hora: {o.franja.replace("-", " – ")}</Texto>
-        <Texto gris size={13}>{o.cliente.direccion}</Texto>
+        <Texto gris size={13}>{o.cliente.tipo_inmueble_texto ? `${o.cliente.tipo_inmueble_texto} · ` : ""}{o.cliente.direccion}</Texto>
         {o.residuos?.aplica ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 14, borderWidth: 1, borderColor: C.linea, padding: 12 }}>
             <Ionicons name={o.residuos.retirar ? "leaf" : "cube-outline"} size={24} color={o.residuos.retirar ? C.ok : C.marino} />

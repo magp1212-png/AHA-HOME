@@ -75,7 +75,7 @@ def vista_visita(db: Session, v: VisitaRetiro) -> dict:
         "ordenes": [{
             "id": o.id, "codigo": o.codigo, "tipo_servicio": o.tipo_servicio, "tipo_servicio_texto": svc.TIPO_SERVICIO_TEXTO.get(o.tipo_servicio),
             "retiro": "Solo traslado" if o.tipo_servicio == "traslado" else "Retiro para traslado e instalación",
-            "cliente": o.cliente_nombre, "zona": o.zona, "fecha": o.fecha, "franja": o.franja, "numero_factura": o.numero_factura,
+            "cliente": o.cliente_nombre, "zona": o.zona, "inmueble": svc.TIPO_INMUEBLE_TEXTO.get(o.tipo_inmueble, ""), "fecha": o.fecha, "franja": o.franja, "numero_factura": o.numero_factura,
             "articulos": [{"nombre": svc.nombre_articulo(a), "modelo": a.modelo, "serial": a.serial, "instalar": a.instalar} for a in o.articulos],
         } for o in ords],
         "total_articulos": sum(len(o.articulos) for o in ords),

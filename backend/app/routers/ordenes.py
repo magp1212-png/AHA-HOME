@@ -15,7 +15,7 @@ from .tasa import cobro, info_pago
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import current_user, require
-from ..models import METODOS_PAGO, TIPOS_EQUIPO, ZONAS, Articulo, Orden, Tarifa, Tienda, User, ahora, orden_ayudantes
+from ..models import METODOS_PAGO, TIPOS_EQUIPO, TIPOS_INMUEBLE, ZONAS, Articulo, Orden, Tarifa, Tienda, User, ahora, orden_ayudantes
 from ..notificar import notificar
 from ..security import new_qr_token
 from .auth import limpiar_tel
@@ -94,6 +94,7 @@ class NuevaOrden(BaseModel):
     lat: float | None = None
     lng: float | None = None
     zona: str
+    tipo_inmueble: str = ""   # casa | edificio | oficina (la caja lo pide siempre)
     articulos: list[ArticuloIn] = Field(min_length=1, max_length=30)
     solo_instalacion: bool = False  # el cliente ya tiene los artículos en casa: no hay traslado
     retirar_residuos: bool = True     # opcional: el cliente puede quedarse con el empaque por la garantía
@@ -157,6 +158,8 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
     precios = {x.tipo: x.precio_centavos for x in db.scalars(select(Tarifa).where(Tarifa.activa.is_(True)))}
     # Mientras no se publique la tabla de precios, la instalación queda «precio por definir» (sin cobro en caja)
     total = sum(precios.get(a.tipo, 0) for a in a_instalar)
+    if body.tipo_inmueble not in ("",) + TIPOS_INMUEBLE:
+        raise HTTPException(422, "Indica si la instalación es en casa, edificio u oficina")
     # La inspección se cobra en caja, en el momento, junto con la instalación
     insp = round(config.INSPECCION_USD * 100) if body.requiere_inspeccion else 0
     if (total or insp) and not body.pago:
@@ -166,7 +169,7 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
     cliente = db.scalar(select(User).where(User.telefono == tel, User.rol == "cliente"))
     o = Orden(codigo=svc.nuevo_codigo(db), cliente_id=cliente.id if cliente else None,
               cliente_nombre=body.cliente_nombre.strip(), cliente_telefono=tel, direccion=body.direccion.strip(),
-              referencia=body.referencia.strip(), lat=body.lat, lng=body.lng, zona=body.zona, tipo_servicio=tipo_servicio,
+              referencia=body.referencia.strip(), lat=body.lat, lng=body.lng, zona=body.zona, tipo_inmueble=body.tipo_inmueble, tipo_servicio=tipo_servicio,
               numero_factura=body.numero_factura.strip(), fecha_compra=body.fecha_compra, factura=body.factura,
               monto_instalacion_centavos=total, inspeccion_centavos=insp, retirar_residuos=body.retirar_residuos, requiere_inspeccion=body.requiere_inspeccion,
               inspeccion_fecha=body.fecha.isoformat() if body.requiere_inspeccion else "", inspeccion_franja=body.franja if body.requiere_inspeccion else "", fecha=body.fecha.isoformat(), franja=body.franja, tienda_id=tienda.id,
