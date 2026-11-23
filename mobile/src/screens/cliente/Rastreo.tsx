@@ -15,10 +15,10 @@ const ICONO: Record<string, React.ComponentProps<typeof Ionicons>["name"]> = {
   cocina: "flame-outline", televisor: "tv-outline", otro: "cube-outline",
 };
 
-type Fase = { texto: string; hecha: boolean; actual: boolean; pausa?: boolean };
+type Fase = { texto: string; hecha: boolean; actual: boolean; pausa?: boolean; omitida?: boolean };
 
-/** Las fases que ve el cliente según el tipo de servicio. Si pidió inspección, va primero
- *  «Inspección» (el servicio queda en pausa hasta aprobar y pagar el presupuesto); si no, se salta directo a «Confirmado». */
+/** Las fases que ve el cliente según el tipo de servicio. «Inspección» siempre aparece antes de «Confirmado»:
+ *  si la pidió, el servicio queda en pausa hasta aprobar y pagar el presupuesto; si no, se muestra como «No requerida» (paso saltado). */
 function fases(o: Orden): Fase[] {
   const orden = ["solicitud_enviada", "tecnico_asignado", "cita_confirmada", "en_ruta", "en_progreso", "completado"];
   const i = orden.indexOf(o.estado);
@@ -26,11 +26,14 @@ function fases(o: Orden): Fase[] {
     : o.tipo_servicio === "instalacion" ? ["Confirmado", "En camino", "Instalación"]
     : ["Confirmado", "En camino", "Entregado", "Instalación"];
   const conInspeccion = o.inspeccion.requerida;
-  const nombres = conInspeccion ? ["Inspección", ...base] : base;
+  const nombres = ["Inspección", ...base];
   // cuántas fases van hechas según el estado del servidor
   let hechas = i >= 5 ? base.length : i === 4 ? base.length - 1 : i === 3 ? 1 : i === 2 ? 1 : 0;
-  if (conInspeccion) hechas = o.pausa?.activa ? 0 : hechas + 1;
-  return nombres.map((texto, k) => ({ texto, hecha: k < hechas, actual: k === hechas, pausa: conInspeccion && k === 0 && !!o.pausa?.activa }));
+  hechas = conInspeccion && o.pausa?.activa ? 0 : hechas + 1;
+  return nombres.map((texto, k) => {
+    if (k === 0 && !conInspeccion) return { texto, hecha: false, actual: false, omitida: true };
+    return { texto, hecha: k < hechas, actual: k === hechas, pausa: conInspeccion && k === 0 && !!o.pausa?.activa };
+  });
 }
 
 /** Rastreador a colores: verde con ✓ lo terminado, naranja lo que está pasando ahora, gris lo que falta. */
@@ -41,17 +44,20 @@ function Rastreador({ f }: { f: Fase[] }) {
         accessibilityLabel={`Estado: ${f.find((x) => x.actual)?.texto ?? "completado"}`}>
         {f.map((x, k) => {
           const linea = x.hecha ? C.ok : x.actual ? C.naranja : C.borde;
+          const color = x.hecha ? C.ok : x.actual ? C.naranja : x.omitida ? "#9AA3B5" : C.borde;
           return (
             <View key={x.texto} style={{ flex: 1, alignItems: "center", gap: 8, zIndex: f.length - k }}>
               {k > 0 ? <View style={{ position: "absolute", top: 13, right: "50%", width: "100%", height: 4, backgroundColor: linea }} /> : null}
               <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", zIndex: 1,
-                backgroundColor: x.hecha ? C.ok : x.actual ? C.naranja : C.borde }}>
+                backgroundColor: color }}>
                 {x.hecha ? <Ionicons name="checkmark" size={18} color={C.blanco} />
+                  : x.omitida ? <Ionicons name="play-skip-forward" size={14} color={C.blanco} />
                   : x.pausa ? <Ionicons name="pause" size={15} color={C.blanco} />
                   : x.actual ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.blanco }} /> : null}
               </View>
               <Text style={{ fontSize: f.length > 4 ? 10.5 : 12, fontWeight: "700", color: x.hecha || x.actual ? C.texto : "#6B7789",
                 textAlign: "center", paddingHorizontal: 1 }}>{x.texto}</Text>
+              {x.omitida ? <Text style={{ marginTop: -6, fontSize: 9.5, fontWeight: "700", color: "#6B7789", textAlign: "center" }}>No requerida</Text> : null}
             </View>
           );
         })}
