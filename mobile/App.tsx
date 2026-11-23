@@ -10,6 +10,8 @@ import Control from "./src/screens/control/Control";
 import MapaVivo from "./src/screens/control/Mapa";
 import Pagos from "./src/screens/control/Pagos";
 import Banners from "./src/screens/control/Banners";
+import TiendasQR from "./src/screens/control/TiendasQR";
+import VisitaTienda from "./src/screens/tecnico/VisitaTienda";
 import InicioCaja from "./src/screens/agente/InicioCaja";
 import NuevaOrden from "./src/screens/agente/NuevaOrden";
 import OrdenCaja from "./src/screens/agente/OrdenCaja";
@@ -87,6 +89,8 @@ function Router() {
           case "mapa": return <MapaVivo />;
           case "pagos": return <Pagos />;
           case "banners": return <Banners />;
+          case "tiendasQR": return <TiendasQR />;
+          case "visitaTienda": return <VisitaTienda />;
           default: return <Inicio />;
         }
       }}
