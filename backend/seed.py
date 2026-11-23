@@ -62,6 +62,8 @@ def run():
         db.flush()
         db.add(Tecnico(user_id=a.id, tienda_id=t.id, grupo=grupo, es_ayudante=True, jefe_id=tec.id, pin_hash=pin,
                        verificado=True, alta_en=ahora(), **DEMO_FOTOS))
+    # CEO (superadmin con centro de mando y auditoría) — cuenta de prueba
+    db.add(User(nombre="CEO Onyxa", email="ceo@ahahome.test", telefono="04140000099", password_hash=h, rol="superadmin", es_ceo=True))
     # Tasa de PRUEBA para cobrar en bolívares (el superadmin carga la oficial del BCV cada día)
     db.add(TasaCambio(bs_por_usd=250.0, fuente="BCV (prueba)", fecha=dt.date.today().isoformat()))
     # Sin tarifas todavía: la tabla de precios de instalación se define al final (PUT /admin/tarifas/{tipo}).

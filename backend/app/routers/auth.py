@@ -41,7 +41,7 @@ def normalizar_cedula(c: str) -> str:
 
 def perfil(u: User) -> dict:
     d = {"id": u.id, "nombre": u.nombre, "telefono": u.telefono, "email": u.email, "rol": u.rol, "cedula": u.cedula,
-         "tienda_id": u.tienda_id, "foto": u.foto, "email_verificado": u.email_verificado,
+         "tienda_id": u.tienda_id, "foto": u.foto, "email_verificado": u.email_verificado, "es_ceo": bool(u.es_ceo and u.rol == "superadmin"),
          "verificacion_vence": u.verificacion_vence.isoformat() + "Z" if u.verificacion_vence and not u.email_verificado else None}
     if u.tecnico:
         t = u.tecnico
@@ -169,6 +169,9 @@ def login(body: Login, db: Session = Depends(get_db)):
     u = db.scalar(select(User).where(or_(User.email == ident, User.telefono == limpiar_tel(ident))))
     if not u or not u.activo or not verify_password(body.password, u.password_hash):
         raise HTTPException(401, "Teléfono, correo o contraseña incorrectos. Si no verificaste tu correo en 24 horas, regístrate de nuevo.")
+    from ..auditoria import registrar
+    registrar(db, u, "POST", "/auth/login", 200, "", "Inició sesión")
+    db.commit()
     return {"token": make_token(u.id), "usuario": perfil(u)}
 
 

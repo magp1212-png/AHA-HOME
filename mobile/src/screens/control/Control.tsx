@@ -62,6 +62,7 @@ export default function Control() {
           </View>
           <Boton titulo="Presupuestos y pagos" icono="cash-outline" tipo="lima" onPress={() => nav.push("pagos")} />
           <Boton titulo="Mensajes de soporte" icono="headset-outline" tipo="secundario" onPress={() => nav.push("soporteBandeja")} />
+          {perfil?.es_ceo ? <Boton titulo="Centro de mando · auditoría del equipo" icono="shield-checkmark" tipo="naranja" onPress={() => nav.push("auditoria")} /> : null}
           <TasaDelDia editable={perfil?.rol === "superadmin"} />
           {perfil?.rol === "superadmin" ? <Boton titulo="QR de las tiendas" icono="qr-code-outline" tipo="secundario" onPress={() => nav.push("tiendasQR")} /> : null}
           {perfil?.rol === "superadmin" ? <Boton titulo="Banners y aliados" icono="megaphone-outline" tipo="secundario" onPress={() => nav.push("banners")} /> : null}

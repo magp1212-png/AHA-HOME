@@ -112,6 +112,9 @@ class User(Base):
     verificacion_token: Mapped[str | None] = mapped_column(String(60), index=True)
     verificacion_vence: Mapped[dt.datetime | None] = mapped_column(DateTime)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    es_ceo: Mapped[bool] = mapped_column(Boolean, default=False)  # superadmin que además ve el centro de mando y la auditoría
+    ultimo_acceso_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    ultimo_ip: Mapped[str] = mapped_column(String(64), default="")
     push_token: Mapped[str | None] = mapped_column(String(200))
     tienda_id: Mapped[int | None] = mapped_column(ForeignKey("tiendas.id"))  # agentes y supervisores
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
@@ -445,6 +448,20 @@ class ChatLectura(Base):
     orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), primary_key=True)
     ultimo_id: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Auditoria(Base):
+    """Todo lo que hace el equipo (caja, técnico supervisor, supervisor y superadmin): lo ve el CEO."""
+    __tablename__ = "auditoria"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    rol: Mapped[str] = mapped_column(String(30), default="")
+    accion: Mapped[str] = mapped_column(String(160), default="")
+    metodo: Mapped[str] = mapped_column(String(8), default="")
+    ruta: Mapped[str] = mapped_column(String(200), default="")
+    estado: Mapped[int] = mapped_column(Integer, default=0)
+    ip: Mapped[str] = mapped_column(String(64), default="")
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora, index=True)
 
 
 class SoporteMensaje(Base):

@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from . import config
 from .db import Base, engine
-from .routers import admin, archivos, auth, banners, chat, legal, ordenes, conformidad, penalidad, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
+from .routers import admin, archivos, auth, banners, chat, legal, ordenes, ceo, conformidad, penalidad, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
 
 log = logging.getLogger("ahahome")
 app = FastAPI(title="AHA HOME API", version=config.APP_VERSION)
@@ -24,15 +24,41 @@ SECURITY_HEADERS = {
 }
 
 
+def _auditar(request: Request, estado: int) -> None:
+    """Último acceso y auditoría del equipo (no se guarda el contenido enviado)."""
+    from .auditoria import EQUIPO, marcar_acceso, registrar
+    from .db import SessionLocal
+    from .models import User
+    from .security import read_token
+    token = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
+    uid = read_token(token) if token else None
+    if not uid:
+        return
+    ip = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "")
+    with SessionLocal() as db:
+        u = db.get(User, uid)
+        if not u or u.rol not in EQUIPO:
+            return
+        marcar_acceso(db, u, ip)
+        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            registrar(db, u, request.method, request.url.path, estado, ip)
+        db.commit()
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
+    try:
+        from starlette.concurrency import run_in_threadpool
+        await run_in_threadpool(_auditar, request, response.status_code)
+    except Exception:  # la auditoría nunca debe tumbar la petición
+        pass
     for k, v in SECURITY_HEADERS.items():
         response.headers.setdefault(k, v)
     return response
 
 
-for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router):
+for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router, ceo.router):
     app.include_router(r)
 
 
@@ -43,6 +69,16 @@ def crear_tablas() -> None:
     nuevas = agregar_columnas_nuevas(engine)
     if nuevas:
         log.info("columnas nuevas agregadas: %s", ", ".join(nuevas))
+    # cuentas CEO por configuración (AHAHOME_CEO_EMAILS)
+    from . import config
+    if config.CEO_EMAILS:
+        from sqlalchemy import select
+        from .db import SessionLocal
+        from .models import User
+        with SessionLocal() as db:
+            for u in db.scalars(select(User).where(User.email.in_(config.CEO_EMAILS), User.rol == "superadmin")):
+                u.es_ceo = True
+            db.commit()
     if os.environ.get("AHAHOME_PURGA", "1") == "1":
         threading.Thread(target=_purga_periodica, daemon=True).start()
 

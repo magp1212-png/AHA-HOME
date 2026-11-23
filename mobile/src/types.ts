@@ -1,6 +1,6 @@
 export type Rol = "cliente" | "agente" | "tecnico" | "ayudante" | "tecnico_supervisor" | "supervisor" | "superadmin";
 
-export type Perfil = {
+export type Perfil = { es_ceo?: boolean;
   id: number; nombre: string; telefono: string | null; email: string | null; rol: Rol; cedula: string | null; tienda_id: number | null;
   foto: string | null; email_verificado: boolean; verificacion_vence: string | null;
   tecnico?: { id: number; grupo: string | null; tienda: string; zona: string; verificado: boolean; tiene_pin: boolean;

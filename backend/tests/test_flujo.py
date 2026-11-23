@@ -956,3 +956,25 @@ def test_no_reconozco_la_orden_y_soporte_directo(client):
     assert h["mensajes"][-1]["control"] and "Mi guardia" in h["temas"].values()
     assert client.get("/soporte?solo_resumen=true", headers=tecnico).json()["no_leidos"] == 0
     assert client.get("/supervisor/soporte", headers=cliente).status_code == 403
+
+
+def test_centro_de_mando_ceo_ve_quien_esta_y_que_hizo(client):
+    sa = login(client, "superadmin@ahahome.test")
+    ceo = login(client, "ceo@ahahome.test")
+    agente = login(client, "agente@ahahome.test")
+    assert client.get("/yo", headers=ceo).json()["es_ceo"] is True and client.get("/yo", headers=sa).json()["es_ceo"] is False
+    assert client.get("/ceo/equipo", headers=sa).status_code == 403  # el superadmin no ve la auditoría
+    client.put("/admin/tasa", json={"bs_por_usd": 260}, headers=sa)
+    nueva(client, agente, pago=None)
+    act = client.get("/ceo/actividad", headers=ceo).json()
+    acciones = [a["accion"] for a in act]
+    assert "Cargó la tasa oficial BCV" in acciones and "Creó una orden de servicio" in acciones and "Inició sesión" in acciones
+    assert all("aha12345" not in str(a) for a in act)  # no se guardan contraseñas ni contenido
+    eq = client.get("/ceo/equipo", headers=ceo).json()
+    caja = next(f for f in eq["equipo"] if f["rol"] == "agente")
+    assert caja["en_linea"] and caja["acciones_hoy"] >= 2 and eq["en_linea"] >= 2
+    solo_sa = client.get("/ceo/actividad?rol=superadmin", headers=ceo).json()
+    assert solo_sa and all(a["rol"] == "superadmin" for a in solo_sa)
+    cliente = login(client, "maria@ahahome.test")
+    client.post("/soporte", json={"texto": "hola"}, headers=cliente)
+    assert not any(a["quien"] == "María González" for a in client.get("/ceo/actividad", headers=ceo).json())  # los clientes no se auditan

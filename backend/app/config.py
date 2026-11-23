@@ -41,4 +41,6 @@ PAUSA_INSPECCION_HORAS = int(os.environ.get("AHAHOME_PAUSA_INSPECCION_HORAS", "4
 TELEFONO_CONTROL = os.environ.get("AHAHOME_TELEFONO_CONTROL", "").strip()
 # Modelos de verificación facial (python descargar_modelos.py)
 MODELOS_DIR = pathlib.Path(os.environ.get("AHAHOME_MODELOS_DIR", pathlib.Path(__file__).resolve().parent.parent / "modelos"))
+# Correos de las cuentas CEO (superadmin con acceso al centro de mando y a la auditoría), separados por coma
+CEO_EMAILS = {e.strip().lower() for e in os.environ.get("AHAHOME_CEO_EMAILS", "").split(",") if e.strip()}
 INSPECCION_USD = float(os.environ.get("AHAHOME_INSPECCION_USD", "10"))
