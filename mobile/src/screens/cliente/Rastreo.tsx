@@ -66,7 +66,7 @@ function Rastreador({ f }: { f: Fase[] }) {
 }
 
 /** Código para cerrar el servicio: se lo dicta al técnico o se lo manda por el chat si no está en casa. */
-function CodigoCierre({ id, token, enCasa }: { id: number; token: string; enCasa: boolean }) {
+function CodigoCierre({ id, token }: { id: number; token: string }) {
   const [enviado, setEnviado] = useState<string | null>(null);
   async function enviar() {
     try { await api(`/ordenes/${id}/chat`, { body: { texto: `🔐 Mi código para cerrar el servicio es ${token}`, foto: "" } }); setEnviado("Listo: se lo enviaste al técnico por el chat."); }
@@ -74,10 +74,10 @@ function CodigoCierre({ id, token, enCasa }: { id: number; token: string; enCasa
   }
   return (
     <View style={{ backgroundColor: C.marino, borderRadius: 20, padding: 16, gap: 10 }}>
-      <Text style={{ color: C.lima, fontWeight: "900", fontSize: 13, letterSpacing: 0.6 }}>CÓDIGO PARA CERRAR TU SERVICIO</Text>
+      <Text style={{ color: C.lima, fontWeight: "900", fontSize: 13, letterSpacing: 0.6 }}>CIERRE DEL SERVICIO · TU CÓDIGO</Text>
       <Text accessibilityLabel={`Código ${token.split("").join(" ")}`} style={{ color: C.blanco, fontSize: 42, fontWeight: "900", letterSpacing: 12, textAlign: "center" }}>{token}</Text>
       <Text style={{ color: "#DCDEF0", fontSize: 13.5 }}>
-        {enCasa ? "Cuando el técnico termine y revises la instalación, díctale este código para cerrar el servicio." : "Cuando el técnico termine, díctale este código para cerrar el servicio."} ¿No estás en casa? Envíaselo por el chat.
+        Cuando el técnico termine y revises la instalación, díctale este código para cerrar el servicio. ¿No estás en casa? Envíaselo por el chat.
       </Text>
       <Boton titulo="Enviar el código por el chat" tipo="lima" icono="chatbubble-ellipses" onPress={enviar} />
       {enviado ? <Text style={{ color: C.lima, fontWeight: "700", fontSize: 13 }}>{enviado}</Text> : null}
@@ -143,7 +143,6 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
         <Text style={{ fontSize: 14, fontWeight: "900", color: colorEstado }}>{estadoCorto}</Text>
       </View>
       <Rastreador f={f} />
-      {o.cierre?.token ? <CodigoCierre id={o.id} token={o.cierre.token} enCasa={o.estado === "en_progreso"} /> : null}
       <Text style={{ fontSize: 12.5, color: C.gris, marginTop: -6 }}>{o.codigo} · {o.tipo_servicio_texto}</Text>
 
       {o.pausa?.activa ? (
@@ -230,6 +229,13 @@ export default function Rastreo({ id, inicio }: { id: number; inicio?: boolean }
         ) : null}
         {o.pago_instalacion.pagado ? <PagoServicio pago={o.pago_instalacion} titulo="TU PAGO EN LA TIENDA" donde="pagado en la tienda" /> : null}
       </Tarjeta>
+
+      {o.cierre?.token ? <CodigoCierre id={o.id} token={o.cierre.token} /> : o.estado === "en_ruta" ? (
+        <View style={{ borderRadius: 20, borderWidth: 2, borderStyle: "dashed", borderColor: C.borde, padding: 16, gap: 4 }}>
+          <Text style={{ color: C.marino, fontWeight: "900", fontSize: 13, letterSpacing: 0.6 }}>CIERRE DEL SERVICIO</Text>
+          <Texto gris size={13.5}>Tu código para cerrar el servicio aparecerá aquí cuando el técnico llegue.</Texto>
+        </View>
+      ) : null}
 
       {o.estado === "completado" ? (
         <Tarjeta>

@@ -811,6 +811,8 @@ def test_cierre_con_codigo_del_cliente(client):
     cliente = login(client, "maria@ahahome.test")
     client.post(f"/tecnico/ordenes/{o['id']}/confirmar", headers=tecnico)
     client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=tecnico)
+    assert client.get(f"/ordenes/{o['id']}", headers=cliente).json()["cierre"] is None  # en ruta: todavía no
+    client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
     vc = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
     token = vc["cierre"]["token"]
     assert len(token) == 6 and token.isdigit()
@@ -818,7 +820,6 @@ def test_cierre_con_codigo_del_cliente(client):
     assert "token" not in vt["cierre"] and vt["cierre"]["requiere_token"]
     sup = login(client, "supervisor@ahahome.test")
     assert client.get(f"/ordenes/{o['id']}", headers=sup).json()["cierre"]["token"] == token
-    client.post(f"/tecnico/ordenes/{o['id']}/llegada", headers=tecnico)
     req = vt["checklist_requerido"]
     client.put(f"/tecnico/ordenes/{o['id']}/checklist", json={"items": {k: True for k in req}}, headers=tecnico)
     client.put(f"/tecnico/ordenes/{o['id']}/fotos", json={"fotos": {k: "x.jpg" for k in vt["fotos_requeridas"]}}, headers=tecnico)

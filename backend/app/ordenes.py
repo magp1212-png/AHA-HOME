@@ -231,7 +231,7 @@ def vista(orden: Orden, rol: str) -> dict:
         d["ayudantes"] = [ficha_cliente(a) for a in orden.ayudantes] if en_camino else []
         d["tecnico_asignado"] = orden.tecnico is not None
         # Código de cierre: el cliente se lo dicta al técnico (o se lo manda por el chat) cuando termina el servicio
-        d["cierre"] = {"token": orden.token_cierre} if orden.estado in ("en_ruta", "en_progreso") and orden.token_cierre else None
+        d["cierre"] = {"token": orden.token_cierre} if orden.estado == "en_progreso" and orden.token_cierre else None
     else:
         d["tecnico"] = ficha(orden.tecnico)
         d["ayudantes"] = [ficha(a) for a in orden.ayudantes]
