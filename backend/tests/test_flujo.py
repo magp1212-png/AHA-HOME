@@ -182,10 +182,10 @@ def test_registro_en_app_y_alta_en_oficina(client):
     assert any("bancarios" in f for f in r.json()["detail"]["faltan"])
     client.put(f"/supervisor/tecnicos/{tec_id}/cuenta-bancaria", json={"banco": "Banco de Venezuela", "tipo": "ahorro",
                "numero": "0102-0000-00-0000000000", "titular": "Kevin Suárez", "cedula": "V-25123456"}, headers=oficina)
-    for tipo in ("foto_perfil", "cedula", "licencia", "vehiculo_titulo", "vehiculo_seguro"):
+    for tipo in ("foto_perfil", "cedula", "licencia", "vehiculo_titulo", "vehiculo_rcv", "vehiculo_seguro"):
         client.post(f"/supervisor/tecnicos/{tec_id}/documentos", json={"tipo": tipo, "url": f"/archivos/{tipo}.jpg"}, headers=oficina)
     exp = client.get(f"/supervisor/tecnicos/{tec_id}/expediente", headers=oficina).json()
-    assert len(exp["documentos"]) == 5 and exp["documentos_faltantes"] == []
+    assert len(exp["documentos"]) == 6 and "vehiculo_rcv" in exp["tipos_documento"] and exp["documentos_faltantes"] == []
     assert client.post(f"/supervisor/tecnicos/{tec_id}/alta", json={"grupo": "X"}, headers=oficina).status_code == 422
     r = client.post(f"/supervisor/tecnicos/{tec_id}/alta", json={"grupo": "B"}, headers=oficina).json()
     assert r["verificado"] and r["grupo"] == "B" and r["foto_perfil"] == "/archivos/foto_perfil.jpg"
