@@ -7,7 +7,7 @@ REM  Lo arranca la tarea programada "aha home API" (SYSTEM, al iniciar Windows).
 REM ============================================================================
 cd /d "%~dp0..\backend"
 if not exist logs mkdir logs
-set AHAHOME_PUBLIC_URL=https://api.ahahome.app
+set AHAHOME_PUBLIC_URL=https://api-home.aha-go.com
 :loop
 echo [%date% %time%] arrancando uvicorn >> logs\arranques.log
 .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8096 --proxy-headers --forwarded-allow-ips=127.0.0.1 >> logs\api.log 2>&1

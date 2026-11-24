@@ -40,7 +40,7 @@
   const TITULOS = { inicio: ["Tableros", "Panel principal"], tecnicos: ["Técnicos", "Técnicos y ayudantes"], empresas: ["Registros", "Empresas aliadas"], clientes: ["Registros", "Clientes"],
     equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Órdenes", "Lista"], transacciones: ["Órdenes", "Transacciones"],
     mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Órdenes", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
-    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"], usuarios: ["Centro de mando", "Usuarios y permisos"],
+    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"], usuarios: ["Centro de mando", "Usuarios y permisos"], correos: ["Centro de mando", "Correos corporativos"],
     tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
 
   // Permiso que necesita cada pantalla (el CEO lo asigna a cada usuario)
@@ -63,7 +63,7 @@
       h += `<div class="sub">${m.hijos.map(([k, t, c]) => `<a href="#${k}" class="${S.ruta === k ? "on" : ""}">${t}${c && S.cuentas?.[c] ? `<span class="cuenta">${S.cuentas[c]}</span>` : ""}</a>`).join("")}</div>`;
     }
     if (S.yo?.es_ceo) h += `<div style="margin:14px 12px 4px;font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--suave)">CENTRO DE MANDO (CEO)</div>`
-      + it("usuarios", "Usuarios y permisos", "🔑") + it("auditoria", "Auditoría del equipo", "🛡");
+      + it("usuarios", "Usuarios y permisos", "🔑") + it("correos", "Correos corporativos", "✉") + it("auditoria", "Auditoría del equipo", "🛡");
     return h;
   }
 
@@ -297,7 +297,8 @@
 
   // ---------- Centro de mando: usuarios del personal, claves y limitaciones ----------
   async function usuarios(main) {
-    const [cat, us, ts] = await Promise.all([api("/ceo/permisos"), api("/ceo/usuarios"), api("/admin/tiendas")]);
+    const [cat, us, ts, cc] = await Promise.all([api("/ceo/permisos"), api("/ceo/usuarios"), api("/admin/tiendas"), api("/ceo/correos")]);
+    S.dominio = cc.dominio;
     main.innerHTML += `<p class="total" style="margin-top:-6px">Aquí creas las cuentas de las personas que entran al superadministrador, al centro de control y a la caja: su usuario, su clave y lo que pueden ver o hacer. Todo queda en la auditoría.</p>
       <div style="margin:14px 0"><button class="btn pri" id="nu">＋ Nuevo usuario</button></div>
       <div class="tabla"><table><thead><tr><th>Nombre</th><th>Rol</th><th>Usuario (correo)</th><th>Tienda</th><th>Permisos</th><th>Clave</th><th>Último acceso</th><th>Estado</th><th></th></tr></thead><tbody>
@@ -329,6 +330,13 @@
     document.body.appendChild(c);
     const verTienda = () => ($("#ftw").style.display = ["agente", "tecnico_supervisor"].includes($("#fr").value) ? "block" : "none");
     verTienda();
+    if (!u) {  // sugiere el correo corporativo nombre.apellido@aha-go.com
+      let tocado = false;
+      $("#fe").placeholder = `nombre.apellido@${S.dominio}`;
+      $("#fe").oninput = () => (tocado = true);
+      $("#fn").oninput = () => { if (tocado) return; const w = $("#fn").value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z ]/g, "").trim().split(/\s+/).filter(Boolean);
+        $("#fe").value = w.length ? `${w[0]}${w[1] ? "." + w[1] : ""}@${S.dominio}` : ""; };
+    }
     $("#fr").onchange = () => { verTienda(); if (!u) c.querySelectorAll("[data-p]").forEach((x) => (x.checked = cat.por_rol[$("#fr").value].includes(x.dataset.p))); };
     let delRol = false;
     $("#dr").onclick = (e) => { e.preventDefault(); delRol = true; c.querySelectorAll("[data-p]").forEach((x) => (x.checked = cat.por_rol[$("#fr").value].includes(x.dataset.p))); };
@@ -347,6 +355,45 @@
     };
     const rc = $("#rc"); if (rc) rc.onclick = () => api(`/ceo/usuarios/${u.id}/clave`, { body: {} }).then((r) => mostrarClave(r.clave, u.nombre)).catch(err);
     const ac = $("#ac"); if (ac) ac.onclick = () => api(`/ceo/usuarios/${u.id}`, { method: "PUT", body: { activo: !u.activo } }).then(() => { c.remove(); pintar(); }).catch(err);
+  }
+
+  // ---------- Correos corporativos (solo CEO) ----------
+  async function correos(main) {
+    const r = await api("/ceo/correos");
+    const TIPO = { persona: ["Persona", "ok"], area: ["Área", "neutro"], sistema: ["Sistema", "pend"] };
+    const n = (t) => r.correos.filter((c) => c.tipo === t).length;
+    main.innerHTML += `<p class="total" style="margin-top:-6px">Base de datos de los correos @${esc(r.dominio)}: el de cada persona del equipo, el de cada área y los que usa la app para escribir. Cuando creas un usuario con correo @${esc(r.dominio)}, se agrega aquí solo.</p>
+      <div class="tarjetas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:14px 0">
+        ${[["Personas", n("persona")], ["Áreas", n("area")], ["Sistema", n("sistema")], ["Total", r.correos.length]].map(([t, v]) => `<div class="card" style="min-height:0"><div class="total">${t}</div><div class="grande">${v}</div></div>`).join("")}</div>
+      <div style="margin:14px 0"><button class="btn pri" id="nc">＋ Nuevo correo</button></div>
+      <div class="tabla"><table><thead><tr><th>Correo</th><th>Tipo</th><th>Para qué / quién</th><th>Persona del equipo</th><th>Llega a (reenvío)</th><th>Estado</th><th></th></tr></thead><tbody>
+      ${r.correos.map((c, i) => `<tr><td class="nombre">${esc(c.direccion)}</td><td><span class="est ${TIPO[c.tipo][1]}">${TIPO[c.tipo][0]}</span></td><td>${esc(c.descripcion || "—")}</td>
+        <td>${c.persona ? `${esc(c.persona)}<br><small class="total">${esc(c.rol_texto)}</small>` : "—"}</td><td>${esc(c.reenviar_a || "—")}</td>
+        <td><span class="est ${c.activo ? "ok" : "mal"}">${c.activo ? "Activo" : "Inactivo"}</span></td><td><div class="acc"><button title="Editar" data-c="${i}">✎</button></div></td></tr>`).join("")}</tbody></table></div>`;
+    $("#nc").onclick = () => fichaCorreo(r.dominio, null);
+    main.querySelectorAll("[data-c]").forEach((b) => (b.onclick = () => fichaCorreo(r.dominio, r.correos[b.dataset.c])));
+  }
+  function fichaCorreo(dom, k) {
+    document.querySelector(".cajon")?.remove();
+    const c = document.createElement("div"); c.className = "cajon";
+    const est = "width:100%;height:40px;border-radius:10px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 12px";
+    const lab = (t) => `<label style="display:block;font-size:13px;font-weight:700;margin-top:10px">${t}</label>`;
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="total">Centro de mando · Correos</span><button class="btn sec" id="cer">✕</button></div>
+      <h2 style="margin-top:8px">${k ? esc(k.direccion) : "Nuevo correo corporativo"}</h2>
+      ${k ? "" : `${lab("Correo")}<div style="display:flex;align-items:center;gap:6px"><input id="cu" placeholder="ventas" style="${est}"><b>@${esc(dom)}</b></div>`}
+      ${lab("Tipo")}<select id="ct" class="sel" style="width:100%;height:40px">${[["persona", "Persona del equipo"], ["area", "Área (lo leen varias personas)"], ["sistema", "Sistema (lo usa la app)"]].map(([v, t]) => `<option value="${v}" ${(k?.tipo || "area") === v ? "selected" : ""}>${t}</option>`).join("")}</select>
+      ${lab("Para qué / quién")}<input id="cd" value="${esc(k?.descripcion || "")}" style="${est}">
+      ${lab("Llega a (reenvío)")}<input id="cr" value="${esc(k?.reenviar_a || "")}" placeholder="buzón donde se lee, separados por coma" style="${est}">
+      <div class="total">Opcional: a qué buzón(es) llega este correo. Se configura igual en Cloudflare › Email Routing.</div>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="ca" ${k?.activo === false ? "" : "checked"}> Activo</label>
+      <div style="margin-top:18px"><button class="btn pri" id="cg">${k ? "Guardar cambios" : "Agregar correo"}</button></div><p class="error" id="err"></p>`;
+    document.body.appendChild(c);
+    $("#cer").onclick = () => c.remove();
+    $("#cg").onclick = async () => {
+      const body = { usuario: k ? "" : $("#cu").value, tipo: $("#ct").value, descripcion: $("#cd").value, reenviar_a: $("#cr").value, activo: $("#ca").checked };
+      try { await api(k ? `/ceo/correos/${k.id}` : "/ceo/correos", k ? { method: "PUT", body } : { body }); c.remove(); pintar(true); }
+      catch (e) { $("#err").textContent = e.message; }
+    };
   }
 
   function cambioObligatorio(app) {
@@ -372,7 +419,7 @@
       if (!["supervisor", "superadmin"].includes(S.yo.rol)) { salir(); alert("El panel es solo para el superadmin y el centro de control. La caja usa la app."); return; }
     }
     if (S.yo.clave_temporal) return cambioObligatorio(app);
-    if (!puede(S.ruta) && !(S.ruta === "usuarios" && S.yo.es_ceo) && !(S.ruta === "auditoria" && S.yo.es_ceo)) {
+    if (!puede(S.ruta) && !(S.ruta === "usuarios" && S.yo.es_ceo) && !(S.ruta === "auditoria" && S.yo.es_ceo) && !(S.ruta === "correos" && S.yo.es_ceo)) {
       const primera = Object.keys(PERM_RUTA).find((k) => puede(k)); S.ruta = primera || "sinpermisos"; location.hash = S.ruta;
     }
     if (puedeHacer("ver_tablero")) try { const r = await datos(30); S.cuentas = { verif: r.verificaciones_pendientes, rep: r.reportes_abiertos }; S.notif = r.verificaciones_pendientes + r.reportes_abiertos; } catch { /* sin datos */ }
@@ -404,6 +451,7 @@
     try {
       if (S.ruta === "sinpermisos") main.innerHTML += `<p class="total">Tu cuenta todavía no tiene permisos. Pídeselos al CEO.</p>`;
       else if (S.ruta === "usuarios") await usuarios(main);
+      else if (S.ruta === "correos") await correos(main);
       else if (S.ruta === "inicio") await inicio(main);
       else if (S.ruta === "anuncios") await anuncios(main);
       else if (S.ruta === "auditoria") await auditoria(main);

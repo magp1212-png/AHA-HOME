@@ -5,16 +5,16 @@ import { Pressable, Switch, Text, View } from "react-native";
 import { api } from "../../api";
 import { useNav } from "../../nav";
 import type { Orden } from "../../types";
-import { aBs, fmtBs, type Moneda, monedaDe, MonedaToggle, MontoDual, useMonedaCaja, useTasa } from "../../components";
+import { aBs, fmtBs, type Moneda, monedaDe, MonedaToggle, MontoDual, precioDe, type ServicioArt, useMonedaCaja, usePreciosCaja, useTasa } from "../../components";
 import { Aviso, Boton, C, Campo, Fila, Opcion, Pantalla, Seccion, Tarjeta, Texto } from "../../ui";
 import { FRANJAS, proximosDias } from "../cliente/Reprogramar";
 
-const TIPOS: [string, string][] = [["nevera", "Nevera"], ["lavadora", "Lavadora"], ["secadora", "Secadora"], ["aire_acondicionado", "Aire acond."],
-  ["cocina", "Cocina"], ["televisor", "Televisor"], ["otro", "Otro"]];
-type Art = { tipo: string; descripcion: string; marca: string; modelo: string; serial: string; instalar: boolean };
-const nuevoArt = (): Art => ({ tipo: "nevera", descripcion: "", marca: "", modelo: "", serial: "", instalar: false });
+const OTRO = "Otro (no está en la tabla)";
+type Art = { precio_id: number | null; cat: string; descripcion: string; marca: string; modelo: string; serial: string; instalar: boolean };
+const nuevoArt = (): Art => ({ precio_id: null, cat: "", descripcion: "", marca: "", modelo: "", serial: "", instalar: false });
 
-/** La caja Damasco registra al cliente y todo lo que compró. Todo se traslada; se instala solo lo que el cliente marca y paga aquí. */
+/** La caja Damasco registra al cliente y todo lo que compró, y cobra según la tabulación de precios del superadmin:
+ *  traslado, instalación o los dos, por artículo exacto. Lo que no tiene precio todavía queda «por definir». */
 export default function NuevaOrden() {
   const nav = useNav();
   const dias = proximosDias();
@@ -25,25 +25,26 @@ export default function NuevaOrden() {
   const [soloInst, setSoloInst] = useState(false);
   const [fecha, setFecha] = useState(dias[0].iso);
   const [franja, setFranja] = useState(FRANJAS[1]);
-  const [tarifas, setTarifas] = useState<Record<string, number>>({});
+  const { inspeccion: costoInsp, items } = usePreciosCaja();
+  const categorias = useMemo(() => [...new Set(items.map((i) => i.categoria))], [items]);
+  const item = (a: Art) => items.find((x) => x.id === a.precio_id);
   const [metodos, setMetodos] = useState<{ id: string; texto: string }[]>([]);
   const [metodo, setMetodo] = useState<string | null>(null);
   const [ref, setRef] = useState("");
   const [terminos, setTerminos] = useState(false);
   const [inspeccion, setInspeccion] = useState(false);
   const [residuos, setResiduos] = useState(true);
-  const [costoInsp, setCostoInsp] = useState(10);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
-    api<{ tipo: string; precio: string }[]>("/tarifas").then((t) => setTarifas(Object.fromEntries(t.map((x) => [x.tipo, Number(x.precio)])))).catch(() => {});
     api<{ id: string; texto: string }[]>("/metodos-pago").then(setMetodos).catch(() => {});
-    api<{ costo: string }>("/inspeccion/costo").then((r) => setCostoInsp(Number(r.costo))).catch(() => {});
   }, []);
 
   const aInstalar = arts.filter((a) => a.instalar);
-  const instalacion = useMemo(() => aInstalar.reduce((s, a) => s + (tarifas[a.tipo] ?? 0), 0), [aInstalar, tarifas]);
+  const servicioDe = (a: Art): ServicioArt => (soloInst ? "instalacion" : a.instalar ? "combo" : "traslado");
+  const precioArt = (a: Art) => precioDe(item(a), servicioDe(a));
+  const instalacion = arts.reduce((s, a) => s + (precioArt(a) ?? 0), 0);
   const conInsp = inspeccion && (aInstalar.length > 0 || soloInst);
   // Todo se cobra en caja, en el momento: la instalación y, si la pide, la inspección
   const total = instalacion + (conInsp ? costoInsp : 0);
@@ -54,7 +55,8 @@ export default function NuevaOrden() {
   const elegirMetodo = (id: string) => { setMetodo(id); setMoneda(monedaDe(id) as Moneda); };
   const cambiarMoneda = (mo: Moneda) => { setMoneda(mo); if (metodo && monedaDe(metodo) !== mo) setMetodo(null); };
   const cobroTexto = monedaDe(metodo) === "Bs" ? (aBs(total, tasa) !== null ? `Bs ${fmtBs(aBs(total, tasa)!)}` : "falta la tasa del día") : `USD ${fmtBs(total)}`;
-  const porDefinir = aInstalar.some((a) => !tarifas[a.tipo]);
+  const porDefinir = arts.some((a) => precioArt(a) === null);
+  const SERV_TXT: Record<ServicioArt, string> = { traslado: "Traslado", instalacion: "Instalación", combo: "Traslado + instalación" };
   const servicio = soloInst ? "Solo instalación" : aInstalar.length ? "Traslado e instalación" : "Traslado";
   const setArt = (i: number, k: keyof Art, v: any) => setArts(arts.map((a, j) => (j === i ? { ...a, [k]: v } : a)));
 
@@ -63,7 +65,8 @@ export default function NuevaOrden() {
     try {
       const o = await api<Orden>("/ordenes", { body: {
         cliente_nombre: c.nombre, cliente_telefono: c.telefono, direccion: c.direccion, referencia: c.referencia, zona,
-        articulos: arts.map((a) => ({ ...a, instalar: soloInst ? true : a.instalar })), solo_instalacion: soloInst,
+        articulos: arts.map((a) => ({ precio_id: a.precio_id, tipo: "otro", descripcion: a.descripcion, marca: a.marca, modelo: a.modelo, serial: a.serial,
+          instalar: soloInst ? true : a.instalar })), solo_instalacion: soloInst,
         pago: total > 0 && metodo ? { metodo, referencia: ref } : null, numero_factura: c.numero_factura,
         fecha, franja, acepta_terminos: terminos, tipo_inmueble: inmueble, requiere_inspeccion: conInsp, retirar_residuos: residuos,
       } });
@@ -73,7 +76,7 @@ export default function NuevaOrden() {
     setCargando(false);
   }
 
-  const listo = c.nombre && c.telefono && c.direccion && inmueble && terminos && arts.every((a) => a.tipo !== "otro" || a.descripcion) && (total === 0 || metodo);
+  const listo = c.nombre && c.telefono && c.direccion && inmueble && terminos && arts.every((a) => a.precio_id || (a.cat === OTRO && a.descripcion)) && (total === 0 || metodo);
 
   return (
     <Pantalla titulo="Nueva orden" subtitulo={servicio}
@@ -115,15 +118,23 @@ export default function NuevaOrden() {
               {arts.length > 1 ? <Pressable accessibilityLabel="Quitar artículo" onPress={() => setArts(arts.filter((_, j) => j !== i))} style={{ padding: 8 }}>
                 <Ionicons name="trash-outline" size={20} color={C.error} /></Pressable> : null}
             </View>
-            <Fila wrap>{TIPOS.map(([k, t]) => <Opcion key={k} texto={t} activo={a.tipo === k} onPress={() => setArt(i, "tipo", k)} />)}</Fila>
-            {a.tipo === "otro" ? <Campo etiqueta="¿Qué es?" value={a.descripcion} onChangeText={(v) => setArt(i, "descripcion", v)} placeholder="Ej. juego de comedor 6 puestos" /> : null}
+            <Fila wrap>{[...categorias, OTRO].map((k) => <Opcion key={k} texto={k} activo={a.cat === k}
+              onPress={() => setArts(arts.map((x, j) => (j === i ? { ...x, cat: k, precio_id: null } : x)))} />)}</Fila>
+            {a.cat && a.cat !== OTRO ? <Fila wrap>{items.filter((x) => x.categoria === a.cat).map((x) => (
+              <Opcion key={x.id} texto={x.nombre} activo={a.precio_id === x.id} onPress={() => setArt(i, "precio_id", x.id)} />))}</Fila> : null}
+            {a.cat === OTRO ? <Campo etiqueta="¿Qué es?" value={a.descripcion} onChangeText={(v) => setArt(i, "descripcion", v)} placeholder="Ej. juego de comedor 6 puestos" /> : null}
+            {a.precio_id || a.cat === OTRO ? (
+              <View style={{ flexDirection: "row", justifyContent: "space-between", backgroundColor: C.limaSuave, borderRadius: 10, padding: 10 }}>
+                <Texto size={14}>{SERV_TXT[servicioDe(a)]}</Texto>
+                <Texto negrita size={14}>{precioArt(a) !== null ? `USD ${fmtBs(precioArt(a)!)}` : "Precio por definir"}</Texto>
+              </View>) : null}
             <Fila><View style={{ flex: 1 }}><Campo etiqueta="Marca" value={a.marca} onChangeText={(v) => setArt(i, "marca", v)} /></View>
               <View style={{ flex: 1 }}><Campo etiqueta="Modelo" value={a.modelo} onChangeText={(v) => setArt(i, "modelo", v)} /></View></Fila>
             <Campo etiqueta="Serial" value={a.serial} onChangeText={(v) => setArt(i, "serial", v)} />
             {!soloInst ? (
               <Pressable onPress={() => setArt(i, "instalar", !a.instalar)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
                 <Ionicons name={a.instalar ? "checkbox" : "square-outline"} size={26} color={C.marino} />
-                <Text style={{ flex: 1, fontSize: 15, color: C.texto }}>El cliente quiere instalación {tarifas[a.tipo] ? `(USD ${tarifas[a.tipo].toFixed(2)})` : "(precio por definir)"}</Text>
+                <Text style={{ flex: 1, fontSize: 15, color: C.texto }}>El cliente quiere instalación {precioDe(item(a), "combo") ? `(traslado + instalación USD ${fmtBs(precioDe(item(a), "combo")!)})` : "(precio por definir)"}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -151,12 +162,12 @@ export default function NuevaOrden() {
           <Text style={{ flex: 1, fontSize: 15, color: C.texto }}>El cliente pide inspección antes del retiro (el técnico visita y presupuesta materiales) · USD {costoInsp.toFixed(2)}</Text>
         </Pressable>
       ) : null}
-      {aInstalar.length || soloInst ? (
+      {(
         <Tarjeta>
           <Seccion>PAGO EN CAJA</Seccion>
           <MonedaToggle moneda={moneda} onCambiar={cambiarMoneda} tasa={tasa} />
-          {instalacion > 0 && !porDefinir ? <View><Texto>Instalación</Texto><MontoDual usd={instalacion} tasa={tasa} moneda={moneda} /></View>
-            : <Aviso tono="info" texto="Precio de instalación por definir: no se cobra por ahora." />}
+          {instalacion > 0 ? <View><Texto>Servicio ({arts.filter((a) => precioArt(a) !== null).length} artículo(s), según la tabla de precios)</Texto><MontoDual usd={instalacion} tasa={tasa} moneda={moneda} /></View> : null}
+          {porDefinir ? <Aviso tono="info" texto="Hay artículos con precio por definir en la tabla del superadmin: esos no se cobran por ahora." /> : null}
           {conInsp ? <View><Texto>Inspección</Texto><MontoDual usd={costoInsp} tasa={tasa} moneda={moneda} /></View> : null}
           {total > 0 ? (
             <>
@@ -169,7 +180,7 @@ export default function NuevaOrden() {
             </>
           ) : null}
         </Tarjeta>
-      ) : null}
+      )}
 
       <Pressable onPress={() => setTerminos(!terminos)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
         <Ionicons name={terminos ? "checkbox" : "square-outline"} size={26} color={C.marino} />

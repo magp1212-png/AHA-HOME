@@ -48,8 +48,8 @@ Antes de cada versión, sube `version`, `ios.buildNumber` y `android.versionCode
 >
 > Piloto en Tiendas Damasco San Martín, Caracas.
 
-- **URL de privacidad:** `https://api.ahahome.app/legal/privacidad`
-- **URL de soporte y de eliminación de cuenta:** `https://api.ahahome.app/cuenta/eliminar`
+- **URL de privacidad:** `https://api-home.aha-go.com/legal/privacidad`
+- **URL de soporte y de eliminación de cuenta:** `https://api-home.aha-go.com/cuenta/eliminar`
 - **Edad:** 4+, sin contenido sensible.
 - **Privacidad de la app** (formulario de Apple y sección «Seguridad de los datos» de Google):
   - Se recogen: nombre, correo, teléfono, foto, dirección, ubicación precisa (solo técnicos, mientras están en servicio) e identificadores de usuario.

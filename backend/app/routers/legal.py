@@ -18,7 +18,7 @@ router = APIRouter(tags=["legal"])
 
 ACTUALIZADO = "18 de noviembre de 2026"
 EMPRESA = "Onyxa LLC"
-CONTACTO = "contacto@ahahome.app"
+CONTACTO = "contacto@aha-go.com"
 
 TERMINOS = f"""
 <h1>Términos de uso</h1>

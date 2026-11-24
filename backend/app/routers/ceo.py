@@ -134,6 +134,7 @@ def crear_personal(body: NuevoPersonal, user: User = Depends(solo_ceo), db: Sess
              password_hash=hash_password(clave), permisos=body.permisos, clave_temporal=True, creado_por=user.id, email_verificado=True)
     db.add(u)
     db.commit()
+    registrar_correo_persona(db, u)
     return _vista_personal(db, u) | {"clave": clave}
 
 
@@ -182,3 +183,96 @@ def restablecer_clave(uid: int, user: User = Depends(solo_ceo), db: Session = De
     u.password_hash, u.clave_temporal = hash_password(clave), True
     db.commit()
     return {"clave": clave}
+
+
+# ---------- Base de datos de correos corporativos (@aha-go.com) ----------
+from .. import config
+from ..models import CORREOS_BASE, CorreoCorporativo
+
+
+def sembrar_correos(db: Session) -> None:
+    """Crea las direcciones de área y del sistema y la del CEO si aún no existen."""
+    dom = config.CORREO_DOMINIO
+    existentes = set(db.scalars(select(CorreoCorporativo.direccion)))
+    for nombre, tipo, desc in CORREOS_BASE:
+        if f"{nombre}@{dom}" not in existentes:
+            db.add(CorreoCorporativo(direccion=f"{nombre}@{dom}", tipo=tipo, descripcion=desc))
+    for e in config.CEO_EMAILS:
+        if e.endswith("@" + dom) and e not in existentes:
+            u = db.scalar(select(User).where(User.email == e))
+            db.add(CorreoCorporativo(direccion=e, tipo="persona", descripcion="CEO", user_id=u.id if u else None))
+    db.commit()
+
+
+def registrar_correo_persona(db: Session, u: User) -> None:
+    """Cuando el CEO crea a alguien con correo @aha-go.com, queda en la base de datos de correos."""
+    if not u.email.endswith("@" + config.CORREO_DOMINIO):
+        return
+    c = db.scalar(select(CorreoCorporativo).where(CorreoCorporativo.direccion == u.email))
+    if c:
+        c.user_id = u.id
+    else:
+        db.add(CorreoCorporativo(direccion=u.email, tipo="persona", descripcion=ROLES_PERSONAL.get(u.rol, u.rol), user_id=u.id))
+    db.commit()
+
+
+def _vista_correo(db: Session, c: CorreoCorporativo) -> dict:
+    u = db.get(User, c.user_id) if c.user_id else None
+    return {"id": c.id, "direccion": c.direccion, "tipo": c.tipo, "descripcion": c.descripcion, "reenviar_a": c.reenviar_a or "",
+            "activo": c.activo, "persona": u.nombre if u else None, "persona_id": u.id if u else None,
+            "rol_texto": ("CEO" if u.es_ceo else ROL_TEXTO.get(u.rol, u.rol)) if u else None, "creado": _iso(c.creado)}
+
+
+@router.get("/correos")
+def correos(user: User = Depends(solo_ceo), db: Session = Depends(get_db)):
+    sembrar_correos(db)
+    orden = {"persona": 0, "area": 1, "sistema": 2}
+    filas = [_vista_correo(db, c) for c in db.scalars(select(CorreoCorporativo))]
+    filas.sort(key=lambda f: (orden.get(f["tipo"], 9), f["direccion"]))
+    return {"dominio": config.CORREO_DOMINIO, "correos": filas}
+
+
+class DatosCorreo(BaseModel):
+    usuario: str = Field(default="", max_length=80)  # la parte antes de la @
+    tipo: str = "area"
+    descripcion: str = Field(default="", max_length=200)
+    reenviar_a: str = Field(default="", max_length=300)
+    activo: bool = True
+
+
+def _reenvios(txt: str) -> str | None:
+    lista = [x.strip().lower() for x in txt.replace(";", ",").split(",") if x.strip()]
+    for x in lista:
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", x):
+            raise HTTPException(422, f"Correo de reenvío no válido: {x}")
+    return ", ".join(lista) or None
+
+
+@router.post("/correos")
+def crear_correo(body: DatosCorreo, user: User = Depends(solo_ceo), db: Session = Depends(get_db)):
+    nombre = body.usuario.strip().lower()
+    if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,62}", nombre):
+        raise HTTPException(422, "Escribe solo la parte antes de la @ (letras, números, punto, guion)")
+    if body.tipo not in ("persona", "area", "sistema"):
+        raise HTTPException(422, "Tipo no válido")
+    direccion = f"{nombre}@{config.CORREO_DOMINIO}"
+    if db.scalar(select(CorreoCorporativo).where(CorreoCorporativo.direccion == direccion)):
+        raise HTTPException(409, "Ese correo ya está en la base de datos")
+    u = db.scalar(select(User).where(User.email == direccion))
+    c = CorreoCorporativo(direccion=direccion, tipo=body.tipo, descripcion=body.descripcion.strip(), reenviar_a=_reenvios(body.reenviar_a),
+                          activo=body.activo, user_id=u.id if u else None)
+    db.add(c)
+    db.commit()
+    return _vista_correo(db, c)
+
+
+@router.put("/correos/{cid}")
+def editar_correo(cid: int, body: DatosCorreo, user: User = Depends(solo_ceo), db: Session = Depends(get_db)):
+    c = db.get(CorreoCorporativo, cid)
+    if not c:
+        raise HTTPException(404, "Correo no encontrado")
+    if body.tipo in ("persona", "area", "sistema"):
+        c.tipo = body.tipo
+    c.descripcion, c.reenviar_a, c.activo = body.descripcion.strip(), _reenvios(body.reenviar_a), body.activo
+    db.commit()
+    return _vista_correo(db, c)

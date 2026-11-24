@@ -25,7 +25,8 @@ export const aBs = (usd: number, tasa: Tasa | null) => (tasa?.bs_por_usd ? Math.
 export function useTasa() {
   const [t, setT] = useState<Tasa | null>(null);
   const cargar = () => api<Tasa>("/tasa").then(setT).catch(() => {});
-  useEffect(() => { cargar(); }, []);
+  // la tasa que cargue el superadmin llega sola a la caja (se revisa cada 30 s)
+  useEffect(() => { cargar(); const i = setInterval(cargar, 30000); return () => clearInterval(i); }, []);
   return { tasa: t, recargar: cargar };
 }
 
@@ -75,31 +76,65 @@ export function MonedaToggle({ moneda, onCambiar, tasa }: { moneda: Moneda; onCa
   );
 }
 
-/** Inicio de la caja: tasa del día, precios y calculadora, en la moneda que pida el cliente. */
+export type PrecioCaja = { id: number; clave: string; nombre: string; categoria: string; tipo_equipo: string; traslado: string | null; instalacion: string | null; combo: string | null };
+export type ServicioArt = "traslado" | "instalacion" | "combo";
+
+/** Tabulación de precios del superadmin, la que usa la caja para cobrar. */
+export function usePreciosCaja() {
+  const [r, setR] = useState<{ inspeccion: number; items: PrecioCaja[] }>({ inspeccion: 10, items: [] });
+  useEffect(() => {
+    // lo que el superadmin cambie en la tabulación se ve en la caja en menos de un minuto, sin cerrar la app
+    const cargar = () => api<{ inspeccion: string; items: PrecioCaja[] }>("/caja/precios").then((x) => setR({ inspeccion: Number(x.inspeccion), items: x.items })).catch(() => {});
+    cargar();
+    const t = setInterval(cargar, 30000);
+    return () => clearInterval(t);
+  }, []);
+  return r;
+}
+
+/** Precio (USD) de un artículo según el servicio; null = por definir. */
+export function precioDe(p: PrecioCaja | undefined, servicio: ServicioArt): number | null {
+  const v = p ? p[servicio] : null;
+  return v && Number(v) > 0 ? Number(v) : null;
+}
+
+/** Inicio de la caja: tasa del día, tabulación de precios y calculadora, en la moneda que pida el cliente. */
 export function PreciosCaja() {
   const { tasa } = useTasa();
   const [moneda, setMoneda] = useMonedaCaja();
-  const [costoInsp, setCostoInsp] = useState(10);
-  const [tarifas, setTarifas] = useState<{ tipo: string; tipo_texto: string; precio: string }[]>([]);
+  const { inspeccion, items } = usePreciosCaja();
   const [monto, setMonto] = useState("");
-  useEffect(() => {
-    api<{ costo: string }>("/inspeccion/costo").then((r) => setCostoInsp(Number(r.costo))).catch(() => {});
-    api<{ tipo: string; tipo_texto: string; precio: string }[]>("/tarifas").then(setTarifas).catch(() => {});
-  }, []);
+  const [abierto, setAbierto] = useState<string | null>(null);
   const mon: Moneda = tasa?.bs_por_usd ? moneda : "USD";
   const m = useMoneda(mon, tasa);
+  const ver = (v: string | null) => (v && Number(v) > 0 ? m(Number(v)) : "—");
   const valor = Number(monto.replace(/\./g, "").replace(",", ".")) || 0;
   const conv = mon === "Bs" ? (tasa?.bs_por_usd ? valor / Number(tasa.bs_por_usd) : null) : aBs(valor, tasa);
+  const categorias = [...new Set(items.map((i) => i.categoria))];
+  const conPrecio = items.some((i) => precioDe(i, "traslado") || precioDe(i, "instalacion") || precioDe(i, "combo"));
   return (
     <Tarjeta>
       <Seccion>PRECIOS · ¿EN QUÉ MONEDA LO PIDE EL CLIENTE?</Seccion>
       <MonedaToggle moneda={moneda} onCambiar={setMoneda} tasa={tasa} />
-      <View style={{ gap: 6 }}>
-        <Fila><Texto>Inspección del técnico</Texto><View style={{ flex: 1 }} /><Texto negrita>{m(costoInsp)}</Texto></Fila>
-        {tarifas.length ? tarifas.map((t) => (
-          <Fila key={t.tipo}><Texto>Instalación · {t.tipo_texto}</Texto><View style={{ flex: 1 }} /><Texto negrita>{m(Number(t.precio))}</Texto></Fila>
-        )) : <Texto gris size={13}>Instalación: precio por definir (la tabla de precios se carga más adelante).</Texto>}
+      <Fila><Texto>Inspección del técnico</Texto><View style={{ flex: 1 }} /><Texto negrita>{m(inspeccion)}</Texto></Fila>
+      {!conPrecio ? <Texto gris size={13}>Traslado e instalación: precios por definir. El superadmin los carga en la tabulación de precios.</Texto> : null}
+      <View style={{ flexDirection: "row", paddingTop: 4 }}>
+        <View style={{ flex: 1.6 }}><Texto gris size={12}>Artículo</Texto></View>
+        {["Traslado", "Instalación", "Ambos"].map((t) => <Text key={t} style={{ flex: 1, textAlign: "right", fontSize: 12, color: C.gris }}>{t}</Text>)}
       </View>
+      {categorias.map((cat) => (
+        <View key={cat} style={{ gap: 4 }}>
+          <Pressable onPress={() => setAbierto(abierto === cat ? null : cat)} style={{ flexDirection: "row", alignItems: "center", minHeight: 36 }}>
+            <View style={{ flex: 1 }}><Texto negrita size={14}>{cat}</Texto></View><Texto gris>{abierto === cat ? "▲" : "▼"}</Texto>
+          </Pressable>
+          {abierto === cat ? items.filter((i) => i.categoria === cat).map((i) => (
+            <View key={i.id} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 3 }}>
+              <View style={{ flex: 1.6 }}><Texto size={13}>{i.nombre}</Texto></View>
+              {[i.traslado, i.instalacion, i.combo].map((v, k) => <Text key={k} style={{ flex: 1, textAlign: "right", fontSize: 13, fontWeight: "700", color: C.texto }}>{ver(v)}</Text>)}
+            </View>
+          )) : null}
+        </View>
+      ))}
       <View style={{ height: 1, backgroundColor: C.linea }} />
       <Texto negrita size={14}>Calculadora</Texto>
       <Campo etiqueta={mon === "Bs" ? "Monto en bolívares" : "Monto en dólares"} value={monto} onChangeText={setMonto} keyboardType="decimal-pad" />

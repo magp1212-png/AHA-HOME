@@ -4,11 +4,11 @@
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "AHAHOME_API_URL": "https://api.ahahome.app" }
+      "env": { "AHAHOME_API_URL": "https://api-home.aha-go.com" }
     },
     "production": {
       "android": { "buildType": "app-bundle" },
-      "env": { "AHAHOME_API_URL": "https://api.ahahome.app" },
+      "env": { "AHAHOME_API_URL": "https://api-home.aha-go.com" },
       "ios": { "resourceClass": "m-medium" }
     }
   },

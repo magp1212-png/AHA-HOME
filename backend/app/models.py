@@ -369,7 +369,10 @@ class Articulo(Base):
     serial: Mapped[str] = mapped_column(String(80), default="")
     garantia: Mapped[str] = mapped_column(String(60), default="")
     instalar: Mapped[bool] = mapped_column(Boolean, default=False)
-    precio_instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    precio_instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)  # lo cobrado en caja por este artículo
+    # Tabulación del superadmin: artículo exacto y servicio cobrado (traslado | instalacion | combo)
+    precio_item_id: Mapped[int | None] = mapped_column(ForeignKey("precios.id"), nullable=True)
+    servicio: Mapped[str] = mapped_column(String(20), default="")
 
     orden: Mapped[Orden] = relationship(back_populates="articulos")
 
@@ -502,6 +505,31 @@ class PrecioItem(Base):
     combo_centavos: Mapped[int] = mapped_column(Integer, default=0)  # traslado + instalación (0 = suma de los dos)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     orden: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class CorreoCorporativo(Base):
+    """Base de datos de correos corporativos @aha-go.com: los de cada persona del equipo, los de cada área y los del sistema."""
+    __tablename__ = "correos_corporativos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    direccion: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    tipo: Mapped[str] = mapped_column(String(12), default="area")  # persona | area | sistema
+    descripcion: Mapped[str] = mapped_column(String(200), default="")
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    reenviar_a: Mapped[str | None] = mapped_column(String(300), nullable=True)  # a qué buzón(es) llega, separados por coma
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+
+
+# Direcciones de área y del sistema con las que arranca la base de datos de correos
+CORREOS_BASE = [
+    ("contacto", "area", "Contacto público (páginas legales, tiendas de apps)"),
+    ("soporte", "area", "Soporte a clientes y técnicos"),
+    ("control", "area", "Centro de control: órdenes del día y emergencias"),
+    ("tecnicos", "area", "Registro, expedientes y altas de técnicos"),
+    ("pagos", "area", "Pagos, liquidaciones y facturación"),
+    ("tiendas", "area", "Relación con las tiendas aliadas (Damasco)"),
+    ("no-responder", "sistema", "Remitente de los correos automáticos de la app"),
+]
 
 
 class Ajuste(Base):

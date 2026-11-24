@@ -40,6 +40,7 @@ import Incidencia from "./src/screens/tecnico/Incidencia";
 import InicioTecnico from "./src/screens/tecnico/InicioTecnico";
 import MapaTecnico from "./src/screens/tecnico/MapaTecnico";
 import OrdenesTecnico from "./src/screens/tecnico/OrdenesTecnico";
+import CambioClave from "./src/screens/CambioClave";
 import { SessionProvider, useSession } from "./src/session";
 import type { Rol } from "./src/types";
 import { C } from "./src/ui";
@@ -54,6 +55,7 @@ function inicioPara(rol: Rol | undefined): Route {
 function Router() {
   const { ready, token, perfil } = useSession();
   if (!ready) return <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.marino }}><ActivityIndicator color={C.lima} size="large" /></View>;
+  if (token && perfil?.clave_temporal) return <NavProvider key="clave" initial={{ name: "cambioClave" }}>{() => <CambioClave />}</NavProvider>;
   return (
     <NavProvider key={token ? `in-${perfil?.rol}` : "out"} initial={token ? inicioPara(perfil?.rol) : { name: "inicio" }}>
       {(r) => {

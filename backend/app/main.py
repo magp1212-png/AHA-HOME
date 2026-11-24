@@ -48,6 +48,15 @@ def _auditar(request: Request, estado: int) -> None:
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
+    # superad.aha-go.com abre directo el superadministrador
+    if request.url.path == "/" and request.headers.get("host", "").split(":")[0].startswith("superad."):
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/panel/", status_code=302)
+    # aha-go.com (sin www) lleva a www.aha-go.com
+    if request.headers.get("host", "").split(":")[0] == "aha-go.com":
+        from fastapi.responses import RedirectResponse
+        q = f"?{request.url.query}" if request.url.query else ""
+        return RedirectResponse(f"https://www.aha-go.com{request.url.path}{q}", status_code=301)
     response = await call_next(request)
     try:
         from starlette.concurrency import run_in_threadpool
@@ -80,6 +89,8 @@ def crear_tablas() -> None:
             for u in db.scalars(select(User).where(User.email.in_(config.CEO_EMAILS), User.rol == "superadmin")):
                 u.es_ceo = True
             db.commit()
+            from .routers.ceo import sembrar_correos
+            sembrar_correos(db)
     if os.environ.get("AHAHOME_PURGA", "1") == "1":
         threading.Thread(target=_purga_periodica, daemon=True).start()
 
@@ -107,7 +118,7 @@ def salud():
     """La app consulta esto para saber si el servidor responde (sirve igual en la nube o en tu servidor físico)."""
     with engine.connect() as c:
         c.execute(text("SELECT 1"))
-    return {"ok": True, "app": "AHA HOME", "version": config.APP_VERSION}
+    return {"ok": True, "app": "AHA HOME", "version": config.APP_VERSION, "solo_equipo": config.SOLO_EQUIPO}
 
 
 # La app web (misma app que el teléfono) en "/", después de todas las rutas de la API
