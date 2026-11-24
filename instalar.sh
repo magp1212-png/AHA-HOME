@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Instalador de AHA HOME para tu servidor físico (Linux o Mac).
 # Uso:  ./instalar.sh
-# Te pide: la clave SMTP de Brevo y el token del túnel de Cloudflare. Nada de eso sale de esta máquina.
+# Te pide: la llave de Brevo, el token del túnel de Cloudflare y crea la cuenta CEO. Nada de eso sale de esta máquina.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -19,7 +19,8 @@ if [ ! -f .env ]; then
   read -rp "Dirección pública del servidor [https://api-home.aha-go.com]: " PUB
   PUB=${PUB:-https://api-home.aha-go.com}
   SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '/+=\n' | head -c 64)
-  printf 'AHAHOME_JWT_SECRET=%s\nAHAHOME_PUBLIC_URL=%s\nCLOUDFLARE_TUNNEL_TOKEN=\n' "$SECRET" "$PUB" > .env
+  # AHAHOME_SOLO_EQUIPO=1: mientras se prueba, solo entran caja, centro de control, superadmin y CEO (pon 0 para abrir)
+  printf 'AHAHOME_JWT_SECRET=%s\nAHAHOME_PUBLIC_URL=%s\nAHAHOME_SOLO_EQUIPO=1\nCLOUDFLARE_TUNNEL_TOKEN=\n' "$SECRET" "$PUB" > .env
   chmod 600 .env
   echo "✓ .env creado"
 fi
@@ -57,13 +58,14 @@ docker compose $PERFIL up -d --build
 sleep 4
 curl -fsS http://127.0.0.1:8000/salud && echo && echo "✓ Servidor funcionando"
 
-# 5. Superadministrador real (solo la primera vez)
-if [ ! -f datos/.superadmin-listo ]; then
+# 5. Cuenta CEO y tienda del piloto (solo la primera vez). Enter en la clave = clave provisional
+if [ ! -f datos/.ceo-listo ]; then
   echo
-  echo "Crea el usuario superadministrador:"
-  docker compose exec api python crear_superadmin.py && touch datos/.superadmin-listo
+  echo "Cuenta CEO (magp@aha-go.com). Si dejas la clave vacía, se genera una provisional: anótala."
+  docker compose exec api python crear_ceo.py magp@aha-go.com && touch datos/.ceo-listo
 fi
 
 echo
-echo "Listo. En Cloudflare, en el túnel, agrega el «Public Hostname»:  api-home.aha-go.com  →  http://api:8000"
+echo "Listo. En Cloudflare, en el túnel, agrega los «Public Hostnames», todos hacia  http://api:8000 :"
+echo "   superad.aha-go.com   www.aha-go.com   api-home.aha-go.com"
 echo "Respaldos: copia la carpeta ./datos."
