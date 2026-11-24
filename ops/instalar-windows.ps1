@@ -52,8 +52,12 @@ if ((Test-Path $r2Anunciate) -and -not (Test-Path "$PSScriptRoot\r2.json")) { Co
 
 # 5. Web (la misma app, en www.aha-go.com)
 Push-Location $Mobile
+# npm ci falla en Windows si quedo una instalacion a medias: se borra antes (rmdir aguanta rutas largas)
+if (Test-Path "node_modules") { cmd /c "rmdir /s /q node_modules" }
 npm ci --no-audit --no-fund
-npx expo export --platform web --output-dir dist-web
+if ($LASTEXITCODE -ne 0) { Pop-Location; Write-Host "npm ci fallo: revisa el mensaje de arriba y vuelve a correr el instalador." -ForegroundColor Red; exit 1 }
+npx --no-install expo export --platform web --output-dir dist-web
+if ($LASTEXITCODE -ne 0) { Pop-Location; Write-Host "No se pudo armar la web: revisa el mensaje de arriba." -ForegroundColor Red; exit 1 }
 Pop-Location
 Write-Host "[OK] Web armada"
 
