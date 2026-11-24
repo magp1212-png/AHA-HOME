@@ -1,0 +1,115 @@
+/* ===== AHA HOME · Panel con estilo «Liquid Glass» (iOS 26) y figuras 3D =====
+   Superficies de vidrio translúcido, esquinas amplias, brillos especulares y profundidad real. */
+:root{
+  --fondo:#0B0D1C;--texto:#F2F4FA;--suave:#A7ADC2;
+  --vidrio:rgba(30,34,62,.46);--vidrio2:rgba(255,255,255,.07);--filo:rgba(255,255,255,.16);--brillo:rgba(255,255,255,.22);
+  --panel:rgba(30,34,62,.55);--panel2:rgba(255,255,255,.06);--borde:rgba(255,255,255,.12);
+  --acento:#34E3B0;--acento2:#CFD72A;--icono:transparent;--sombra:0 20px 50px rgba(0,0,0,.38);
+  --r-xl:28px;--r-l:22px;--r-m:16px;
+}
+[data-tema="claro"]{
+  --fondo:#E9EDF7;--texto:#14163A;--suave:#5B6478;
+  --vidrio:rgba(255,255,255,.55);--vidrio2:rgba(255,255,255,.5);--filo:rgba(255,255,255,.85);--brillo:rgba(255,255,255,.9);
+  --panel:rgba(255,255,255,.62);--panel2:rgba(255,255,255,.55);--borde:rgba(20,22,58,.08);--acento:#0B9C74;--sombra:0 18px 44px rgba(33,36,77,.14);
+}
+html,body{background:var(--fondo);font-family:-apple-system,"SF Pro Display","SF Pro Text",Inter,"Segoe UI",system-ui,sans-serif;letter-spacing:-.01em}
+body{min-height:100vh}
+
+/* --- Escena 3D de fondo: esferas que flotan detrás del vidrio --- */
+.escena{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;perspective:1200px}
+.escena:before{content:"";position:absolute;inset:-20%;background:
+  radial-gradient(40% 35% at 15% 10%,rgba(52,227,176,.28),transparent 70%),
+  radial-gradient(35% 30% at 85% 20%,rgba(207,215,42,.22),transparent 70%),
+  radial-gradient(45% 40% at 70% 90%,rgba(98,90,255,.30),transparent 70%),
+  radial-gradient(40% 40% at 10% 85%,rgba(33,36,77,.9),transparent 70%)}
+[data-tema="claro"] .escena:before{opacity:.55}
+.esfera{position:absolute;border-radius:50%;filter:saturate(1.15);animation:flotar 14s ease-in-out infinite alternate}
+.esfera.e1{width:340px;height:340px;left:-80px;top:22%;background:radial-gradient(circle at 32% 28%,#FFFFFF 0,#E9F27A 12%,#CFD72A 38%,#7E8410 78%,#3D4006 100%);opacity:.55}
+.esfera.e2{width:220px;height:220px;right:6%;top:-60px;background:radial-gradient(circle at 30% 26%,#FFFFFF 0,#9FFBE0 14%,#34E3B0 40%,#0E7A5C 80%,#053D2E 100%);opacity:.5;animation-duration:17s}
+.esfera.e3{width:420px;height:420px;right:-140px;bottom:-160px;background:radial-gradient(circle at 34% 30%,#FFFFFF 0,#B8B4FF 12%,#6A62FF 42%,#2A2390 80%,#120E4D 100%);opacity:.45;animation-duration:20s}
+.esfera.e4{width:120px;height:120px;left:38%;bottom:6%;background:radial-gradient(circle at 30% 28%,#FFFFFF 0,#FFC9A8 14%,#FF8A4C 44%,#A83F0C 85%);opacity:.45;animation-duration:12s}
+@keyframes flotar{from{transform:translate3d(0,0,0) rotate(0)}to{transform:translate3d(30px,-40px,60px) rotate(25deg)}}
+#app{position:relative;z-index:1}
+
+/* --- Vidrio --- */
+.top,.lat,.card,.tabla,.cajon,.login form,.resultados,.usuario .menu,.hero{
+  background:var(--vidrio);-webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%);
+  border:1px solid var(--filo);box-shadow:var(--sombra),inset 0 1px 0 var(--brillo),inset 0 -1px 0 rgba(255,255,255,.04)}
+
+/* Barra superior: cápsula flotante */
+.top{position:sticky;top:12px;margin:12px 16px 0;height:62px;border-radius:31px;padding:0 14px}
+.top .marca{font-weight:800;letter-spacing:-.02em}
+.hamb{width:40px;height:40px;border-radius:20px;background:var(--vidrio2)!important;border:1px solid var(--filo)!important}
+.buscar input{height:40px;border-radius:20px;background:var(--vidrio2);border:1px solid var(--filo)}
+.ico-btn{width:40px;height:40px;border-radius:20px;background:var(--vidrio2);border:1px solid var(--filo);box-shadow:inset 0 1px 0 var(--brillo)}
+.usuario>span,.usuario>button{border-radius:20px}
+
+/* Cuerpo y barra lateral flotante */
+.cuerpo{gap:16px;padding:16px;min-height:calc(100vh - 90px)}
+.lat{border-radius:var(--r-xl);padding:14px 10px;position:sticky;top:90px;align-self:flex-start;max-height:calc(100vh - 106px);overflow:auto}
+.lat .it{border-radius:14px;border:0;transition:background .2s,transform .2s}
+.lat .it:hover{background:var(--vidrio2)}
+.lat .it.on{background:linear-gradient(180deg,rgba(52,227,176,.28),rgba(52,227,176,.12));color:var(--texto);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px rgba(52,227,176,.18)}
+.lat .sub a{border-radius:10px;padding-left:10px;margin-left:-10px}.lat .sub a.on{color:var(--acento)}
+.main{padding:6px 10px 30px}
+h1{font-size:34px;font-weight:800;letter-spacing:-.03em}
+
+/* Tarjetas con profundidad: se inclinan en 3D con el mouse */
+.grid{gap:18px;perspective:1400px}
+.card{border-radius:var(--r-l);transform-style:preserve-3d;transition:transform .25s ease,box-shadow .25s ease;will-change:transform}
+.card:hover{box-shadow:0 28px 60px rgba(0,0,0,.42),inset 0 1px 0 var(--brillo)}
+.card:after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(500px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,.12),transparent 40%)}
+.card .tit{font-weight:700}
+.sel{border-radius:12px;background:var(--vidrio2);border:1px solid var(--filo)}
+
+/* Íconos 3D de «arcilla» en los indicadores */
+.kpi .ic{width:64px;height:64px;border-radius:20px;font-size:30px;transform:translateZ(40px) rotateX(8deg);
+  background:linear-gradient(150deg,#5CF0C6 0%,#1FB98D 55%,#0C6E53 100%);
+  box-shadow:0 14px 26px rgba(14,110,83,.45),inset 0 2px 1px rgba(255,255,255,.65),inset 0 -6px 10px rgba(0,0,0,.25);
+  text-shadow:0 4px 8px rgba(0,0,0,.35)}
+.card:nth-child(3n+2) .kpi .ic{background:linear-gradient(150deg,#EAF27A 0%,#CFD72A 55%,#7E8410 100%);box-shadow:0 14px 26px rgba(126,132,16,.45),inset 0 2px 1px rgba(255,255,255,.7),inset 0 -6px 10px rgba(0,0,0,.22)}
+.card:nth-child(3n) .kpi .ic{background:linear-gradient(150deg,#ADA8FF 0%,#6A62FF 55%,#2A2390 100%);box-shadow:0 14px 26px rgba(42,35,144,.45),inset 0 2px 1px rgba(255,255,255,.6),inset 0 -6px 10px rgba(0,0,0,.25)}
+.kpi .num,.grande{font-weight:700;letter-spacing:-.03em;transform:translateZ(25px)}
+
+/* Tablas y cajón */
+.tabla{border-radius:var(--r-l);overflow:hidden}
+.barra input{border-radius:20px;background:var(--vidrio2);border:1px solid var(--filo)}
+tr:hover td{background:rgba(255,255,255,.05)}
+.cajon{border-radius:var(--r-xl) 0 0 var(--r-xl);top:12px;bottom:12px}
+.est{border-radius:20px}
+.btn{border-radius:16px;transition:transform .15s}.btn:active{transform:scale(.97)}
+.btn.pri{background:linear-gradient(180deg,#5CF0C6,#22C495);color:#04261C;box-shadow:0 10px 24px rgba(34,196,149,.35),inset 0 1px 0 rgba(255,255,255,.6)}
+.acc button,.pie button{border-radius:12px;background:var(--vidrio2);border:1px solid var(--filo)}
+
+/* --- Logotipo en 3D: capas apiladas que le dan volumen --- */
+.logo3d{position:relative;width:var(--s,140px);height:var(--s,140px);transform-style:preserve-3d;animation:girar 9s ease-in-out infinite}
+.logo3d svg{position:absolute;inset:0;width:100%;height:100%;transform:translateZ(calc(var(--z) * 1.3px));filter:brightness(calc(.45 + var(--z) * .04))}
+.logo3d svg:last-child{filter:drop-shadow(0 0 1px rgba(255,255,255,.6))}
+@keyframes girar{0%,100%{transform:rotateY(-28deg) rotateX(12deg)}50%{transform:rotateY(28deg) rotateX(4deg)}}
+.pedestal{position:absolute;left:50%;bottom:-6px;width:70%;height:22px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.45),transparent)}
+
+/* --- Portada del panel principal --- */
+.hero{position:relative;border-radius:var(--r-xl);padding:26px 30px;margin-bottom:20px;display:flex;align-items:center;gap:26px;overflow:hidden;min-height:200px}
+.hero .txt{flex:1;min-width:0}
+.hero .hola{font-size:15px;color:var(--suave);font-weight:600}
+.hero h2{margin:4px 0 8px;font-size:34px;font-weight:800;letter-spacing:-.03em}
+.hero .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.hero .chip{padding:8px 14px;border-radius:20px;background:var(--vidrio2);border:1px solid var(--filo);font-weight:700;font-size:13.5px;box-shadow:inset 0 1px 0 var(--brillo)}
+.hero .chip b{color:var(--acento)}
+.escenario{position:relative;width:260px;height:190px;perspective:900px;flex:none;display:flex;align-items:center;justify-content:center}
+.orbita{position:absolute;inset:0;transform-style:preserve-3d;animation:orbita 12s linear infinite}
+.orbita i{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px;border-radius:50%;transform:rotateY(var(--a)) translateZ(120px)}
+.orbita i:nth-child(1){--a:0deg;background:radial-gradient(circle at 30% 30%,#fff,#34E3B0 45%,#0C6E53)}
+.orbita i:nth-child(2){--a:120deg;background:radial-gradient(circle at 30% 30%,#fff,#CFD72A 45%,#7E8410)}
+.orbita i:nth-child(3){--a:240deg;background:radial-gradient(circle at 30% 30%,#fff,#8C86FF 45%,#2A2390)}
+@keyframes orbita{from{transform:rotateX(-14deg) rotateY(0)}to{transform:rotateX(-14deg) rotateY(360deg)}}
+
+/* Entrada */
+.login{background:transparent}
+.login form{border-radius:32px;padding:34px;width:420px}
+.login input{border-radius:16px;background:var(--vidrio2);border:1px solid var(--filo)}
+.login .logo3d{margin:0 auto 6px}
+
+@media (prefers-reduced-motion:reduce){.esfera,.logo3d,.orbita{animation:none}.card{transition:none}}
+@media (max-width:760px){.top{margin:8px;border-radius:24px}.cuerpo{padding:8px}.hero{flex-direction:column;text-align:center}.escenario{width:200px;height:150px}}
