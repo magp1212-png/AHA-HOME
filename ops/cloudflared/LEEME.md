@@ -17,3 +17,8 @@ Así las direcciones de aha-go.com llegan al servidor sin abrir puertos.
 
 El archivo `token.txt` nunca va a GitHub. Si existe `token.txt`, la tarea usa este túnel; si no, usa `config.yml`
 (túnel con nombre) o, si tampoco existe, un túnel temporal de prueba.
+
+## En el servidor físico con Docker (`./instalar.sh`)
+
+El instalador te pide el token del túnel y lo deja en `.env` (nunca va a GitHub). En el paso 4, las tres direcciones
+(`superad`, `www` y `api-home` de `aha-go.com`) van hacia el servicio **`HTTP` · `api:8000`**.
