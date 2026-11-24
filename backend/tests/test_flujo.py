@@ -1189,3 +1189,25 @@ def test_ceo_agrega_otros_ceo(client):
     q = client.put(f"/ceo/usuarios/{r['id']}", json={"rol": "superadmin", "permisos": ["ver_tablero"]}, headers=ceo).json()
     assert q["es_ceo"] is False and q["permisos"] == ["ver_tablero"]
     assert client.get("/ceo/actividad", headers=socia).status_code == 403
+
+
+def test_recuperar_clave_por_correo(client):
+    from app import correo
+    import re as _re
+    correo.outbox.clear()
+    r = client.post("/auth/recuperar", json={"correo": "nadie@aha-go.com"}).json()
+    assert r["ok"] and not correo.outbox  # misma respuesta, sin revelar si existe
+    client.post("/auth/recuperar", json={"correo": "SUPERVISOR@ahahome.test"})
+    assert len(correo.outbox) == 1 and correo.outbox[0]["to"] == "supervisor@ahahome.test"
+    client.post("/auth/recuperar", json={"correo": "supervisor@ahahome.test"})
+    assert len(correo.outbox) == 1  # no se reenvía antes de 60 s
+    token = _re.search(r"restablecer=([\w-]+)", correo.outbox[0]["text"]).group(1)
+    assert client.post("/auth/restablecer", json={"token": token, "nueva": "corta", "repetir": "corta"}).status_code == 422
+    assert client.post("/auth/restablecer", json={"token": token, "nueva": "Nueva2026x", "repetir": "Nueva2026x"}).json()["ok"]
+    assert client.post("/auth/login", json={"usuario": "supervisor@ahahome.test", "password": "Nueva2026x"}).status_code == 200
+    assert client.post("/auth/login", json={"usuario": "supervisor@ahahome.test", "password": "aha12345"}).status_code == 401
+    # el enlace sirve una sola vez; los clientes no usan esta recuperación
+    assert client.post("/auth/restablecer", json={"token": token, "nueva": "Otra2026x", "repetir": "Otra2026x"}).status_code == 422
+    correo.outbox.clear()
+    client.post("/auth/recuperar", json={"correo": "maria@ahahome.test"})
+    assert not correo.outbox

@@ -300,3 +300,61 @@ def leer_todas(user: User = Depends(current_user), db: Session = Depends(get_db)
         n.leida = True
     db.commit()
     return {"ok": True}
+
+
+# ---------- Recuperar la clave por correo (equipo AHA HOME) ----------
+import hashlib
+
+ROLES_RECUPERAR = ("agente", "supervisor", "tecnico_supervisor", "superadmin")
+RESET_MINUTOS = 30
+MENSAJE_RECUPERAR = "Si ese correo es de una cuenta del equipo AHA HOME, te enviamos un enlace para crear una clave nueva. Revisa tu bandeja y la carpeta de spam."
+
+
+def _hash_reset(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+class Recuperar(BaseModel):
+    correo: str = Field(max_length=160)
+
+
+@router.post("/auth/recuperar")
+def recuperar_clave(body: Recuperar, db: Session = Depends(get_db)):
+    """Envía un enlace de un solo uso (30 min). Responde lo mismo exista o no la cuenta, para no revelar quién está registrado."""
+    u = db.scalar(select(User).where(User.email == body.correo.strip().lower(), User.rol.in_(ROLES_RECUPERAR), User.activo.is_(True)))
+    if u and not (u.reset_vence and u.reset_vence - dt.timedelta(minutes=RESET_MINUTOS) > ahora() - dt.timedelta(seconds=60)):
+        token = secrets.token_urlsafe(32)
+        u.reset_hash, u.reset_vence = _hash_reset(token), ahora() + dt.timedelta(minutes=RESET_MINUTOS)
+        enlace = f"{config.PANEL_URL}/panel/?restablecer={token}"
+        correo.enviar(u.email, "Crea una clave nueva · AHA HOME", correo.plantilla("Crea una clave nueva",
+            f"<p>Hola {u.nombre.split()[0]}. Pediste recuperar tu clave del panel de AHA HOME.</p><p>{correo.boton(enlace, 'Crear mi clave nueva')}</p>"
+            f"<p style='color:#6B7789;font-size:13px'>El enlace vale {RESET_MINUTOS} minutos y sirve una sola vez. Si no lo pediste, ignora este correo: tu clave no cambia.</p>"),
+            f"Crea tu clave nueva aquí (vale {RESET_MINUTOS} minutos): {enlace}")
+        from ..auditoria import registrar
+        registrar(db, u, "POST", "/auth/recuperar", 200, "", "Pidió recuperar su clave por correo")
+        db.commit()
+    return {"ok": True, "mensaje": MENSAJE_RECUPERAR}
+
+
+class Restablecer(BaseModel):
+    token: str = Field(min_length=20, max_length=100)
+    nueva: str = Field(max_length=100)
+    repetir: str = Field(max_length=100)
+
+
+@router.post("/auth/restablecer")
+def restablecer_clave(body: Restablecer, db: Session = Depends(get_db)):
+    u = db.scalar(select(User).where(User.reset_hash == _hash_reset(body.token)))
+    if not u or not u.reset_vence or u.reset_vence < ahora() or not u.activo:
+        raise HTTPException(422, "El enlace ya no sirve (venció o ya se usó). Pide uno nuevo con «¿Olvidaste tu clave?».")
+    if len(body.nueva) < 8 or not re.search(r"[A-Za-zÁÉÍÓÚáéíóúÑñ]", body.nueva) or not re.search(r"\d", body.nueva):
+        raise HTTPException(422, "La nueva contraseña debe tener al menos 8 caracteres, una letra y un número")
+    if body.nueva != body.repetir:
+        raise HTTPException(422, "Las contraseñas nuevas no coinciden")
+    u.password_hash, u.clave_temporal, u.reset_hash, u.reset_vence = hash_password(body.nueva), False, None, None
+    from ..notificar import notificar
+    from ..auditoria import registrar
+    notificar(db, u.id, "Cambiaste tu contraseña", "La cambiaste con el enlace de recuperación. Si no fuiste tú, escribe de inmediato a Soporte AHA HOME.")
+    registrar(db, u, "POST", "/auth/restablecer", 200, "", "Creó una clave nueva con el enlace del correo")
+    db.commit()
+    return {"ok": True}
