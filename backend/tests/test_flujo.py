@@ -315,12 +315,27 @@ def test_tecnico_anota_sus_ayudantes(client):
 def test_varios_articulos_instalacion_pagada_en_caja(client):
     agente = login(client, "agente@ahahome.test")
     superadmin = login(client, "superadmin@ahahome.test")
-    client.put("/admin/tarifas/nevera", json={"precio": 35}, headers=superadmin)
-    client.put("/admin/tarifas/aire_acondicionado", json={"precio": 60}, headers=superadmin)
-    assert client.put("/admin/tarifas/nevera", json={"precio": 1}, headers=agente).status_code == 403
+    # la caja cobra con la tabulación de precios del superadmin
+    tab = {p["clave"]: p for p in client.get("/caja/precios", headers=agente).json()["items"]}
+    nevera, aire = tab["nevera"]["id"], tab["aire_12000"]["id"]
+    client.put(f"/admin/precios/{nevera}", json={"traslado": 10, "instalacion": 25}, headers=superadmin)  # combo = suma: 35
+    client.put(f"/admin/precios/{aire}", json={"traslado": 15, "instalacion": 50, "combo": 60}, headers=superadmin)
+    assert client.put(f"/admin/precios/{nevera}", json={"traslado": 1}, headers=agente).status_code == 403
+    tab = {p["clave"]: p for p in client.get("/caja/precios", headers=agente).json()["items"]}
+    assert tab["nevera"]["combo"] == "35.00" and tab["aire_12000"]["combo"] == "60.00" and tab["lavadora"]["traslado"] is None
+    # solo traslado también se cobra según la tabla
+    r = client.post("/ordenes", json=ORDEN | {"articulos": [{"precio_id": nevera}], "pago": None}, headers=agente)
+    assert r.status_code == 422
+    t = client.post("/ordenes", json=ORDEN | {"articulos": [{"precio_id": nevera}], "pago": {"metodo": "zelle", "referencia": "Z1"}}, headers=agente).json()
+    assert t["tipo_servicio"] == "traslado" and t["pago_instalacion"]["monto"] == "10.00"
+    assert t["articulos"][0] | {"nombre": None} == t["articulos"][0] | {"nombre": None, "servicio": "traslado", "precio": "10.00", "tipo": "nevera", "descripcion": "Nevera"}
+    # solo instalación usa el precio de instalación
+    si = client.post("/ordenes", json=ORDEN | {"articulos": [{"precio_id": aire, "instalar": True}], "solo_instalacion": True,
+                                              "pago": {"metodo": "zelle", "referencia": "Z2"}}, headers=agente).json()
+    assert si["pago_instalacion"]["monto"] == "50.00" and si["articulos"][0]["servicio_texto"] == "Instalación"
 
-    arts = [{"tipo": "nevera", "marca": "Samsung", "instalar": True},
-            {"tipo": "aire_acondicionado", "marca": "LG", "instalar": True},
+    arts = [{"precio_id": nevera, "marca": "Samsung", "instalar": True},
+            {"precio_id": aire, "marca": "LG", "instalar": True},
             {"tipo": "televisor", "marca": "Sony"},
             {"tipo": "otro", "descripcion": "Ropero 3 puertas"}]
     # sin pago no se crea si hay instalación

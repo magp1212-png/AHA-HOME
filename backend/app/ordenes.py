@@ -64,7 +64,16 @@ def articulos_vista(orden: Orden) -> list[dict]:
     return [{"id": a.id, "tipo": a.tipo, "tipo_texto": TIPO_EQUIPO_TEXTO.get(a.tipo, a.tipo), "nombre": nombre_articulo(a),
              "descripcion": a.descripcion, "marca": a.marca, "modelo": a.modelo, "serial": a.serial, "garantia": a.garantia,
              "instalar": a.instalar, "precio_instalacion": dinero(a.precio_instalacion_centavos),
-             "estado": estado_articulo(orden, a)} for a in orden.articulos]
+             "servicio": a.servicio, "servicio_texto": SERVICIO_ARTICULO.get(a.servicio, ""), "precio": dinero(a.precio_instalacion_centavos),
+             "precio_por_definir": _por_definir(a), "estado": estado_articulo(orden, a)} for a in orden.articulos]
+
+
+SERVICIO_ARTICULO = {"traslado": "Traslado", "instalacion": "Instalación", "combo": "Traslado + instalación"}
+
+
+def _por_definir(a) -> bool:
+    """Sin precio en la tabulación: no se cobró en caja. En órdenes viejas solo contaba la instalación."""
+    return not a.precio_instalacion_centavos and (bool(a.servicio) or a.instalar)
 
 
 def nombres_cuadrilla(orden: Orden) -> str:
@@ -220,7 +229,7 @@ def vista(orden: Orden, rol: str) -> dict:
         "compra": {"factura": orden.factura, "numero_factura": orden.numero_factura, "fecha_compra": orden.fecha_compra},
         "pago_instalacion": {**info_pago(orden.pago_metodo, orden.monto_instalacion_centavos + orden.inspeccion_centavos, orden.pago_moneda, orden.pago_tasa),
                              "monto": dinero(orden.monto_instalacion_centavos), "inspeccion": dinero(orden.inspeccion_centavos),
-                             "precio_por_definir": any(a.instalar and not a.precio_instalacion_centavos for a in orden.articulos),
+                             "precio_por_definir": any(_por_definir(a) for a in orden.articulos),
                              "referencia": orden.pago_referencia, "pagado": orden.pagado_en is not None,
                              "pagado_en": _iso(orden.pagado_en)},
         "fecha": orden.fecha, "franja": orden.franja,

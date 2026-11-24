@@ -369,7 +369,10 @@ class Articulo(Base):
     serial: Mapped[str] = mapped_column(String(80), default="")
     garantia: Mapped[str] = mapped_column(String(60), default="")
     instalar: Mapped[bool] = mapped_column(Boolean, default=False)
-    precio_instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    precio_instalacion_centavos: Mapped[int] = mapped_column(Integer, default=0)  # lo cobrado en caja por este artículo
+    # Tabulación del superadmin: artículo exacto y servicio cobrado (traslado | instalacion | combo)
+    precio_item_id: Mapped[int | None] = mapped_column(ForeignKey("precios.id"), nullable=True)
+    servicio: Mapped[str] = mapped_column(String(20), default="")
 
     orden: Mapped[Orden] = relationship(back_populates="articulos")
 

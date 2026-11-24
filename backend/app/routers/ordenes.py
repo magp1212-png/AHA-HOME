@@ -15,7 +15,7 @@ from .tasa import cobro, info_pago
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import current_user, require
-from ..models import METODOS_PAGO, TIPOS_EQUIPO, TIPOS_INMUEBLE, ZONAS, Articulo, Orden, Tarifa, Tienda, User, ahora, orden_ayudantes
+from ..models import METODOS_PAGO, TIPOS_EQUIPO, TIPOS_INMUEBLE, ZONAS, Articulo, Orden, Tienda, User, ahora, orden_ayudantes
 from ..notificar import notificar
 from ..security import new_qr_token
 from .auth import limpiar_tel
@@ -38,7 +38,8 @@ def tiendas(db: Session = Depends(get_db)):
 
 
 class ArticuloIn(BaseModel):
-    tipo: str
+    tipo: str = "otro"
+    precio_id: int | None = None  # artículo exacto de la tabulación de precios del superadmin
     descripcion: str = Field(default="", max_length=120)  # ej. "Juego de comedor 6 puestos"
     marca: str = Field(default="", max_length=60)
     modelo: str = Field(default="", max_length=80)
@@ -79,12 +80,36 @@ def costo_inspeccion(db: Session = Depends(get_db)):
     return {"costo": svc.dinero(precio_inspeccion_centavos(db))}
 
 
+@router.get("/caja/precios")
+def precios_caja(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Tabulación de precios del superadmin, para que la caja cobre: por artículo, traslado, instalación o los dos."""
+    from .precios import crear_por_defecto, precio_inspeccion_centavos, vista as vista_precio
+    from ..models import PrecioItem
+    crear_por_defecto(db)
+    items = db.scalars(select(PrecioItem).where(PrecioItem.activo.is_(True)).order_by(PrecioItem.orden, PrecioItem.id)).all()
+    return {"inspeccion": svc.dinero(precio_inspeccion_centavos(db)), "items": [vista_precio(p) for p in items]}
+
+
+def precio_de(item, servicio: str) -> int:
+    """Centavos que cobra la caja por un artículo de la tabulación según el servicio (0 = precio por definir)."""
+    if not item:
+        return 0
+    if servicio == "traslado":
+        return item.traslado_centavos
+    if servicio == "instalacion":
+        return item.instalacion_centavos
+    return item.combo_centavos or (item.traslado_centavos + item.instalacion_centavos if item.traslado_centavos and item.instalacion_centavos else 0)
+
+
 @router.get("/tarifas")
 def tarifas(db: Session = Depends(get_db)):
-    """Precios de instalación vigentes (los usa la caja para cobrar)."""
-    from ..models import TIPO_EQUIPO_TEXTO
-    return [{"tipo": x.tipo, "tipo_texto": TIPO_EQUIPO_TEXTO.get(x.tipo, x.tipo), "precio": svc.dinero(x.precio_centavos)}
-            for x in db.scalars(select(Tarifa).where(Tarifa.activa.is_(True)).order_by(Tarifa.tipo))]
+    """Compatibilidad con versiones anteriores de la app: precio de instalación por tipo, tomado de la tabulación."""
+    from ..models import PrecioItem, TIPO_EQUIPO_TEXTO
+    por_tipo: dict[str, int] = {}
+    for p in db.scalars(select(PrecioItem).where(PrecioItem.activo.is_(True)).order_by(PrecioItem.orden)):
+        if p.instalacion_centavos and p.tipo_equipo not in por_tipo:
+            por_tipo[p.tipo_equipo] = p.instalacion_centavos
+    return [{"tipo": t, "tipo_texto": TIPO_EQUIPO_TEXTO.get(t, t), "precio": svc.dinero(c)} for t, c in sorted(por_tipo.items())]
 
 
 class NuevaOrden(BaseModel):
@@ -156,9 +181,17 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
         tipo_servicio = "instalacion"
     else:
         tipo_servicio = "traslado_instalacion" if a_instalar else "traslado"
-    precios = {x.tipo: x.precio_centavos for x in db.scalars(select(Tarifa).where(Tarifa.activa.is_(True)))}
-    # Mientras no se publique la tabla de precios, la instalación queda «precio por definir» (sin cobro en caja)
-    total = sum(precios.get(a.tipo, 0) for a in a_instalar)
+    # Precio de cada artículo según la tabulación del superadmin (traslado, instalación o los dos).
+    # Lo que aún no tiene precio queda «por definir» y no se cobra en caja.
+    from ..models import PrecioItem
+    lineas = []
+    for a in body.articulos:
+        item = db.get(PrecioItem, a.precio_id) if a.precio_id else None
+        if a.precio_id and (not item or not item.activo):
+            raise HTTPException(422, "Ese artículo ya no está en la tabla de precios")
+        servicio = "instalacion" if body.solo_instalacion else ("combo" if a.instalar else "traslado")
+        lineas.append((a, item, servicio, precio_de(item, servicio)))
+    total = sum(c for *_, c in lineas)
     if body.tipo_inmueble not in ("",) + TIPOS_INMUEBLE:
         raise HTTPException(422, "Indica si la instalación es en casa, edificio u oficina")
     # La inspección se cobra en caja, en el momento, junto con la instalación
@@ -181,14 +214,15 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
     if total or insp:
         o.pago_metodo, o.pago_referencia, o.pagado_en, o.cobrado_por = body.pago.metodo, body.pago.referencia.strip(), ahora(), user.id
         o.pago_moneda, o.pago_tasa = cobro(db, body.pago.metodo)
-    o.articulos = [Articulo(tipo=a.tipo, descripcion=a.descripcion.strip(), marca=a.marca.strip(), modelo=a.modelo.strip(),
-                            serial=a.serial.strip(), garantia=a.garantia.strip(), instalar=a.instalar,
-                            precio_instalacion_centavos=precios.get(a.tipo, 0) if a.instalar else 0) for a in body.articulos]
+    o.articulos = [Articulo(tipo=item.tipo_equipo if item else a.tipo, descripcion=a.descripcion.strip() or (item.nombre if item else ""),
+                            marca=a.marca.strip(), modelo=a.modelo.strip(), serial=a.serial.strip(), garantia=a.garantia.strip(),
+                            instalar=a.instalar or body.solo_instalacion, precio_item_id=item.id if item else None, servicio=servicio,
+                            precio_instalacion_centavos=c) for a, item, servicio, c in lineas]
     db.add(o)
     db.flush()
     o.tienda = tienda
     pago = (f" · cobrado en caja {info_pago(o.pago_metodo, total + insp, o.pago_moneda, o.pago_tasa)['cobrado']} ({o.pago_metodo})"
-            + (f": instalación {svc.dinero(total)} + inspección {svc.dinero(insp)}" if insp else "")) if total or insp else ""
+            + (f": servicio {svc.dinero(total)} + inspección {svc.dinero(insp)}" if insp else "")) if total or insp else ""
     svc.registrar(db, o, "solicitud_enviada", user, f"Registrada en {tienda.nombre}: {len(o.articulos)} artículo(s){pago}"
                   + ("" if o.retirar_residuos or tipo_servicio == "traslado" else " · el cliente se queda con el empaque (garantía)"))
     svc.asignar(db, o, user)
