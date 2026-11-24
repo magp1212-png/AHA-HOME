@@ -439,6 +439,8 @@
   // ---------- Armado ----------
   async function pintar(soloContenido) {
     const app = $("#app");
+    const tokenClave = new URLSearchParams(location.search).get("restablecer");
+    if (tokenClave) return restablecer(app, tokenClave);
     if (!S.token) return login(app);
     if (!S.yo) {
       try { S.yo = await api("/yo"); } catch { return; }
@@ -455,12 +457,13 @@
         <div class="buscar"><input id="bg" placeholder="Presiona / para buscar"><div class="resultados" id="rg" style="display:none"></div></div><div class="esp"></div>
         <button class="ico-btn" id="tema" title="Tema claro u oscuro">${document.documentElement.dataset.tema === "oscuro" ? "☀" : "☾"}</button>
         <a class="ico-btn" href="#verificaciones" title="Pendientes">🔔${S.notif ? `<span class="badge">${S.notif}</span>` : ""}</a>
-        <div class="usuario"><button class="ico-btn" style="width:auto;padding:0 12px;border-radius:19px" id="um">${esc(S.yo.nombre)} ⌄</button><div class="menu" id="umm" style="display:none"><button disabled>${S.yo.es_ceo ? "CEO" : S.yo.rol === "superadmin" ? "Superadministrador" : "Centro de control"}</button><button id="sal">Cerrar sesión</button></div></div></div>
+        <div class="usuario"><button class="ico-btn" style="width:auto;padding:0 12px;border-radius:19px" id="um">${esc(S.yo.nombre)} ⌄</button><div class="menu" id="umm" style="display:none"><button disabled>${S.yo.es_ceo ? "CEO" : S.yo.rol === "superadmin" ? "Superadministrador" : "Centro de control"}</button><button id="mic">🔑 Cambiar mi clave</button><button id="sal">Cerrar sesión</button></div></div></div>
         <div class="cuerpo"><nav class="lat ${S.latOculta ? "oculto" : ""}">${menuHTML()}</nav><main class="main"></main></div>`;
       $("#hamb").onclick = () => { S.latOculta = !S.latOculta; $(".lat").classList.toggle("oculto"); };
       $("#tema").onclick = () => { const n = document.documentElement.dataset.tema === "oscuro" ? "claro" : "oscuro"; document.documentElement.dataset.tema = n; localStorage.setItem("ahahome.panel.tema", n); pintar(); };
       $("#um").onclick = () => { const m = $("#umm"); m.style.display = m.style.display === "none" ? "block" : "none"; };
       $("#sal").onclick = salir;
+      $("#mic").onclick = () => { $("#umm").style.display = "none"; miClave(); };
       const bg = $("#bg"), rg = $("#rg"); let tm;
       bg.oninput = () => { clearTimeout(tm); tm = setTimeout(async () => {
         if (bg.value.trim().length < 2) { rg.style.display = "none"; return; }
@@ -493,13 +496,90 @@
     app.innerHTML = `<div class="login"><form id="f">${logo3D(110)}<div style="text-align:center"><b style="font-size:24px;letter-spacing:-.02em">AHA HOME</b></div>
       <div style="font-size:22px;font-weight:800">Panel del superadministrador</div><div class="total" style="margin-top:-6px">Solo personal autorizado · cada ingreso queda registrado</div>
       <label>Correo</label><input id="u" autocomplete="username" required><label>Contraseña</label><input id="p" type="password" autocomplete="current-password" required>
-      <p class="error" id="e"></p><button class="btn pri" style="height:48px">Entrar</button></form></div>`;
+      <p class="error" id="e"></p><button class="btn pri" style="height:48px">Entrar</button>
+      <button type="button" class="enlace" id="olv">¿Olvidaste tu clave?</button></form></div>`;
+    $("#olv").onclick = () => recuperar(app, $("#u").value);
     $("#f").onsubmit = async (ev) => {
       ev.preventDefault();
       try { const r = await api("/auth/login", { body: { usuario: $("#u").value, password: $("#p").value } }); S.token = r.token; localStorage.setItem("ahahome.panel.token", r.token); S.yo = null; pintar(); }
       catch (e) { $("#e").textContent = e.message; }
     };
   }
+
+  // Recuperar la clave: pide el correo y envía un enlace de un solo uso (30 min)
+  function recuperar(app, correo) {
+    app.innerHTML = `<div class="login"><form id="f">${logo3D(90)}<div style="font-size:22px;font-weight:800">Recupera tu clave</div>
+      <div class="total" style="margin-top:-6px">Escribe el correo de tu cuenta del equipo. Te enviaremos un enlace para crear una clave nueva; vale 30 minutos.</div>
+      <label>Correo</label><input id="c" type="email" autocomplete="username" required value="${esc(correo || "")}">
+      <p class="error" id="e"></p><div id="ok"></div><button class="btn pri" style="height:48px" id="env">Enviar enlace</button>
+      <button type="button" class="enlace" id="vol">Volver a entrar</button></form></div>`;
+    $("#vol").onclick = () => login(app);
+    $("#f").onsubmit = async (ev) => {
+      ev.preventDefault(); $("#e").textContent = "";
+      try { const r = await api("/auth/recuperar", { body: { correo: $("#c").value } });
+        $("#ok").innerHTML = `<div class="aviso-ok">✉ ${esc(r.mensaje)}</div>`; $("#env").textContent = "Enviar otra vez"; }
+      catch (e) { $("#e").textContent = e.message; }
+    };
+  }
+  function restablecer(app, token) {
+    app.innerHTML = `<div class="login"><form id="f">${logo3D(90)}<div style="font-size:22px;font-weight:800">Crea tu clave nueva</div>
+      <div class="total" style="margin-top:-6px">Mínimo 8 caracteres, con una letra y un número.</div>
+      <label>Clave nueva</label><input id="n" type="password" autocomplete="new-password" required>
+      <label>Repite la clave nueva</label><input id="r" type="password" autocomplete="new-password" required>
+      <p class="error" id="e"></p><div id="ok"></div><button class="btn pri" style="height:48px" id="gua">Guardar clave nueva</button></form></div>`;
+    $("#f").onsubmit = async (ev) => {
+      ev.preventDefault(); $("#e").textContent = "";
+      try { await api("/auth/restablecer", { body: { token, nueva: $("#n").value, repetir: $("#r").value } });
+        history.replaceState(null, "", location.pathname + location.hash);
+        $("#ok").innerHTML = `<div class="aviso-ok">✓ Listo: tu clave quedó cambiada. Ya puedes entrar con ella.</div>`;
+        $("#gua").textContent = "Entrar"; $("#f").onsubmit = (e2) => { e2.preventDefault(); login(app); }; }
+      catch (e) { $("#e").textContent = e.message; }
+    };
+  }
+
+  // Dentro del panel: «Cambiar mi clave»
+  function miClave() {
+    document.querySelector(".cajon")?.remove();
+    const c = document.createElement("div"); c.className = "cajon";
+    const est = "width:100%;height:42px;border-radius:14px;border:1px solid var(--filo);background:var(--vidrio2);color:var(--texto);padding:0 12px";
+    const lab = (t) => `<label style="display:block;font-size:13px;font-weight:700;margin-top:12px">${t}</label>`;
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="total">Mi cuenta</span><button class="btn sec" id="cer">✕</button></div>
+      <h2 style="margin-top:8px">Cambiar mi clave</h2><div class="total">${esc(S.yo.email || "")}</div>
+      ${lab("Clave actual")}<input id="ma" type="password" autocomplete="current-password" style="${est}">
+      ${lab("Clave nueva")}<input id="mn" type="password" autocomplete="new-password" style="${est}">
+      ${lab("Repite la clave nueva")}<input id="mr" type="password" autocomplete="new-password" style="${est}">
+      <div id="req" style="margin-top:12px;display:flex;flex-direction:column;gap:4px;font-size:13px"></div>
+      <div style="margin-top:18px"><button class="btn pri" id="mg">Guardar clave nueva</button></div><p class="error" id="me"></p><div id="mok"></div>`;
+    document.body.appendChild(c);
+    const reqs = () => { const n = $("#mn").value, r = $("#mr").value;
+      $("#req").innerHTML = [["Al menos 8 caracteres", n.length >= 8], ["Una letra", /[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(n)], ["Un número", /\d/.test(n)], ["Las dos coinciden", !!n && n === r]]
+        .map(([t, ok]) => `<span style="color:${ok ? "var(--acento)" : "var(--suave)"}">${ok ? "✓" : "○"} ${t}</span>`).join(""); };
+    reqs(); $("#mn").oninput = reqs; $("#mr").oninput = reqs;
+    $("#cer").onclick = () => c.remove();
+    $("#mg").onclick = async () => {
+      $("#me").textContent = "";
+      try { await api("/yo/contrasena", { body: { actual: $("#ma").value, nueva: $("#mn").value, repetir: $("#mr").value } });
+        $("#mok").innerHTML = `<div class="aviso-ok">✓ Listo: tu clave quedó cambiada.</div>`; ["#ma", "#mn", "#mr"].forEach((k) => ($(k).value = "")); reqs(); }
+      catch (e) { $("#me").textContent = e.message; }
+    };
+  }
+
+  // Ojo para ver u ocultar la clave en todos los campos de contraseña del panel
+  const OJO = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const OJO_NO = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6A17.4 17.4 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  function ponerOjos(raiz) {
+    raiz.querySelectorAll('input[type="password"]:not([data-ojo])').forEach((inp) => {
+      inp.dataset.ojo = "1";
+      const caja = document.createElement("span"); caja.className = "con-ojo";
+      inp.parentNode.insertBefore(caja, inp); caja.appendChild(inp);
+      const b = document.createElement("button"); b.type = "button"; b.className = "ojo"; b.innerHTML = OJO;
+      b.setAttribute("aria-label", "Mostrar la clave"); b.title = "Mostrar la clave";
+      b.onclick = () => { const ver = inp.type === "password"; inp.type = ver ? "text" : "password"; b.innerHTML = ver ? OJO_NO : OJO;
+        b.setAttribute("aria-label", ver ? "Ocultar la clave" : "Mostrar la clave"); b.title = ver ? "Ocultar la clave" : "Mostrar la clave"; inp.focus(); };
+      caja.appendChild(b);
+    });
+  }
+  new MutationObserver(() => ponerOjos(document.body)).observe(document.body, { childList: true, subtree: true });
 
   window.addEventListener("hashchange", () => { S.ruta = location.hash.slice(1) || "inicio"; document.querySelector(".cajon")?.remove(); window.scrollTo(0, 0); pintar(true); });
   document.addEventListener("keydown", (e) => { if (e.key === "/" && document.activeElement?.tagName !== "INPUT") { e.preventDefault(); $("#bg")?.focus(); } });

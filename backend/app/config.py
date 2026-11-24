@@ -22,6 +22,8 @@ PUSH_ENABLED = os.environ.get("AHAHOME_PUSH", "1") == "1"
 
 # Dirección pública del servidor, para los enlaces de los correos (ej. https://api-home.aha-go.com)
 PUBLIC_URL = os.environ.get("AHAHOME_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
+# Dirección del panel del equipo (para el enlace de «recuperar clave»)
+PANEL_URL = os.environ.get("AHAHOME_PANEL_URL", "https://superad.aha-go.com").rstrip("/")
 
 # El cliente tiene 24 horas para verificar su correo; si no, su cuenta se elimina del registro.
 VERIFICACION_HORAS = int(os.environ.get("AHAHOME_VERIFICACION_HORAS", "24"))
