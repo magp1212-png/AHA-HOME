@@ -24,3 +24,8 @@ backend/cf-api.log
 ops/r2.json
 backend/.superadmin-listo
 backend/modelos/
+
+backend/.solo-equipo
+backend/.solo-equipo-decidido
+backend/.ceo-listo
+ops/cloudflared/token.txt

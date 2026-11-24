@@ -36,13 +36,13 @@ function DatosPersonales() {
 }
 
 /** Mi perfil · Contraseña y seguridad. */
-function Seguridad() {
+export function Seguridad({ alCambiar }: { alCambiar?: () => void } = {}) {
   const [f, setF] = useState({ actual: "", nueva: "", repetir: "" });
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
   const reqs: [string, boolean][] = [["Al menos 8 caracteres", f.nueva.length >= 8], ["Una letra", /[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(f.nueva)],
     ["Un número", /\d/.test(f.nueva)], ["Las dos coinciden", !!f.nueva && f.nueva === f.repetir]];
   async function cambiar() {
-    try { await api("/yo/contrasena", { body: f }); setF({ actual: "", nueva: "", repetir: "" }); setMsg({ t: "Listo: tu contraseña quedó actualizada.", ok: true }); }
+    try { await api("/yo/contrasena", { body: f }); setF({ actual: "", nueva: "", repetir: "" }); setMsg({ t: "Listo: tu contraseña quedó actualizada.", ok: true }); alCambiar?.(); }
     catch (e: any) { setMsg({ t: e.message, ok: false }); }
   }
   return (

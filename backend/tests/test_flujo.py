@@ -1149,3 +1149,15 @@ def test_panel_aha_go_abre_el_superadmin(client):
     assert r.status_code == 302 and r.headers["location"] == "/panel/"
     r = client.get("/legal/privacidad", headers={"host": "aha-go.com"}, follow_redirects=False)
     assert r.status_code == 301 and r.headers["location"] == "https://www.aha-go.com/legal/privacidad"
+
+
+def test_modo_equipo_solo_entra_el_personal(client, monkeypatch):
+    from app import config
+    monkeypatch.setattr(config, "SOLO_EQUIPO", True)
+    assert client.get("/salud").json()["solo_equipo"] is True
+    r = client.post("/auth/login", json={"usuario": "maria@ahahome.test", "password": "aha12345"})
+    assert r.status_code == 403 and "solo con el equipo" in r.json()["detail"]
+    assert client.post("/auth/login-pin", json={"telefono": "04242000001", "pin": "1234"}).status_code == 403
+    assert client.post("/auth/registro", json={}).status_code in (403, 422)
+    for u in ("agente@ahahome.test", "supervisor@ahahome.test", "superadmin@ahahome.test", "ceo@ahahome.test"):
+        assert client.post("/auth/login", json={"usuario": u, "password": "aha12345"}).status_code == 200

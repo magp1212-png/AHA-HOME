@@ -52,6 +52,13 @@ npx expo export --platform web --output-dir dist-web
 Pop-Location
 Write-Host "✓ Web armada"
 
+# 5b. Modo equipo: mientras se prueba, solo entran caja, centro de control, superadmin y CEO.
+#     Para abrirla a clientes y técnicos: borra backend\.solo-equipo y reinicia la tarea "aha home API".
+if (-not (Test-Path "$Backend\.solo-equipo-decidido")) {
+  New-Item "$Backend\.solo-equipo" -Force | Out-Null; New-Item "$Backend\.solo-equipo-decidido" | Out-Null
+  Write-Host "✓ Modo equipo activado (solo personal)"
+}
+
 # 6. Tareas programadas (como anunciate)
 $py = "$Backend\.venv\Scripts\python.exe"
 schtasks /Create /F /TN "aha home API" /SC ONSTART /RU SYSTEM /RL HIGHEST /TR "`"$PSScriptRoot\servidor-ahahome.cmd`"" | Out-Null
@@ -67,8 +74,8 @@ Start-Sleep -Seconds 8
 try { (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8096/salud).Content; Write-Host "✓ API funcionando" -ForegroundColor Green }
 catch { Write-Host "La API todavía no responde: revisa backend\logs\api.log" -ForegroundColor Yellow }
 
-# 8. Superadministrador real
-if (-not (Test-Path "$Backend\.superadmin-listo")) {
-  Push-Location $Backend; & $py crear_superadmin.py; if ($LASTEXITCODE -eq 0) { New-Item "$Backend\.superadmin-listo" | Out-Null }; Pop-Location
+# 8. Cuenta CEO (magp@aha-go.com) y la tienda del piloto. Enter en la clave = clave provisional (se cambia al entrar)
+if (-not (Test-Path "$Backend\.ceo-listo")) {
+  Push-Location $Backend; & $py crear_ceo.py magp@aha-go.com; if ($LASTEXITCODE -eq 0) { New-Item "$Backend\.ceo-listo" | Out-Null }; Pop-Location
 }
-Write-Host "`nListo. Falta el túnel con nombre: ver ops\cloudflared\config.ejemplo.yml" -ForegroundColor Cyan
+Write-Host "`nListo. Falta el túnel: guarda el token del túnel en ops\cloudflared\token.txt (ver ops\cloudflared\LEEME.md)" -ForegroundColor Cyan

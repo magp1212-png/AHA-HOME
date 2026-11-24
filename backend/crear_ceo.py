@@ -40,6 +40,14 @@ def main() -> None:
         db.commit()
         from app.routers.ceo import sembrar_correos
         sembrar_correos(db)
+        # La tienda del piloto, para que el CEO pueda crear las cuentas de caja y del técnico supervisor
+        from app.models import Tienda
+        if not db.scalar(select(Tienda)):
+            from seed import TIENDA
+            nombre, zona, dirc, lat, lng = TIENDA
+            db.add(Tienda(nombre=nombre, zona=zona, direccion=dirc, lat=lat, lng=lng))
+            db.commit()
+            print(f"Tienda creada: {nombre}")
     print(f"Listo: {email} es la cuenta CEO.")
     if temporal:
         print(f"\n  Clave temporal: {clave}\n  Anótala ahora: no se vuelve a mostrar. Al entrar por primera vez, el sistema te pedirá cambiarla.\n")

@@ -47,4 +47,9 @@ CEO_EMAILS = {e.strip().lower() for e in os.environ.get("AHAHOME_CEO_EMAILS", "m
 CORREO_DOMINIO = os.environ.get("AHAHOME_CORREO_DOMINIO", "aha-go.com").strip().lower()
 # Código de cierre (AHA HOGAR v2): vale 30 minutos y se puede pedir otro cada 60 segundos
 CIERRE_MINUTOS = int(os.environ.get("AHAHOME_CIERRE_MINUTOS", "30"))
+# Modo equipo: en producción, mientras se prueba, solo entran la caja, el centro de control, el superadmin y el CEO.
+# Se activa con AHAHOME_SOLO_EQUIPO=1 o con el archivo backend/.solo-equipo en el servidor.
+SOLO_EQUIPO = os.environ.get("AHAHOME_SOLO_EQUIPO", "") == "1" or (BASE_DIR / ".solo-equipo").exists()
+ROLES_EQUIPO = ("agente", "supervisor", "tecnico_supervisor", "superadmin")
+MENSAJE_SOLO_EQUIPO = "AHA HOME está en pruebas solo con el equipo de tienda y control. Muy pronto podrás usarla."
 INSPECCION_USD = float(os.environ.get("AHAHOME_INSPECCION_USD", "10"))

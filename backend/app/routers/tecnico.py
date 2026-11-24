@@ -59,6 +59,9 @@ def normalizar_cedula(c: str) -> str:
 
 @router.post("/registro")
 def registro_campo(body: RegistroCampo, db: Session = Depends(get_db)):
+    from .. import config
+    if config.SOLO_EQUIPO:
+        raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
     if body.rol not in ("tecnico", "ayudante"):
         raise HTTPException(422, "Rol inválido")
     if not db.get(Tienda, body.tienda_id):

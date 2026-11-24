@@ -7,7 +7,12 @@ REM  Lo arranca la tarea programada "aha home tunel" (SYSTEM, al iniciar Windows
 REM ============================================================================
 cd /d "%~dp0"
 :loop
-if exist "cloudflared\config.yml" (
+if exist "cloudflared\token.txt" (
+  echo [%date% %time%] tunel con token del panel de Cloudflare >> tunel.log
+  REM cloudflared lee el token de la variable TUNNEL_TOKEN (no queda en la linea de comandos)
+  set /p TUNNEL_TOKEN=<"cloudflared\token.txt"
+  cloudflared tunnel --no-autoupdate run >> tunel.log 2>&1
+) else if exist "cloudflared\config.yml" (
   echo [%date% %time%] tunel con nombre >> tunel.log
   cloudflared tunnel --no-autoupdate --config "%~dp0cloudflared\config.yml" run >> tunel.log 2>&1
 ) else (

@@ -93,6 +93,9 @@ class Registro(BaseModel):
 
 @router.post("/auth/registro")
 def registro(body: Registro, db: Session = Depends(get_db)):
+    from .. import config
+    if config.SOLO_EQUIPO:
+        raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
     purgar_no_verificados(db)  # libera teléfonos y correos de registros vencidos
     tel = limpiar_tel(body.telefono)
     email = body.email.strip().lower()
@@ -172,6 +175,9 @@ def login(body: Login, db: Session = Depends(get_db)):
     u = db.scalar(select(User).where(or_(User.email == ident, User.telefono == limpiar_tel(ident))))
     if not u or not u.activo or not verify_password(body.password, u.password_hash):
         raise HTTPException(401, "Teléfono, correo o contraseña incorrectos. Si no verificaste tu correo en 24 horas, regístrate de nuevo.")
+    from .. import config
+    if config.SOLO_EQUIPO and u.rol not in config.ROLES_EQUIPO:
+        raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
     from ..auditoria import registrar
     registrar(db, u, "POST", "/auth/login", 200, "", "Inició sesión")
     db.commit()
@@ -186,6 +192,9 @@ class LoginPin(BaseModel):
 @router.post("/auth/login-pin")
 def login_pin(body: LoginPin, db: Session = Depends(get_db)):
     """Acceso del técnico o ayudante con su PIN personal (la app pide antes huella o rostro del teléfono)."""
+    from .. import config
+    if config.SOLO_EQUIPO:
+        raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
     u = db.scalar(select(User).where(User.telefono == limpiar_tel(body.telefono), User.rol.in_(("tecnico", "ayudante"))))
     if not u or not u.activo or not u.tecnico or not verify_password(body.pin, u.tecnico.pin_hash):
         raise HTTPException(401, "Teléfono o PIN incorrectos")

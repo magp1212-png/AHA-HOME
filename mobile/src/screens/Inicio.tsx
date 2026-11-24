@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { api } from "../api";
 import { useNav } from "../nav";
 import { Boton, C, Logo } from "../ui";
 
@@ -17,6 +18,9 @@ const PASOS: { icono: React.ComponentProps<typeof Ionicons>["name"]; titulo: str
 export default function Inicio() {
   const nav = useNav();
   const insets = useSafeAreaInsets();
+  // En pruebas internas (modo equipo) solo entran la caja, el centro de control, el superadmin y el CEO
+  const [soloEquipo, setSoloEquipo] = useState(false);
+  useEffect(() => { api<{ solo_equipo?: boolean }>("/salud").then((r) => setSoloEquipo(!!r.solo_equipo)).catch(() => {}); }, []);
   return (
     <View style={{ flex: 1, backgroundColor: C.blanco }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 40, paddingBottom: insets.bottom + 16, paddingHorizontal: 22, gap: 10 }}>
@@ -46,11 +50,18 @@ export default function Inicio() {
         </View>
         <View style={{ flex: 1, minHeight: 16 }} />
         <View style={{ gap: 10 }}>
+          {soloEquipo ? (
+            <>
+              <Text style={{ color: C.gris, fontSize: 14, textAlign: "center" }}>Versión de pruebas para el equipo: caja, centro de control y superadministrador.</Text>
+              <Boton titulo="ENTRAR · EQUIPO AHA HOME" onPress={() => nav.push("login")} />
+            </>
+          ) : <>
           <Boton titulo="CREAR MI CUENTA" tipo="naranja" onPress={() => nav.push("registroCliente")} />
           <Boton titulo="YA TENGO CUENTA · ENTRAR" onPress={() => nav.push("login")} />
           <Pressable accessibilityRole="button" onPress={() => nav.push("loginTecnico")} style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}>
             <Text style={{ color: C.gris, fontSize: 14 }}>¿Eres técnico o ayudante? <Text style={{ fontWeight: "800", color: C.marino, textDecorationLine: "underline" }}>Entra aquí</Text></Text>
           </Pressable>
+          </>}
         </View>
       </ScrollView>
     </View>

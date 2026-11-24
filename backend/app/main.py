@@ -118,7 +118,7 @@ def salud():
     """La app consulta esto para saber si el servidor responde (sirve igual en la nube o en tu servidor físico)."""
     with engine.connect() as c:
         c.execute(text("SELECT 1"))
-    return {"ok": True, "app": "AHA HOME", "version": config.APP_VERSION}
+    return {"ok": True, "app": "AHA HOME", "version": config.APP_VERSION, "solo_equipo": config.SOLO_EQUIPO}
 
 
 # La app web (misma app que el teléfono) en "/", después de todas las rutas de la API
