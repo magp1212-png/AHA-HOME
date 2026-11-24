@@ -6,6 +6,7 @@ REM  - Mientras tanto: tunel temporal trycloudflare (la direccion queda en backe
 REM  Lo arranca la tarea programada "aha home tunel" (SYSTEM, al iniciar Windows).
 REM ============================================================================
 cd /d "%~dp0"
+set "PATH=%PATH%;C:\Program Files (x86)\cloudflared;C:\Program Files\cloudflared"
 :loop
 if exist "cloudflared\token.txt" (
   echo [%date% %time%] tunel con token del panel de Cloudflare >> tunel.log
