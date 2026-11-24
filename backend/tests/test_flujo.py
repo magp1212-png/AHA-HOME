@@ -1070,3 +1070,38 @@ def test_tabulacion_de_precios_por_articulo_y_servicio(client):
     assert client.get("/inspeccion/costo").json()["costo"] == "12.00"
     o = nueva(client, agente, requiere_inspeccion=True, pago={"metodo": "efectivo_usd", "referencia": ""}, articulos=[{"tipo": "aire_acondicionado", "instalar": True}])
     assert o["pago_instalacion"]["inspeccion"] == "12.00"
+
+
+def test_ceo_crea_usuarios_con_clave_y_limitaciones(client):
+    ceo = login(client, "ceo@ahahome.test")
+    sa = login(client, "superadmin@ahahome.test")
+    assert client.post("/ceo/usuarios", json={"nombre": "X", "email": "x@x.com", "rol": "supervisor"}, headers=sa).status_code == 403
+    cat = client.get("/ceo/permisos", headers=ceo).json()
+    assert "precios" in [p["clave"] for p in cat["permisos"]] and "agente" in cat["roles"]
+    # superadmin limitado: solo ve el tablero y las órdenes; no puede cambiar precios ni la tasa
+    r = client.post("/ceo/usuarios", json={"nombre": "Ana Admin", "email": "ana@aha-go.com", "rol": "superadmin", "permisos": ["ver_tablero", "ver_ordenes"]}, headers=ceo).json()
+    clave = r["clave"]
+    assert r["clave_temporal"] and r["permisos"] == ["ver_tablero", "ver_ordenes"] and len(clave) >= 8
+    assert client.post("/ceo/usuarios", json={"nombre": "Otra", "email": "ana@aha-go.com", "rol": "supervisor"}, headers=ceo).status_code == 409
+    assert client.post("/ceo/usuarios", json={"nombre": "Caja 2", "email": "caja2@aha-go.com", "rol": "agente"}, headers=ceo).status_code == 422  # falta tienda
+    ana = {"Authorization": "Bearer " + client.post("/auth/login", json={"usuario": "ana@aha-go.com", "password": clave}).json()["token"]}
+    yo = client.get("/yo", headers=ana).json()
+    assert yo["clave_temporal"] and yo["permisos"] == ["ver_tablero", "ver_ordenes"]
+    assert client.get("/panel-api/resumen", headers=ana).status_code == 200
+    assert client.get("/panel-api/tabla/ordenes", headers=ana).status_code == 200
+    r = client.get("/panel-api/tabla/clientes", headers=ana)
+    assert r.status_code == 403 and "Pídeselo al CEO" in r.json()["detail"]
+    assert client.put("/admin/tasa", json={"bs_por_usd": 300}, headers=ana).status_code == 403
+    assert client.post("/yo/contrasena", json={"actual": clave, "nueva": "Propia2026", "repetir": "Propia2026"}, headers=ana).json()["ok"]
+    assert client.get("/yo", headers=ana).json()["clave_temporal"] is False
+    # el CEO amplía sus permisos, luego la desactiva
+    client.put(f"/ceo/usuarios/{r.json() if False else yo['id']}", json={"permisos": ["ver_tablero", "ver_ordenes", "tasa"]}, headers=ceo)
+    assert client.put("/admin/tasa", json={"bs_por_usd": 300}, headers=ana).status_code == 200
+    nueva_clave = client.post(f"/ceo/usuarios/{yo['id']}/clave", headers=ceo).json()["clave"]
+    assert client.post("/auth/login", json={"usuario": "ana@aha-go.com", "password": nueva_clave}).status_code == 200
+    client.put(f"/ceo/usuarios/{yo['id']}", json={"activo": False}, headers=ceo)
+    assert client.post("/auth/login", json={"usuario": "ana@aha-go.com", "password": nueva_clave}).status_code == 401
+    # sin permisos personalizados, un superadmin conserva todo; todo queda en la auditoría
+    assert "precios" in client.get("/yo", headers=sa).json()["permisos"]
+    acc = [a["accion"] for a in client.get("/ceo/actividad", headers=ceo).json()]
+    assert "Creó una cuenta del personal" in acc and any(a.startswith("Restableció la clave") for a in acc)

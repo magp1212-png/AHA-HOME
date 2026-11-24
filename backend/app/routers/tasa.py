@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..deps import current_user, require
+from ..deps import current_user, exigir_permiso, require
 from ..models import METODO_PAGO_TEXTO, TasaCambio, User, moneda_de
 
 router = APIRouter(tags=["tasa"])
@@ -57,6 +57,7 @@ def ver_tasa(user: User = Depends(current_user), db: Session = Depends(get_db)):
 
 @router.put("/admin/tasa")
 def cargar_tasa(body: TasaIn, user: User = Depends(require("superadmin")), db: Session = Depends(get_db)):
+    exigir_permiso(user, "tasa")
     t = TasaCambio(bs_por_usd=round(body.bs_por_usd, 4), fecha=(body.fecha or dt.date.today()).isoformat(), creado_por=user.id)
     db.add(t)
     db.commit()

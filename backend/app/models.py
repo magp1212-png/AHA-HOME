@@ -112,7 +112,10 @@ class User(Base):
     verificacion_token: Mapped[str | None] = mapped_column(String(60), index=True)
     verificacion_vence: Mapped[dt.datetime | None] = mapped_column(DateTime)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
-    es_ceo: Mapped[bool] = mapped_column(Boolean, default=False)  # superadmin que además ve el centro de mando y la auditoría
+    es_ceo: Mapped[bool] = mapped_column(Boolean, default=False)
+    permisos: Mapped[list | None] = mapped_column(JSON)  # limitaciones que fija el CEO (None = las de su rol)
+    clave_temporal: Mapped[bool] = mapped_column(Boolean, default=False)  # la creó el CEO: debe cambiarla al entrar
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))  # superadmin que además ve el centro de mando y la auditoría
     ultimo_acceso_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
     ultimo_ip: Mapped[str] = mapped_column(String(64), default="")
     push_token: Mapped[str | None] = mapped_column(String(200))

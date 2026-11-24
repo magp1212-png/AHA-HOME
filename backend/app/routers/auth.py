@@ -41,8 +41,11 @@ def normalizar_cedula(c: str) -> str:
 
 def perfil(u: User) -> dict:
     d = {"id": u.id, "nombre": u.nombre, "telefono": u.telefono, "email": u.email, "rol": u.rol, "cedula": u.cedula,
-         "tienda_id": u.tienda_id, "foto": u.foto, "email_verificado": u.email_verificado, "es_ceo": bool(u.es_ceo and u.rol == "superadmin"),
+         "tienda_id": u.tienda_id, "foto": u.foto, "email_verificado": u.email_verificado, "es_ceo": bool(u.es_ceo and u.rol == "superadmin"), "clave_temporal": bool(u.clave_temporal),
          "verificacion_vence": u.verificacion_vence.isoformat() + "Z" if u.verificacion_vence and not u.email_verificado else None}
+    if u.rol in ("agente", "tecnico_supervisor", "supervisor", "superadmin"):
+        from ..deps import permisos_de
+        d["permisos"] = permisos_de(u)
     if u.tecnico:
         t = u.tecnico
         d["tecnico"] = {"id": t.id, "grupo": t.grupo, "tienda": t.tienda.nombre, "zona": t.tienda.zona,
@@ -258,6 +261,7 @@ def cambiar_contrasena(body: CambioClave, user: User = Depends(current_user), db
     if verify_password(body.nueva, user.password_hash):
         raise HTTPException(422, "La nueva contraseña debe ser distinta de la actual")
     user.password_hash = hash_password(body.nueva)
+    user.clave_temporal = False
     from ..notificar import notificar
     notificar(db, user.id, "Cambiaste tu contraseña", "Si no fuiste tú, escribe de inmediato a Soporte AHA HOME.")
     db.commit()

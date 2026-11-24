@@ -43,6 +43,11 @@ ACCIONES = [
     ("POST", r"^/caja/visitas/(\d+)/autorizar$", "Autorizó un retiro en tienda (visita #{0})"),
     ("POST", r"^/caja/visitas/(\d+)/rechazar$", "No autorizó un retiro en tienda (visita #{0})"),
     ("POST", r"^/ordenes/(\d+)/chat$", "Escribió en el chat de la orden #{0}"),
+    ("POST", r"^/ceo/usuarios$", "Creó una cuenta del personal"),
+    ("PUT", r"^/ceo/usuarios/(\d+)$", "Cambió el rol, permisos o estado del usuario #{0}"),
+    ("POST", r"^/ceo/usuarios/(\d+)/clave$", "Restableció la clave del usuario #{0}"),
+    ("PUT", r"^/admin/precios/(\d+)$", "Editó un precio de la tabulación (#{0})"),
+    ("PUT", r"^/admin/precios-inspeccion$", "Cambió el precio de la inspección"),
 ]
 
 

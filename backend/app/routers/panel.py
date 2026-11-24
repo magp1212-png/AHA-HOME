@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from .. import ordenes as svc
 from ..db import get_db
-from ..deps import require
+from ..deps import exigir_permiso, permisos_de, require
 from ..models import (ESTADO_TEXTO, METODO_PAGO_TEXTO, TIPO_EQUIPO_TEXTO, TIPO_SERVICIO_TEXTO, Articulo, Incidencia, Orden, Presupuesto,
                       SoporteMensaje, Tecnico, Tienda, User, ahora)
 
@@ -44,6 +44,7 @@ def _pct(actual: int, previo: int) -> float | None:
 @router.get("/resumen")
 def resumen(dias: int = 30, user: User = Depends(panel), db: Session = Depends(get_db)):
     """Indicadores del panel principal para un período (7, 30, 90… días)."""
+    exigir_permiso(user, "ver_tablero")
     dias = max(1, min(dias, 365))
     hoy = ahora().replace(hour=0, minute=0, second=0, microsecond=0) + dt.timedelta(days=1)
     desde, previo = hoy - dt.timedelta(days=dias), hoy - dt.timedelta(days=2 * dias)
@@ -254,6 +255,10 @@ TABLAS = {"clientes": _tabla_clientes, "tecnicos": _tabla_tecnicos, "empresas": 
           "administradores": _tabla_administradores, "control": _tabla_control, "caja": _tabla_caja, "ordenes": _tabla_ordenes,
           "transacciones": _tabla_transacciones, "liquidaciones": _tabla_liquidaciones, "verificaciones": _tabla_verificaciones,
           "reportes": _tabla_reportes, "resenas": _tabla_resenas, "mensajeria": _tabla_mensajeria}
+PERMISO_TABLA = {"clientes": "ver_clientes", "empresas": "ver_empresas", "tecnicos": "ver_tecnicos", "verificaciones": "ver_tecnicos",
+                 "ordenes": "ver_ordenes", "transacciones": "ver_finanzas", "liquidaciones": "ver_finanzas", "mensajeria": "ver_soporte",
+                 "reportes": "ver_soporte", "resenas": "ver_soporte", "equipo": "ver_personal", "administradores": "ver_personal",
+                 "control": "ver_personal", "caja": "ver_personal"}
 ORDEN_INICIAL = {"clientes": "creado", "tecnicos": "creado", "ordenes": "creado", "transacciones": "en", "liquidaciones": "en", "verificaciones": "solicitado",
                  "reportes": "creado", "resenas": "fecha", "mensajeria": "ultimo"}
 
@@ -263,6 +268,7 @@ def tabla(nombre: str, q: str = "", orden: str | None = None, dir: str = "desc",
           user: User = Depends(panel), db: Session = Depends(get_db)):
     if nombre not in TABLAS:
         raise HTTPException(404, "Tabla no encontrada")
+    exigir_permiso(user, PERMISO_TABLA.get(nombre, "ver_tablero"))
     cols, filas = TABLAS[nombre](db)
     estados = sorted({str(f.get("estado")) for f in filas if f.get("estado")})
     if estado:
@@ -285,7 +291,10 @@ def tabla(nombre: str, q: str = "", orden: str | None = None, dir: str = "desc",
 def buscar(q: str, user: User = Depends(panel), db: Session = Depends(get_db)):
     """Buscador global de la barra superior: personas, órdenes y tiendas."""
     out = []
+    puede = set(permisos_de(user))
     for nombre, etiqueta in (("ordenes", "Orden"), ("clientes", "Cliente"), ("tecnicos", "Técnico"), ("empresas", "Empresa"), ("equipo", "Personal AHA HOME")):
+        if PERMISO_TABLA.get(nombre) not in puede:
+            continue
         r = tabla(nombre, q=q, por_pagina=5, user=user, db=db)
         for f in r["filas"]:
             out.append({"tabla": nombre, "tipo": etiqueta, "id": f["id"], "titulo": f.get("codigo") or f.get("nombre"), "sub": f.get("cliente") or f.get("email") or f.get("tienda") or ""})

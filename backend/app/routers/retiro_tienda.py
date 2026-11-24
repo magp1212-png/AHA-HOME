@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from .. import ordenes as svc
 from ..db import get_db
-from ..deps import require
+from ..deps import require, exigir_permiso
 from ..models import Orden, Tienda, User, VisitaRetiro, ahora, con_retiro
 from ..notificar import notificar
 from .tecnico import _salida, verificado
@@ -45,6 +45,7 @@ def tiendas(user: User = Depends(require("superadmin")), db: Session = Depends(g
 @router.post("/admin/tiendas/{tienda_id}/qr")
 def generar_qr(tienda_id: int, user: User = Depends(require("superadmin")), db: Session = Depends(get_db)):
     """Crea (o cambia, si el impreso se perdió) el QR de la tienda. El anterior deja de servir."""
+    exigir_permiso(user, "qr_tiendas")
     t = db.get(Tienda, tienda_id)
     if not t:
         raise HTTPException(404, "Tienda no encontrada")

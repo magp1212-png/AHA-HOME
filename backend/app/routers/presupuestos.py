@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from .. import ordenes as svc
 from .. import config
 from ..db import get_db
-from ..deps import require
+from ..deps import require, exigir_permiso
 from ..models import ESTADO_PRESUPUESTO_TEXTO, METODOS_PAGO, Orden, Presupuesto, Tecnico, User, ahora
 from ..notificar import notificar
 from .precios import precio_inspeccion_centavos
@@ -275,6 +275,7 @@ def cliente_responde(orden_id: int, body: Respuesta, user: User = Depends(requir
 
 @router.post("/supervisor/presupuestos/{pres_id}/aprobar")
 def superadmin_aprueba(pres_id: int, body: Respuesta, user: User = Depends(require("superadmin")), db: Session = Depends(get_db)):
+    exigir_permiso(user, "aprobar_presupuestos")
     p = db.get(Presupuesto, pres_id)
     if not p:
         raise HTTPException(404)
@@ -359,6 +360,7 @@ def _listo(db: Session, p: Presupuesto, actor: User) -> None:
 
 @router.post("/supervisor/presupuestos/{pres_id}/pagar-materiales")
 def pagar_materiales(pres_id: int, body: PagoMateriales, user: User = Depends(require("superadmin")), db: Session = Depends(get_db)):
+    exigir_permiso(user, "pagar_materiales")
     p = db.get(Presupuesto, pres_id)
     if not p or p.estado != "pagado":
         raise HTTPException(409, "Este presupuesto no está esperando el pago de materiales")

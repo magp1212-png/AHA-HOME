@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from .. import asignacion
 from ..db import get_db
-from ..deps import current_user, require
+from ..deps import current_user, exigir_permiso, require
 from ..models import Banner, User
 
 router = APIRouter(tags=["banners"])
@@ -101,6 +101,7 @@ def listar(user: User = Depends(solo_superadmin), db: Session = Depends(get_db))
 
 @router.post("/admin/banners")
 def crear(body: BannerIn, user: User = Depends(solo_superadmin), db: Session = Depends(get_db)):
+    exigir_permiso(user, "banners")
     crear_por_defecto(db)  # los mensajes de fábrica de AHA HOME existen antes del primer banner propio
     b = Banner(**(body.model_dump() | {"imagen": body.imagen or ""}))
     db.add(b)
@@ -110,6 +111,7 @@ def crear(body: BannerIn, user: User = Depends(solo_superadmin), db: Session = D
 
 @router.put("/admin/banners/{banner_id}")
 def editar(banner_id: int, body: BannerIn, user: User = Depends(solo_superadmin), db: Session = Depends(get_db)):
+    exigir_permiso(user, "banners")
     b = db.get(Banner, banner_id)
     if not b:
         raise HTTPException(404, "Banner no encontrado")
@@ -121,6 +123,7 @@ def editar(banner_id: int, body: BannerIn, user: User = Depends(solo_superadmin)
 
 @router.delete("/admin/banners/{banner_id}")
 def borrar(banner_id: int, user: User = Depends(solo_superadmin), db: Session = Depends(get_db)):
+    exigir_permiso(user, "banners")
     b = db.get(Banner, banner_id)
     if not b:
         raise HTTPException(404, "Banner no encontrado")

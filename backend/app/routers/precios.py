@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from .. import config
 from ..db import get_db
-from ..deps import require
+from ..deps import require, exigir_permiso
 from ..models import Ajuste, PrecioItem, User
 
 router = APIRouter(tags=["precios"])
@@ -76,6 +76,7 @@ class PrecioIn(BaseModel):
 
 @router.put("/admin/precios/{pid}")
 def fijar_precio(pid: int, body: PrecioIn, user: User = Depends(_ADMIN), db: Session = Depends(get_db)):
+    exigir_permiso(user, "precios")
     p = db.get(PrecioItem, pid)
     if not p:
         raise HTTPException(404, "Artículo no encontrado")
@@ -98,6 +99,7 @@ class NuevoItem(BaseModel):
 
 @router.post("/admin/precios")
 def agregar_item(body: NuevoItem, user: User = Depends(_ADMIN), db: Session = Depends(get_db)):
+    exigir_permiso(user, "precios")
     import re
     clave = re.sub(r"[^a-z0-9]+", "_", body.nombre.lower()).strip("_")[:36] or "item"
     if db.scalar(select(PrecioItem).where(PrecioItem.clave == clave)):
@@ -114,6 +116,7 @@ class InspeccionIn(BaseModel):
 
 @router.put("/admin/precios-inspeccion")
 def fijar_inspeccion(body: InspeccionIn, user: User = Depends(_ADMIN), db: Session = Depends(get_db)):
+    exigir_permiso(user, "precios")
     a = db.get(Ajuste, "inspeccion_centavos") or Ajuste(clave="inspeccion_centavos")
     a.valor = str(round(body.precio * 100))
     db.add(a)

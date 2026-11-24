@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from .. import asignacion
 from .. import ordenes as svc
 from ..db import get_db
-from ..deps import require
+from ..deps import require, exigir_permiso
 from ..models import (DOCUMENTOS_OBLIGATORIOS, GRUPOS, ROLES, TIPOS_DOCUMENTO, Documento, Incidencia, Orden, Tecnico, Tienda,
                       User, ahora)
 from ..notificar import notificar
@@ -199,6 +199,7 @@ class NuevoDocumento(BaseModel):
 @router.post("/tecnicos/{tec_id}/documentos")
 def agregar_documento(tec_id: int, body: NuevoDocumento, user: User = Depends(control), db: Session = Depends(get_db)):
     """En la oficina: foto de perfil, cédula, licencia, documentos del vehículo y otros."""
+    exigir_permiso(user, "altas_tecnicos")
     t = tecnico_controlado(db, user, tec_id)
     if body.tipo not in TIPOS_DOCUMENTO:
         raise HTTPException(422, "Tipo de documento inválido")
@@ -232,6 +233,7 @@ class Alta(BaseModel):
 @router.post("/tecnicos/{tec_id}/alta")
 def dar_de_alta(tec_id: int, body: Alta, user: User = Depends(control), db: Session = Depends(get_db)):
     """Alta inmediata en la oficina: exige registro completo en la app y expediente mínimo."""
+    exigir_permiso(user, "altas_tecnicos")
     t = tecnico_controlado(db, user, tec_id)
     falta = []
     if not t.es_ayudante:  # el técnico se registra en la app; el ayudante puede registrarse completo en la oficina

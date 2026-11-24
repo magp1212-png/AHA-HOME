@@ -40,20 +40,30 @@
   const TITULOS = { inicio: ["Tableros", "Panel principal"], tecnicos: ["Técnicos", "Técnicos y ayudantes"], empresas: ["Registros", "Empresas aliadas"], clientes: ["Registros", "Clientes"],
     equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Órdenes", "Lista"], transacciones: ["Órdenes", "Transacciones"],
     mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Órdenes", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
-    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"],
+    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"], usuarios: ["Centro de mando", "Usuarios y permisos"],
     tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
+
+  // Permiso que necesita cada pantalla (el CEO lo asigna a cada usuario)
+  const PERM_RUTA = { inicio: "ver_tablero", clientes: "ver_clientes", empresas: "ver_empresas", tecnicos: "ver_tecnicos", verificaciones: "ver_tecnicos",
+    ordenes: "ver_ordenes", transacciones: "ver_finanzas", liquidaciones: "ver_finanzas", mensajeria: "ver_soporte", reportes: "ver_soporte", resenas: "ver_soporte",
+    anuncios: "banners", tasa: "ver_tablero", precios: "ver_tablero", qrs: "qr_tiendas", administradores: "ver_personal", control: "ver_personal", caja: "ver_personal" };
+  const puede = (k) => S.yo?.es_ceo || !PERM_RUTA[k] || (S.yo?.permisos || []).includes(PERM_RUTA[k]);
+  const puedeHacer = (p) => S.yo?.es_ceo || (S.yo?.permisos || []).includes(p);
 
   function menuHTML() {
     const it = (k, t, i) => `<a class="it ${S.ruta === k ? "on" : ""}" href="#${k}"><span class="i">${i}</span>${t}</a>`;
     let h = "";
-    for (const m of MENU) {
+    const vis = MENU.map((m) => (m.hijos ? { ...m, hijos: m.hijos.filter(([k]) => puede(k)) } : m)).filter((m) => m.sec || (m.k ? puede(m.k) : m.hijos.length));
+    const lim = vis.filter((m, i) => !m.sec || (vis[i + 1] && !vis[i + 1].sec));
+    for (const m of lim) {
       if (m.sec) { h += `<div style="margin:14px 12px 4px;font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--suave)">${m.sec}</div>`; continue; }
       if (m.k) { h += it(m.k, m.t, m.i); continue; }
       h += `<div class="grupo"><span style="display:flex;gap:12px"><span class="i" style="width:22px;text-align:center">${m.i}</span>${m.g}</span><span>⌄</span></div>`;
       if (m.cap) h += `<div class="cap">${m.cap}</div>`;
       h += `<div class="sub">${m.hijos.map(([k, t, c]) => `<a href="#${k}" class="${S.ruta === k ? "on" : ""}">${t}${c && S.cuentas?.[c] ? `<span class="cuenta">${S.cuentas[c]}</span>` : ""}</a>`).join("")}</div>`;
     }
-    if (S.yo?.es_ceo) h += `<div style="height:10px"></div>` + it("auditoria", "Centro de mando", "🛡");
+    if (S.yo?.es_ceo) h += `<div style="margin:14px 12px 4px;font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--suave)">CENTRO DE MANDO (CEO)</div>`
+      + it("usuarios", "Usuarios y permisos", "🔑") + it("auditoria", "Auditoría del equipo", "🛡");
     return h;
   }
 
@@ -213,11 +223,12 @@
 
   // ---------- Negocio: tasa, tarifas y QR ----------
   const esSA = () => S.yo?.rol === "superadmin";
+  const editaPrecios = () => esSA() && puedeHacer("precios"), editaTasa = () => esSA() && puedeHacer("tasa");
   async function pagTasa(main) {
-    const [t, h] = await Promise.all([api("/tasa"), esSA() ? api("/admin/tasas") : Promise.resolve([])]);
+    const [t, h] = await Promise.all([api("/tasa"), editaTasa() ? api("/admin/tasas") : Promise.resolve([])]);
     main.innerHTML += `<div class="grid" style="grid-template-columns:1fr 1.4fr"><div class="card"><div class="tit">Tasa vigente</div>
       <div class="grande">${t.bs_por_usd ? "Bs " + Number(t.bs_por_usd).toLocaleString("es-VE", { minimumFractionDigits: 2 }) : "Sin cargar"}</div><div class="total">${t.fecha ? `por USD · del ${t.fecha} · fuente ${esc(t.fuente)}` : "Sin tasa la caja solo cobra en dólares."}</div>
-      ${esSA() ? `<div style="display:flex;gap:8px;margin-top:18px"><input id="nt" placeholder="Nueva tasa (Bs por USD)" style="flex:1;height:42px;border-radius:10px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 12px"><button class="btn pri" id="gt">Guardar</button></div><p class="error" id="et"></p>` : ""}
+      ${editaTasa() ? `<div style="display:flex;gap:8px;margin-top:18px"><input id="nt" placeholder="Nueva tasa (Bs por USD)" style="flex:1;height:42px;border-radius:10px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 12px"><button class="btn pri" id="gt">Guardar</button></div><p class="error" id="et"></p>` : ""}
       <p class="total" style="margin-top:10px">Cada cobro guarda la tasa del momento: si la tasa cambia, los cobros anteriores no se alteran.</p></div>
       <div class="tabla"><div class="barra">Historial</div><table><thead><tr><th>Fecha</th><th>Bs por USD</th><th>Cargada</th></tr></thead><tbody>${h.map((x) => `<tr><td>${esc(x.fecha)}</td><td class="nombre">${esc(x.bs_por_usd)}</td><td>${fmt("", x.creado)}</td></tr>`).join("")}</tbody></table></div></div>`;
     const gt = $("#gt"); if (gt) gt.onclick = () => api("/admin/tasa", { method: "PUT", body: { bs_por_usd: Number($("#nt").value.replace(/\./g, "").replace(",", ".")) } }).then(() => { S.cache = {}; pintar(); }).catch((e) => ($("#et").textContent = e.message));
@@ -241,20 +252,20 @@
     const tasa = Number(t.bs_por_usd || 0);
     const mon = (v) => (v ? (S.verBs && tasa ? "Bs " + (Number(v) * tasa).toLocaleString("es-VE", { minimumFractionDigits: 2 }) : usd(v)) : "por definir");
     const cats = [...new Set(pr.items.map((i) => i.categoria))];
-    const inp = (i, campo, v) => esSA() ? `<input data-i="${i.id}" data-c="${campo}" value="${v ?? ""}" placeholder="por definir" inputmode="decimal" style="width:110px;height:34px;border-radius:8px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 10px">` : mon(v);
+    const inp = (i, campo, v) => editaPrecios() ? `<input data-i="${i.id}" data-c="${campo}" value="${v ?? ""}" placeholder="por definir" inputmode="decimal" style="width:110px;height:34px;border-radius:8px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 10px">` : mon(v);
     main.innerHTML += `<p class="total" style="margin-top:-6px">Precio por artículo y por servicio. <b>Traslado</b>: retiro en tienda y entrega en su caja. <b>Instalación</b>: desembalaje, conexión a tomas existentes y retiro de residuos (el equipo ya está en casa). <b>Traslado + instalación</b>: el servicio completo (si lo dejas vacío, se usa la suma de los dos).</p>
       <div style="display:flex;gap:10px;align-items:center;margin:14px 0">
-        <div class="card" style="min-height:0;padding:12px 16px;display:flex;gap:12px;align-items:center"><b>🔍 Inspección del técnico</b>${esSA() ? `<input id="pi" value="${pr.inspeccion}" style="width:90px;height:34px;border-radius:8px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 10px"><button class="btn sec" id="gi">Guardar</button>` : `<span>${mon(pr.inspeccion)}</span>`}<span class="total">precio único, se cobra en caja</span></div>
+        <div class="card" style="min-height:0;padding:12px 16px;display:flex;gap:12px;align-items:center"><b>🔍 Inspección del técnico</b>${editaPrecios() ? `<input id="pi" value="${pr.inspeccion}" style="width:90px;height:34px;border-radius:8px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 10px"><button class="btn sec" id="gi">Guardar</button>` : `<span>${mon(pr.inspeccion)}</span>`}<span class="total">precio único, se cobra en caja</span></div>
         <div class="esp"></div>
         <div style="display:flex;background:var(--panel2);border:1px solid var(--borde);border-radius:12px;padding:3px">${[["usd", "$ Dólares"], ["bs", "Bs Bolívares"]].map(([k, l]) => `<button data-mon="${k}" class="btn" style="padding:8px 14px;${(k === "bs") === S.verBs ? "background:var(--acento);color:#06231A" : "background:none"}">${l}</button>`).join("")}</div>
-        ${esSA() ? `<button class="btn pri" id="gp">Guardar cambios</button>` : ""}</div>
+        ${editaPrecios() ? `<button class="btn pri" id="gp">Guardar cambios</button>` : ""}</div>
       ${tasa ? `<p class="total">Tasa BCV: Bs ${tasa.toLocaleString("es-VE", { minimumFractionDigits: 2 })} por USD. Los precios se guardan en dólares; en bolívares se calculan con la tasa del día.</p>` : ""}
       ${cats.map((c) => `<div class="tabla" style="margin-bottom:16px"><div class="barra"><b style="flex:1">${esc(c)}</b></div><table><thead><tr><th>Artículo</th><th>Traslado</th><th>Instalación</th><th>Traslado + instalación</th><th>Estado</th></tr></thead><tbody>
         ${pr.items.filter((i) => i.categoria === c).map((i) => `<tr><td class="nombre">${esc(i.nombre)}</td>
           <td>${S.verBs ? mon(i.traslado) : inp(i, "traslado", i.traslado)}</td><td>${S.verBs ? mon(i.instalacion) : inp(i, "instalacion", i.instalacion)}</td>
           <td>${S.verBs ? mon(i.combo) : inp(i, "combo", i.combo_es_suma ? "" : i.combo)}${!S.verBs && i.combo_es_suma ? `<div class="total">suma: ${usd(i.combo)}</div>` : ""}</td>
-          <td>${esSA() ? `<button class="est ${i.activo ? "ok" : "neutro"}" data-act="${i.id}" style="border:0">${i.activo ? "Activo" : "Pausado"}</button>` : `<span class="est ${i.activo ? "ok" : "neutro"}">${i.activo ? "Activo" : "Pausado"}</span>`}</td></tr>`).join("")}</tbody></table></div>`).join("")}
-      ${esSA() ? `<div class="card" style="min-height:0;display:flex;gap:10px;align-items:center"><b>Agregar artículo de línea blanca</b><input id="nn" placeholder="Ej.: Enfriador de vinos" style="flex:1;height:38px;border-radius:10px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 12px"><button class="btn sec" id="na">Agregar</button></div>` : ""}
+          <td>${editaPrecios() ? `<button class="est ${i.activo ? "ok" : "neutro"}" data-act="${i.id}" style="border:0">${i.activo ? "Activo" : "Pausado"}</button>` : `<span class="est ${i.activo ? "ok" : "neutro"}">${i.activo ? "Activo" : "Pausado"}</span>`}</td></tr>`).join("")}</tbody></table></div>`).join("")}
+      ${editaPrecios() ? `<div class="card" style="min-height:0;display:flex;gap:10px;align-items:center"><b>Agregar artículo de línea blanca</b><input id="nn" placeholder="Ej.: Enfriador de vinos" style="flex:1;height:38px;border-radius:10px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 12px"><button class="btn sec" id="na">Agregar</button></div>` : ""}
       <p class="error" id="ep"></p><p class="total" id="okp" style="color:var(--verde)"></p>`;
     const err = (e) => ($("#ep").textContent = e.message);
     main.querySelectorAll("[data-mon]").forEach((b) => (b.onclick = () => { S.verBs = b.dataset.mon === "bs"; pintar(); }));
@@ -284,6 +295,74 @@
     const img = new Image(); img.onload = () => canvas.getContext("2d").drawImage(img, 0, 0, 200, 200); img.src = URL.createObjectURL(await r.blob());
   }
 
+  // ---------- Centro de mando: usuarios del personal, claves y limitaciones ----------
+  async function usuarios(main) {
+    const [cat, us, ts] = await Promise.all([api("/ceo/permisos"), api("/ceo/usuarios"), api("/admin/tiendas")]);
+    main.innerHTML += `<p class="total" style="margin-top:-6px">Aquí creas las cuentas de las personas que entran al superadministrador, al centro de control y a la caja: su usuario, su clave y lo que pueden ver o hacer. Todo queda en la auditoría.</p>
+      <div style="margin:14px 0"><button class="btn pri" id="nu">＋ Nuevo usuario</button></div>
+      <div class="tabla"><table><thead><tr><th>Nombre</th><th>Rol</th><th>Usuario (correo)</th><th>Tienda</th><th>Permisos</th><th>Clave</th><th>Último acceso</th><th>Estado</th><th></th></tr></thead><tbody>
+      ${us.map((u, i) => `<tr><td class="nombre">${esc(u.nombre)}</td><td>${esc(u.rol_texto)}</td><td>${esc(u.email || "—")}</td><td>${esc(u.tienda || "—")}</td>
+        <td>${u.es_ceo ? "Todos" : `${u.permisos.length} de ${cat.permisos.length}${u.personalizados ? " · personalizados" : " · los del rol"}`}</td>
+        <td>${u.clave_temporal ? '<span class="est pend">Temporal</span>' : '<span class="est ok">Propia</span>'}</td><td>${fmt("", u.ultimo_acceso)}</td>
+        <td><span class="est ${u.activo ? "ok" : "mal"}">${u.activo ? "Activo" : "Inactivo"}</span></td><td>${u.es_ceo ? "" : `<div class="acc"><button title="Editar" data-u="${i}">✎</button></div>`}</td></tr>`).join("")}</tbody></table></div>`;
+    $("#nu").onclick = () => fichaUsuario(cat, ts, null);
+    main.querySelectorAll("[data-u]").forEach((b) => (b.onclick = () => fichaUsuario(cat, ts, us[b.dataset.u])));
+  }
+  function fichaUsuario(cat, ts, u) {
+    document.querySelector(".cajon")?.remove();
+    const c = document.createElement("div"); c.className = "cajon";
+    const rolIni = u?.rol || "supervisor";
+    const marcados = new Set(u ? u.permisos : cat.por_rol[rolIni]);
+    const grupos = ["Ver", "Editar"];
+    const campo = (id, l, v = "", t = "text") => `<label style="display:block;font-size:13px;font-weight:700;margin-top:10px">${l}</label><input id="${id}" type="${t}" value="${esc(v)}" ${u && id === "fe" ? "disabled" : ""} style="width:100%;height:40px;border-radius:10px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 12px">`;
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="total">Centro de mando · Usuarios</span><button class="btn sec" id="cer">✕</button></div>
+      <h2 style="margin-top:8px">${u ? esc(u.nombre) : "Nuevo usuario"}</h2>
+      ${campo("fn", "Nombre y apellido", u?.nombre)}${campo("fe", "Usuario (correo)", u?.email)}${u ? "" : campo("ft", "Teléfono (opcional)")}
+      <label style="display:block;font-size:13px;font-weight:700;margin-top:10px">Rol</label><select id="fr" class="sel" style="width:100%;height:40px">${Object.entries(cat.roles).map(([k, t]) => `<option value="${k}" ${k === rolIni ? "selected" : ""}>${t}</option>`).join("")}</select>
+      <div id="ftw"><label style="display:block;font-size:13px;font-weight:700;margin-top:10px">Tienda</label><select id="fti" class="sel" style="width:100%;height:40px"><option value="">—</option>${ts.map((t) => `<option value="${t.id}" ${u?.tienda_id === t.id ? "selected" : ""}>${esc(t.nombre)}</option>`).join("")}</select></div>
+      ${u ? "" : `${campo("fc", "Clave (vacía = la genera el sistema)")}<div class="total">Mínimo 8 caracteres, una letra y un número. La persona deberá cambiarla al entrar.</div>`}
+      <h3 style="margin:18px 0 4px">Limitaciones · qué puede ver y hacer</h3><div class="total">Marca lo que permites. <a href="#" id="dr" style="color:var(--acento)">Usar los del rol</a></div>
+      ${grupos.map((g) => `<div style="margin-top:10px;font-weight:800;color:var(--suave);font-size:12px;letter-spacing:.06em">${g.toUpperCase()}</div>${cat.permisos.filter((p) => p.grupo === g).map((p) => `<label style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--borde)"><input type="checkbox" data-p="${p.clave}" ${marcados.has(p.clave) ? "checked" : ""}> ${esc(p.texto)}</label>`).join("")}`).join("")}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:18px"><button class="btn pri" id="gu">${u ? "Guardar cambios" : "Crear usuario"}</button>
+        ${u ? `<button class="btn sec" id="rc">Restablecer clave</button><button class="btn ${u.activo ? "pel" : "sec"}" id="ac">${u.activo ? "Desactivar" : "Activar"}</button>` : ""}</div>
+      <div id="clv"></div><p class="error" id="err"></p>`;
+    document.body.appendChild(c);
+    const verTienda = () => ($("#ftw").style.display = ["agente", "tecnico_supervisor"].includes($("#fr").value) ? "block" : "none");
+    verTienda();
+    $("#fr").onchange = () => { verTienda(); if (!u) c.querySelectorAll("[data-p]").forEach((x) => (x.checked = cat.por_rol[$("#fr").value].includes(x.dataset.p))); };
+    let delRol = false;
+    $("#dr").onclick = (e) => { e.preventDefault(); delRol = true; c.querySelectorAll("[data-p]").forEach((x) => (x.checked = cat.por_rol[$("#fr").value].includes(x.dataset.p))); };
+    c.querySelectorAll("[data-p]").forEach((x) => (x.onchange = () => (delRol = false)));
+    $("#cer").onclick = () => c.remove();
+    const err = (e) => ($("#err").textContent = e.message);
+    const mostrarClave = (cl, quien) => ($("#clv").innerHTML = `<div class="card" style="min-height:0;margin-top:14px;border-color:var(--acento)"><b>Clave de ${esc(quien)}</b><div class="grande" style="font-size:26px;letter-spacing:2px">${esc(cl)}</div><div class="total">Se muestra una sola vez. Entrégasela en persona; deberá cambiarla al entrar.</div></div>`);
+    const permisos = () => [...c.querySelectorAll("[data-p]")].filter((x) => x.checked).map((x) => x.dataset.p);
+    $("#gu").onclick = async () => {
+      const tienda = $("#fti").value ? Number($("#fti").value) : null;
+      try {
+        if (u) { await api(`/ceo/usuarios/${u.id}`, { method: "PUT", body: { nombre: $("#fn").value, rol: $("#fr").value, tienda_id: tienda, ...(delRol ? { usar_permisos_del_rol: true } : { permisos: permisos() }) } }); c.remove(); pintar(); }
+        else { const r = await api("/ceo/usuarios", { body: { nombre: $("#fn").value, email: $("#fe").value, telefono: $("#ft").value, rol: $("#fr").value, tienda_id: tienda, clave: $("#fc").value, permisos: delRol ? null : permisos() } });
+          mostrarClave(r.clave, r.nombre); $("#gu").remove(); pintar(true); }
+      } catch (e) { err(e); }
+    };
+    const rc = $("#rc"); if (rc) rc.onclick = () => api(`/ceo/usuarios/${u.id}/clave`, { body: {} }).then((r) => mostrarClave(r.clave, u.nombre)).catch(err);
+    const ac = $("#ac"); if (ac) ac.onclick = () => api(`/ceo/usuarios/${u.id}`, { method: "PUT", body: { activo: !u.activo } }).then(() => { c.remove(); pintar(); }).catch(err);
+  }
+
+  function cambioObligatorio(app) {
+    app.innerHTML = `<div class="login"><form id="f"><div style="display:flex;align-items:center;gap:12px"><svg width="44" height="44"><use href="#logo"/></svg><b style="font-size:22px">AHA HOME</b></div>
+      <div style="font-size:20px;font-weight:800">Crea tu propia clave</div><div class="total" style="margin-top:-6px">Hola ${esc(S.yo.nombre)}. Tu cuenta la creó el CEO con una clave temporal: cámbiala para continuar.</div>
+      <label>Clave temporal</label><input id="a" type="password" required><label>Clave nueva</label><input id="n" type="password" required><label>Repite la clave nueva</label><input id="r" type="password" required>
+      <div class="total">Mínimo 8 caracteres, una letra y un número.</div><p class="error" id="e"></p><button class="btn pri" style="height:48px">Guardar y entrar</button>
+      <button type="button" class="btn sec" id="sal2">Cerrar sesión</button></form></div>`;
+    $("#sal2").onclick = salir;
+    $("#f").onsubmit = async (ev) => {
+      ev.preventDefault();
+      try { await api("/yo/contrasena", { body: { actual: $("#a").value, nueva: $("#n").value, repetir: $("#r").value } }); S.yo = null; pintar(); }
+      catch (e) { $("#e").textContent = e.message; }
+    };
+  }
+
   // ---------- Armado ----------
   async function pintar(soloContenido) {
     const app = $("#app");
@@ -292,7 +371,11 @@
       try { S.yo = await api("/yo"); } catch { return; }
       if (!["supervisor", "superadmin"].includes(S.yo.rol)) { salir(); alert("El panel es solo para el superadmin y el centro de control. La caja usa la app."); return; }
     }
-    try { const r = await datos(30); S.cuentas = { verif: r.verificaciones_pendientes, rep: r.reportes_abiertos }; S.notif = r.verificaciones_pendientes + r.reportes_abiertos; } catch { /* sin datos */ }
+    if (S.yo.clave_temporal) return cambioObligatorio(app);
+    if (!puede(S.ruta) && !(S.ruta === "usuarios" && S.yo.es_ceo) && !(S.ruta === "auditoria" && S.yo.es_ceo)) {
+      const primera = Object.keys(PERM_RUTA).find((k) => puede(k)); S.ruta = primera || "sinpermisos"; location.hash = S.ruta;
+    }
+    if (puedeHacer("ver_tablero")) try { const r = await datos(30); S.cuentas = { verif: r.verificaciones_pendientes, rep: r.reportes_abiertos }; S.notif = r.verificaciones_pendientes + r.reportes_abiertos; } catch { /* sin datos */ }
     const [g, t] = TITULOS[S.ruta] || ["", S.ruta];
     if (!soloContenido || !$(".main")) {
       app.innerHTML = `<div class="top"><button class="hamb" id="hamb">☰</button><div class="marca"><svg><use href="#logo"/></svg>AHA HOME</div>
@@ -319,7 +402,9 @@
     const main = $(".main");
     main.innerHTML = `<div class="migas">${esc(g)} › <b>${esc(t)}</b></div><h1>${esc(t)}</h1>`;
     try {
-      if (S.ruta === "inicio") await inicio(main);
+      if (S.ruta === "sinpermisos") main.innerHTML += `<p class="total">Tu cuenta todavía no tiene permisos. Pídeselos al CEO.</p>`;
+      else if (S.ruta === "usuarios") await usuarios(main);
+      else if (S.ruta === "inicio") await inicio(main);
       else if (S.ruta === "anuncios") await anuncios(main);
       else if (S.ruta === "auditoria") await auditoria(main);
       else if (S.ruta === "tasa") await pagTasa(main);
