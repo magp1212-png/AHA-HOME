@@ -1161,3 +1161,31 @@ def test_modo_equipo_solo_entra_el_personal(client, monkeypatch):
     assert client.post("/auth/registro", json={}).status_code in (403, 422)
     for u in ("agente@ahahome.test", "supervisor@ahahome.test", "superadmin@ahahome.test", "ceo@ahahome.test"):
         assert client.post("/auth/login", json={"usuario": u, "password": "aha12345"}).status_code == 200
+
+
+def test_ceo_agrega_otros_ceo(client):
+    from app import config
+    ceo = login(client, "ceo@ahahome.test")
+    sa = login(client, "superadmin@ahahome.test")
+    # un superadmin no puede crear CEO
+    assert client.post("/ceo/usuarios", json={"nombre": "Socia Uno", "email": "socia@aha-go.com", "rol": "ceo"}, headers=sa).status_code == 403
+    r = client.post("/ceo/usuarios", json={"nombre": "Socia Uno", "email": "socia@aha-go.com", "rol": "ceo", "permisos": ["ver_tablero"]}, headers=ceo).json()
+    assert r["es_ceo"] and r["rol"] == "superadmin" and r["rol_panel"] == "ceo" and r["clave_temporal"] and len(r["permisos"]) > 5
+    socia = {"Authorization": "Bearer " + client.post("/auth/login", json={"usuario": "socia@aha-go.com", "password": r["clave"]}).json()["token"]}
+    assert client.get("/ceo/actividad", headers=socia).status_code == 200  # ve el centro de mando
+    lista = client.get("/ceo/usuarios", headers=socia).json()
+    assert lista[0]["es_ceo"] and any(f["soy_yo"] for f in lista)
+    # el CEO principal (AHAHOME_CEO_EMAILS) no lo puede tocar otro CEO
+    config.CEO_EMAILS.add("ceo@ahahome.test")
+    try:
+        yo = client.get("/yo", headers=ceo).json()
+        assert client.put(f"/ceo/usuarios/{yo['id']}", json={"activo": False}, headers=socia).status_code == 403
+        assert client.post(f"/ceo/usuarios/{yo['id']}/clave", headers=socia).status_code == 403
+        assert next(f for f in client.get("/ceo/usuarios", headers=ceo).json() if f["id"] == yo["id"])["principal"] is True
+    finally:
+        config.CEO_EMAILS.discard("ceo@ahahome.test")
+    # nadie se quita el rol de CEO a sí mismo; el principal sí puede quitárselo a otro CEO
+    assert client.put(f"/ceo/usuarios/{r['id']}", json={"rol": "superadmin"}, headers=socia).status_code == 422
+    q = client.put(f"/ceo/usuarios/{r['id']}", json={"rol": "superadmin", "permisos": ["ver_tablero"]}, headers=ceo).json()
+    assert q["es_ceo"] is False and q["permisos"] == ["ver_tablero"]
+    assert client.get("/ceo/actividad", headers=socia).status_code == 403

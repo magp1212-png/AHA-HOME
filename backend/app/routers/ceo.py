@@ -66,7 +66,13 @@ from pydantic import BaseModel, Field
 from ..deps import PERMISOS, PERMISOS_POR_ROL, permisos_de
 from ..security import hash_password
 
-ROLES_PERSONAL = {"superadmin": "Superadministrador", "supervisor": "Centro de control", "tecnico_supervisor": "Técnico supervisor", "agente": "Operador de caja"}
+ROLES_PERSONAL = {"ceo": "CEO (acceso total)", "superadmin": "Superadministrador", "supervisor": "Centro de control", "tecnico_supervisor": "Técnico supervisor", "agente": "Operador de caja"}
+ROLES_CUENTA = ("superadmin", "supervisor", "tecnico_supervisor", "agente")  # roles guardados en la cuenta; «ceo» es un superadmin con es_ceo
+
+
+def _es_principal(u: User) -> bool:
+    """La cuenta CEO dueña (AHAHOME_CEO_EMAILS): ningún otro CEO la puede editar, desactivar ni cambiarle la clave."""
+    return bool(u.es_ceo and u.email and u.email.lower() in config.CEO_EMAILS)
 
 
 def _clave_generada() -> str:
@@ -83,18 +89,21 @@ def _vista_personal(db: Session, u: User) -> dict:
     tienda = db.get(Tienda, u.tienda_id).nombre if u.tienda_id else None
     return {"id": u.id, "nombre": u.nombre, "email": u.email, "telefono": u.telefono, "rol": u.rol,
             "rol_texto": "CEO" if u.es_ceo else ROL_TEXTO.get(u.rol, u.rol), "tienda_id": u.tienda_id, "tienda": tienda, "activo": u.activo,
-            "es_ceo": bool(u.es_ceo), "permisos": permisos_de(u), "personalizados": u.permisos is not None,
+            "es_ceo": bool(u.es_ceo), "principal": _es_principal(u), "rol_panel": "ceo" if u.es_ceo else u.rol, "permisos": permisos_de(u), "personalizados": u.permisos is not None,
             "clave_temporal": bool(u.clave_temporal), "ultimo_acceso": _iso(u.ultimo_acceso_en), "creado": _iso(u.creado)}
 
 
 @router.get("/permisos")
 def catalogo(user: User = Depends(solo_ceo)):
-    return {"permisos": [{"clave": k, "grupo": g, "texto": t} for k, g, t in PERMISOS], "por_rol": PERMISOS_POR_ROL, "roles": ROLES_PERSONAL}
+    return {"permisos": [{"clave": k, "grupo": g, "texto": t} for k, g, t in PERMISOS],
+            "por_rol": PERMISOS_POR_ROL | {"ceo": [k for k, _, _ in PERMISOS]}, "roles": ROLES_PERSONAL}
 
 
 @router.get("/usuarios")
 def personal(user: User = Depends(solo_ceo), db: Session = Depends(get_db)):
-    return [_vista_personal(db, u) for u in db.scalars(select(User).where(User.rol.in_(tuple(ROLES_PERSONAL))).order_by(User.rol, User.nombre))]
+    filas = [_vista_personal(db, u) for u in db.scalars(select(User).where(User.rol.in_(ROLES_CUENTA)).order_by(User.rol, User.nombre))]
+    filas.sort(key=lambda f: (not f["es_ceo"], not f["principal"], f["rol"], f["nombre"]))
+    return [f | {"soy_yo": f["id"] == user.id} for f in filas]
 
 
 class NuevoPersonal(BaseModel):
@@ -122,6 +131,7 @@ def _comprobar(db: Session, rol: str, tienda_id: int | None, permisos: list[str]
 def crear_personal(body: NuevoPersonal, user: User = Depends(solo_ceo), db: Session = Depends(get_db)):
     from .auth import limpiar_tel
     _comprobar(db, body.rol, body.tienda_id, body.permisos)
+    ceo_nuevo = body.rol == "ceo"
     email = body.email.strip().lower()
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
         raise HTTPException(422, "Correo no válido")
@@ -130,8 +140,9 @@ def crear_personal(body: NuevoPersonal, user: User = Depends(solo_ceo), db: Sess
         raise HTTPException(409, "Ya existe una cuenta con ese correo o teléfono")
     clave = body.clave.strip() or _clave_generada()
     _validar_clave(clave)
-    u = User(nombre=body.nombre.strip(), email=email, telefono=tel, rol=body.rol, tienda_id=body.tienda_id if body.rol in ("agente", "tecnico_supervisor") else None,
-             password_hash=hash_password(clave), permisos=body.permisos, clave_temporal=True, creado_por=user.id, email_verificado=True)
+    u = User(nombre=body.nombre.strip(), email=email, telefono=tel, rol="superadmin" if ceo_nuevo else body.rol,
+             tienda_id=body.tienda_id if body.rol in ("agente", "tecnico_supervisor") else None, es_ceo=ceo_nuevo,
+             password_hash=hash_password(clave), permisos=None if ceo_nuevo else body.permisos, clave_temporal=True, creado_por=user.id, email_verificado=True)
     db.add(u)
     db.commit()
     registrar_correo_persona(db, u)
@@ -150,22 +161,25 @@ class EditarPersonal(BaseModel):
 @router.put("/usuarios/{uid}")
 def editar_personal(uid: int, body: EditarPersonal, user: User = Depends(solo_ceo), db: Session = Depends(get_db)):
     u = db.get(User, uid)
-    if not u or u.rol not in ROLES_PERSONAL:
+    if not u or u.rol not in ROLES_CUENTA:
         raise HTTPException(404, "Usuario no encontrado")
-    if u.es_ceo and u.id != user.id:
-        raise HTTPException(403, "Las cuentas CEO no se editan desde aquí")
-    rol = body.rol or u.rol
+    if _es_principal(u) and u.id != user.id:
+        raise HTTPException(403, "La cuenta CEO principal solo la cambia su dueño")
+    rol = body.rol or ("ceo" if u.es_ceo else u.rol)
     _comprobar(db, rol, body.tienda_id if body.tienda_id is not None else u.tienda_id, body.permisos)
-    if u.id == user.id and (body.activo is False or (body.rol and body.rol != "superadmin")):
-        raise HTTPException(422, "No puedes desactivarte ni quitarte el rol a ti mismo")
+    if u.id == user.id and (body.activo is False or rol != "ceo"):
+        raise HTTPException(422, "No puedes desactivarte ni quitarte el rol de CEO a ti mismo")
     if body.nombre:
         u.nombre = body.nombre.strip()
-    u.rol = rol
+    u.es_ceo = rol == "ceo"
+    u.rol = "superadmin" if rol == "ceo" else rol
+    if u.es_ceo:
+        u.permisos = None
     if body.tienda_id is not None:
         u.tienda_id = body.tienda_id
     if body.usar_permisos_del_rol:
         u.permisos = None
-    elif body.permisos is not None:
+    elif body.permisos is not None and not u.es_ceo:
         u.permisos = body.permisos
     if body.activo is not None:
         u.activo = body.activo
@@ -177,8 +191,10 @@ def editar_personal(uid: int, body: EditarPersonal, user: User = Depends(solo_ce
 def restablecer_clave(uid: int, user: User = Depends(solo_ceo), db: Session = Depends(get_db)):
     """Clave nueva generada: se muestra una sola vez al CEO; la persona debe cambiarla al entrar."""
     u = db.get(User, uid)
-    if not u or u.rol not in ROLES_PERSONAL or (u.es_ceo and u.id != user.id):
+    if not u or u.rol not in ROLES_CUENTA:
         raise HTTPException(404, "Usuario no encontrado")
+    if _es_principal(u) and u.id != user.id:
+        raise HTTPException(403, "La cuenta CEO principal solo la cambia su dueño")
     clave = _clave_generada()
     u.password_hash, u.clave_temporal = hash_password(clave), True
     db.commit()
@@ -212,7 +228,7 @@ def registrar_correo_persona(db: Session, u: User) -> None:
     if c:
         c.user_id = u.id
     else:
-        db.add(CorreoCorporativo(direccion=u.email, tipo="persona", descripcion=ROLES_PERSONAL.get(u.rol, u.rol), user_id=u.id))
+        db.add(CorreoCorporativo(direccion=u.email, tipo="persona", descripcion="CEO" if u.es_ceo else ROLES_PERSONAL.get(u.rol, u.rol), user_id=u.id))
     db.commit()
 
 
