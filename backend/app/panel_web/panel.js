@@ -126,13 +126,36 @@
     if (!S.cache[dias]) S.cache[dias] = await api(`/panel-api/resumen?dias=${dias}`);
     return S.cache[dias];
   }
+  const logo3D = (px) => `<div class="logo3d" style="--s:${px}px">${Array.from({ length: 16 }, (_, i) => `<svg style="--z:${i}"><use href="#logo"/></svg>`).join("")}</div>`;
+  // Inclinación 3D de las tarjetas con el mouse (estilo vidrio de iOS)
+  document.addEventListener("pointermove", (e) => {
+    const c = e.target.closest && e.target.closest(".card"); document.querySelectorAll(".card.incl").forEach((x) => { if (x !== c) { x.classList.remove("incl"); x.style.transform = ""; } });
+    if (!c || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    c.classList.add("incl"); c.style.transform = `rotateX(${(0.5 - y) * 7}deg) rotateY(${(x - 0.5) * 9}deg) translateZ(6px)`;
+    c.style.setProperty("--mx", `${x * 100}%`); c.style.setProperty("--my", `${y * 100}%`);
+  });
   async function inicio(main) {
     const vis = TARJETAS.filter((c) => !S.ocultas.includes(c.id));
-    main.innerHTML += `<button class="ocultar" id="ocu">${S.verOcultar ? "LISTO ⌃" : "HIDE CARDS ⌄"}</button>
+    const h = new Date().getHours(), saludo = h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches";
+    const fecha = new Date().toLocaleDateString("es-VE", { weekday: "long", day: "numeric", month: "long" });
+    main.innerHTML += `<section class="hero"><div class="txt"><div class="hola">${esc(fecha.charAt(0).toUpperCase() + fecha.slice(1))}</div>
+        <h2>${saludo}, ${esc((S.yo?.nombre || "").split(" ")[0])}</h2><div class="total" style="font-size:15px">AHA HOME · Hacemos todo por ti. Así va el negocio hoy.</div>
+        <div class="chips" id="chips"></div></div>
+        <div class="escenario" aria-hidden="true"><div class="orbita"><i></i><i></i><i></i></div>${logo3D(130)}<div class="pedestal"></div></div></section>
+      <button class="ocultar" id="ocu">${S.verOcultar ? "LISTO ⌃" : "OCULTAR TARJETAS ⌄"}</button>
       ${S.verOcultar ? `<div class="card" style="min-height:0;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:10px">${TARJETAS.map((c) => `<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-oc="${c.id}" ${S.ocultas.includes(c.id) ? "" : "checked"}>${c.t}</label>`).join("")}</div>` : ""}
       <div class="grid">${vis.map((c) => `<div class="card ${c.ancho === 2 ? "ancho2" : ""}" id="c-${c.id}"><div class="tit"><span>${c.t}</span>${c.sinDias ? `<span class="total" data-tot="${c.id}"></span>` : `<span style="display:flex;gap:8px;align-items:center"><span class="total" data-tot="${c.id}"></span><select class="sel" data-dias="${c.id}">${[7, 30, 90, 365].map((d) => `<option value="${d}" ${(S.dias[c.id] || 30) === d ? "selected" : ""}>${d === 365 ? "1 año" : d + " días"}</option>`).join("")}</select></span>`}</div><div class="cont">…</div></div>`).join("")}</div>
       <div class="pie-app">AHA HOME — Hacemos todo por ti · Onyxa LLC © 2026</div>`;
     $("#ocu").onclick = () => { S.verOcultar = !S.verOcultar; pintar(); };
+    datos(30).then((r) => {
+      const ch = $("#chips"); if (!ch) return;
+      const t = r.tasa && (r.tasa.bs_por_usd || r.tasa.valor);
+      const cobrado = r.cobrado_en_caja && r.cobrado_en_caja.usd ? r.cobrado_en_caja.usd : "0.00";
+      ch.innerHTML = [["Órdenes · 30 días", r.ordenes ? r.ordenes.nuevos : 0], ["Cobrado en caja", "USD " + cobrado],
+        ["Tasa BCV", t ? "Bs " + t : "por cargar"], ["Verificaciones", r.verificaciones_pendientes || 0]]
+        .map(([k, v]) => `<span class="chip">${k} <b>${esc(String(v))}</b></span>`).join("");
+    }).catch(() => {});
     main.querySelectorAll("[data-oc]").forEach((x) => (x.onchange = () => {
       S.ocultas = x.checked ? S.ocultas.filter((y) => y !== x.dataset.oc) : [...S.ocultas, x.dataset.oc];
       localStorage.setItem("ahahome.panel.ocultas", JSON.stringify(S.ocultas)); pintar();
@@ -397,7 +420,7 @@
   }
 
   function cambioObligatorio(app) {
-    app.innerHTML = `<div class="login"><form id="f"><div style="display:flex;align-items:center;gap:12px"><svg width="44" height="44"><use href="#logo"/></svg><b style="font-size:22px">AHA HOME</b></div>
+    app.innerHTML = `<div class="login"><form id="f">${logo3D(110)}<div style="text-align:center"><b style="font-size:24px;letter-spacing:-.02em">AHA HOME</b></div>
       <div style="font-size:20px;font-weight:800">Crea tu propia clave</div><div class="total" style="margin-top:-6px">Hola ${esc(S.yo.nombre)}. Tu cuenta la creó el CEO con una clave temporal: cámbiala para continuar.</div>
       <label>Clave temporal</label><input id="a" type="password" required><label>Clave nueva</label><input id="n" type="password" required><label>Repite la clave nueva</label><input id="r" type="password" required>
       <div class="total">Mínimo 8 caracteres, una letra y un número.</div><p class="error" id="e"></p><button class="btn pri" style="height:48px">Guardar y entrar</button>
@@ -464,7 +487,7 @@
   }
 
   function login(app) {
-    app.innerHTML = `<div class="login"><form id="f"><div style="display:flex;align-items:center;gap:12px"><svg width="44" height="44"><use href="#logo"/></svg><b style="font-size:22px">AHA HOME</b></div>
+    app.innerHTML = `<div class="login"><form id="f">${logo3D(110)}<div style="text-align:center"><b style="font-size:24px;letter-spacing:-.02em">AHA HOME</b></div>
       <div style="font-size:22px;font-weight:800">Panel del superadministrador</div><div class="total" style="margin-top:-6px">Solo personal autorizado · cada ingreso queda registrado</div>
       <label>Correo</label><input id="u" autocomplete="username" required><label>Contraseña</label><input id="p" type="password" autocomplete="current-password" required>
       <p class="error" id="e"></p><button class="btn pri" style="height:48px">Entrar</button></form></div>`;
