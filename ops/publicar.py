@@ -128,7 +128,7 @@ def main(force: bool = False) -> None:
     if "mobile/package-lock.json" in changed or "mobile/package.json" in changed:
         run(["npm", "ci", "--no-audit", "--no-fund"], MOBILE, timeout=1800)
     if any(c.startswith("mobile/") for c in changed):
-        w = run(["npx", "expo", "export", "--platform", "web", "--output-dir", "dist-web"], MOBILE, timeout=1800)
+        w = run(["npx", "--no-install", "expo", "export", "--platform", "web", "--output-dir", "dist-web"], MOBILE, timeout=1800)
         if w.returncode:
             log("la web no se pudo armar: " + (w.stderr or w.stdout).strip()[-300:])
     restart_api()
