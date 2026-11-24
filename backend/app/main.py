@@ -124,6 +124,30 @@ def salud():
 # La app web (misma app que el teléfono) en "/", después de todas las rutas de la API
 # Panel web del superadministrador y del equipo (computadora): /panel
 _PANEL = pathlib.Path(__file__).resolve().parent / "panel_web"
+
+
+def _version_panel() -> str:
+    """Huella de los archivos del panel: cambia con cada publicación, así nadie se queda con una versión vieja guardada."""
+    import hashlib
+    h = hashlib.sha256()
+    for f in sorted(_PANEL.glob("*.*")):
+        h.update(f.read_bytes())
+    return h.hexdigest()[:10]
+
+
+@app.get("/panel", include_in_schema=False)
+@app.get("/panel/", include_in_schema=False)
+@app.get("/panel/index.html", include_in_schema=False)
+def panel_inicio():
+    """La portada del panel nunca se guarda en caché y pide sus archivos con la versión actual (panel.js?v=…)."""
+    from fastapi.responses import HTMLResponse
+    v = _version_panel()
+    html = (_PANEL / "index.html").read_text(encoding="utf-8")
+    for nombre in ("panel.css", "ios.css", "panel.js"):
+        html = html.replace(f'"{nombre}"', f'"/panel/{nombre}?v={v}"')
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+
+
 if _PANEL.is_dir():
     app.mount("/panel", StaticFiles(directory=_PANEL, html=True), name="panel")
 if config.WEB_DIR.is_dir():
