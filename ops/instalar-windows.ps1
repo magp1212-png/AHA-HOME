@@ -12,13 +12,18 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Backend = Join-Path $Root "backend"
 $Mobile = Join-Path $Root "mobile"
-$env:Path = "C:\Program Files\nodejs;C:\Program Files\Git\cmd;" + $env:Path
+$env:Path = "C:\Program Files\nodejs;C:\Program Files\Git\cmd;C:\Program Files (x86)\cloudflared;C:\Program Files\cloudflared;" + $env:Path
+foreach ($falta in @(@("py", "Python 3.12 (winget install Python.Python.3.12)"), @("node", "Node.js (winget install OpenJS.NodeJS.LTS)"),
+                     @("git", "Git (winget install Git.Git)"), @("cloudflared", "cloudflared (winget install Cloudflare.cloudflared)"))) {
+  if (-not (Get-Command $falta[0] -ErrorAction SilentlyContinue)) { Write-Host "Falta $($falta[1]). Instálalo y vuelve a correr este instalador." -ForegroundColor Yellow; exit 1 }
+}
 Write-Host "== AHA HOME · instalación en este servidor ==" -ForegroundColor Cyan
 
 # 1. Python
 if (-not (Test-Path "$Backend\.venv")) { py -3.12 -m venv "$Backend\.venv" }
 & "$Backend\.venv\Scripts\python.exe" -m pip install -q -r "$Backend\requirements.txt"
-Write-Host "✓ Python listo"
+Push-Location $Backend; & "$Backend\.venv\Scripts\python.exe" descargar_modelos.py; Pop-Location
+Write-Host "✓ Python listo (con los modelos de verificación facial)"
 
 # 2. Clave secreta de las sesiones (solo en este servidor)
 $secreto = Join-Path $Backend ".secreto-jwt.txt"
@@ -57,6 +62,15 @@ Write-Host "✓ Web armada"
 if (-not (Test-Path "$Backend\.solo-equipo-decidido")) {
   New-Item "$Backend\.solo-equipo" -Force | Out-Null; New-Item "$Backend\.solo-equipo-decidido" | Out-Null
   Write-Host "✓ Modo equipo activado (solo personal)"
+}
+
+# 5c. Túnel de Cloudflare: token del panel (Networks → Tunnels → aha-home). Queda solo en este servidor.
+$tokenFile = Join-Path $PSScriptRoot "cloudflared\token.txt"
+if (-not (Test-Path $tokenFile)) {
+  Write-Host "`nTúnel de Cloudflare: pega el token del túnel aha-home (empieza con eyJ). Enter para dejarlo para después."
+  $t = Read-Host "  Token del túnel" -AsSecureString
+  $plainT = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($t))
+  if ($plainT) { Set-Content -NoNewline -Encoding ascii $tokenFile $plainT.Trim(); Write-Host "✓ Túnel configurado" }
 }
 
 # 6. Tareas programadas (como anunciate)
