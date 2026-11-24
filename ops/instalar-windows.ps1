@@ -31,12 +31,11 @@ if (-not (Test-Path $secreto)) {
 # 3. Correo (Brevo): backend\correo.key
 $correo = Join-Path $Backend "correo.key"
 if (-not (Test-Path $correo)) {
-  Write-Host "`nCorreo de verificación (Brevo → SMTP y API → SMTP). Enter para dejarlo para después."
-  $u = Read-Host "  Usuario SMTP (xxxx@smtp-brevo.com)"
-  if ($u) {
-    $p = Read-Host "  Clave SMTP" -AsSecureString
-    $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($p))
-    @{ host = "smtp-relay.brevo.com"; port = 587; user = $u; password = $plain; from = "AHA HOME <no-responder@aha-go.com>"; domain = "aha-go.com" } |
+  Write-Host "`nCorreo de la app (Brevo → SMTP y API → Claves API; basta permiso de envío). Enter para dejarlo para después."
+  $k = Read-Host "  Llave API de Brevo (xkeysib-…)" -AsSecureString
+  $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($k))
+  if ($plain) {
+    @{ api_key = $plain; from = "AHA HOME <no-responder@aha-go.com>"; domain = "aha-go.com" } |
       ConvertTo-Json | Set-Content -Encoding utf8 $correo
     Write-Host "✓ Correo configurado"
   }

@@ -27,17 +27,12 @@ fi
 # 2. Correo (Brevo)
 if [ ! -f datos/correo.key ]; then
   echo
-  echo "Correo de verificación (Brevo → SMTP y API → pestaña SMTP). Deja vacío para configurarlo después."
-  read -rp "  Usuario SMTP (ej. xxxx@smtp-brevo.com): " SMTP_USER
-  if [ -n "$SMTP_USER" ]; then
-    read -rsp "  Clave SMTP (no se muestra): " SMTP_PASS; echo
-    read -rp "  Remitente [AHA HOME <no-responder@aha-go.com>]: " SMTP_FROM
-    SMTP_FROM=${SMTP_FROM:-AHA HOME <no-responder@aha-go.com>}
-    python3 - "$SMTP_USER" "$SMTP_PASS" "$SMTP_FROM" <<'PY'
+  echo "Correo de la app (Brevo → SMTP y API → Claves API; basta permiso de envío). Deja vacío para configurarlo después."
+  read -rsp "  Llave API de Brevo (xkeysib-…, no se muestra): " BREVO_KEY; echo
+  if [ -n "$BREVO_KEY" ]; then
+    python3 - "$BREVO_KEY" <<'PY'
 import json, sys
-u, p, f = sys.argv[1:4]
-json.dump({"host": "smtp-relay.brevo.com", "port": 587, "user": u, "password": p, "from": f, "domain": "aha-go.com"},
-          open("datos/correo.key", "w"))
+json.dump({"api_key": sys.argv[1], "from": "AHA HOME <no-responder@aha-go.com>", "domain": "aha-go.com"}, open("datos/correo.key", "w"))
 PY
     chmod 600 datos/correo.key
     echo "✓ Correo configurado"
