@@ -2,15 +2,18 @@
 #   cloudflared tunnel login
 #   cloudflared tunnel create aha-home
 #   cloudflared tunnel route dns aha-home api-home.aha-go.com
-#   cloudflared tunnel route dns aha-home home.aha-go.com
-#   cloudflared tunnel route dns aha-home panel.aha-go.com
+#   cloudflared tunnel route dns aha-home www.aha-go.com
+#   cloudflared tunnel route dns aha-home aha-go.com
+#   cloudflared tunnel route dns aha-home superad.aha-go.com
 tunnel: aha-home
 credentials-file: C:\Users\Administrator\.cloudflared\ID-DEL-TUNEL.json
 ingress:
   - hostname: api-home.aha-go.com
     service: http://127.0.0.1:8096
-  - hostname: home.aha-go.com
+  - hostname: www.aha-go.com
     service: http://127.0.0.1:8096
-  - hostname: panel.aha-go.com
+  - hostname: aha-go.com
+    service: http://127.0.0.1:8096
+  - hostname: superad.aha-go.com
     service: http://127.0.0.1:8096
   - service: http_status:404

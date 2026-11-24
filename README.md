@@ -100,7 +100,7 @@ El instalador:
   - **aha home publicar**: cada 5 minutos publica lo que llegue a la rama `produccion`, con pruebas, respaldo y vuelta atrás si falla.
   - **aha home respaldo**: todos los días.
 
-Para el túnel con nombre, sigue `ops/cloudflared/config.ejemplo.yml`. Con él, `api-home.aha-go.com` y `home.aha-go.com` llegan a este servidor.
+Para el túnel con nombre, sigue `ops/cloudflared/config.ejemplo.yml`. Con él, `api-home.aha-go.com` y `www.aha-go.com` llegan a este servidor.
 
 ### Instalar en tu servidor físico (un solo comando)
 

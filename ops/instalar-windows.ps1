@@ -46,7 +46,7 @@ if (-not (Test-Path $correo)) {
 $r2Anunciate = "C:\Users\Administrator\APP ANUNCIATE\ops\r2.json"
 if ((Test-Path $r2Anunciate) -and -not (Test-Path "$PSScriptRoot\r2.json")) { Copy-Item $r2Anunciate "$PSScriptRoot\r2.json"; Write-Host "✓ Respaldo en R2 (el de anunciate)" }
 
-# 5. Web (la misma app, en home.aha-go.com)
+# 5. Web (la misma app, en www.aha-go.com)
 Push-Location $Mobile
 npm ci --no-audit --no-fund
 npx expo export --platform web --output-dir dist-web

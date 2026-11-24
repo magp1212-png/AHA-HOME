@@ -1130,5 +1130,7 @@ def test_correos_corporativos(client):
 
 
 def test_panel_aha_go_abre_el_superadmin(client):
-    r = client.get("/", headers={"host": "panel.aha-go.com"}, follow_redirects=False)
+    r = client.get("/", headers={"host": "superad.aha-go.com"}, follow_redirects=False)
     assert r.status_code == 302 and r.headers["location"] == "/panel/"
+    r = client.get("/legal/privacidad", headers={"host": "aha-go.com"}, follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == "https://www.aha-go.com/legal/privacidad"

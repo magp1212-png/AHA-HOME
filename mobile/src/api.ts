@@ -5,7 +5,7 @@ import Constants from "expo-constants";
 // (pantalla de inicio → «Servidor») para mudarse al servidor físico sin publicar otra versión.
 import { Platform } from "react-native";
 
-// En la web publicada (home.aha-go.com) la API está en el mismo servidor que sirve la página, como en anunciate.
+// En la web publicada (www.aha-go.com) la API está en el mismo servidor que sirve la página, como en anunciate.
 const DEFAULT_URL = (Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl ?? "http://127.0.0.1:8000";
 const CONFIG_URL: string = Platform.OS === "web" && typeof window !== "undefined" && !__DEV__ && !/^(localhost|127\.)/.test(window.location.hostname)
   ? window.location.origin
