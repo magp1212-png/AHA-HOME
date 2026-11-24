@@ -323,35 +323,38 @@
     const [cat, us, ts, cc] = await Promise.all([api("/ceo/permisos"), api("/ceo/usuarios"), api("/admin/tiendas"), api("/ceo/correos")]);
     S.dominio = cc.dominio;
     main.innerHTML += `<p class="total" style="margin-top:-6px">Aquí creas las cuentas de las personas que entran al superadministrador, al centro de control y a la caja: su usuario, su clave y lo que pueden ver o hacer. Todo queda en la auditoría.</p>
-      <div style="margin:14px 0"><button class="btn pri" id="nu">＋ Nuevo usuario</button></div>
+      <div style="margin:14px 0;display:flex;gap:10px;flex-wrap:wrap"><button class="btn pri" id="nu">＋ Nuevo usuario</button><button class="btn sec" id="nceo">＋ Agregar otro CEO</button></div>
       <div class="tabla"><table><thead><tr><th>Nombre</th><th>Rol</th><th>Usuario (correo)</th><th>Tienda</th><th>Permisos</th><th>Clave</th><th>Último acceso</th><th>Estado</th><th></th></tr></thead><tbody>
-      ${us.map((u, i) => `<tr><td class="nombre">${esc(u.nombre)}</td><td>${esc(u.rol_texto)}</td><td>${esc(u.email || "—")}</td><td>${esc(u.tienda || "—")}</td>
+      ${us.map((u, i) => `<tr><td class="nombre">${esc(u.nombre)}${u.soy_yo ? ' <span class="est neutro">Tú</span>' : ""}</td><td>${esc(u.rol_texto)}${u.principal ? ' <span class="est ok">Principal</span>' : ""}</td><td>${esc(u.email || "—")}</td><td>${esc(u.tienda || "—")}</td>
         <td>${u.es_ceo ? "Todos" : `${u.permisos.length} de ${cat.permisos.length}${u.personalizados ? " · personalizados" : " · los del rol"}`}</td>
         <td>${u.clave_temporal ? '<span class="est pend">Temporal</span>' : '<span class="est ok">Propia</span>'}</td><td>${fmt("", u.ultimo_acceso)}</td>
-        <td><span class="est ${u.activo ? "ok" : "mal"}">${u.activo ? "Activo" : "Inactivo"}</span></td><td>${u.es_ceo ? "" : `<div class="acc"><button title="Editar" data-u="${i}">✎</button></div>`}</td></tr>`).join("")}</tbody></table></div>`;
+        <td><span class="est ${u.activo ? "ok" : "mal"}">${u.activo ? "Activo" : "Inactivo"}</span></td><td>${u.soy_yo || u.principal ? "" : `<div class="acc"><button title="Editar" data-u="${i}">✎</button></div>`}</td></tr>`).join("")}</tbody></table></div>`;
     $("#nu").onclick = () => fichaUsuario(cat, ts, null);
+    $("#nceo").onclick = () => fichaUsuario(cat, ts, null, "ceo");
     main.querySelectorAll("[data-u]").forEach((b) => (b.onclick = () => fichaUsuario(cat, ts, us[b.dataset.u])));
   }
-  function fichaUsuario(cat, ts, u) {
+  function fichaUsuario(cat, ts, u, rolPedido) {
     document.querySelector(".cajon")?.remove();
     const c = document.createElement("div"); c.className = "cajon";
-    const rolIni = u?.rol || "supervisor";
+    const rolIni = u?.rol_panel || rolPedido || "supervisor";
     const marcados = new Set(u ? u.permisos : cat.por_rol[rolIni]);
     const grupos = ["Ver", "Editar"];
     const campo = (id, l, v = "", t = "text") => `<label style="display:block;font-size:13px;font-weight:700;margin-top:10px">${l}</label><input id="${id}" type="${t}" value="${esc(v)}" ${u && id === "fe" ? "disabled" : ""} style="width:100%;height:40px;border-radius:10px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 12px">`;
     c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="total">Centro de mando · Usuarios</span><button class="btn sec" id="cer">✕</button></div>
-      <h2 style="margin-top:8px">${u ? esc(u.nombre) : "Nuevo usuario"}</h2>
+      <h2 style="margin-top:8px">${u ? esc(u.nombre) : rolPedido === "ceo" ? "Nuevo CEO" : "Nuevo usuario"}</h2>
       ${campo("fn", "Nombre y apellido", u?.nombre)}${campo("fe", "Usuario (correo)", u?.email)}${u ? "" : campo("ft", "Teléfono (opcional)")}
       <label style="display:block;font-size:13px;font-weight:700;margin-top:10px">Rol</label><select id="fr" class="sel" style="width:100%;height:40px">${Object.entries(cat.roles).map(([k, t]) => `<option value="${k}" ${k === rolIni ? "selected" : ""}>${t}</option>`).join("")}</select>
       <div id="ftw"><label style="display:block;font-size:13px;font-weight:700;margin-top:10px">Tienda</label><select id="fti" class="sel" style="width:100%;height:40px"><option value="">—</option>${ts.map((t) => `<option value="${t.id}" ${u?.tienda_id === t.id ? "selected" : ""}>${esc(t.nombre)}</option>`).join("")}</select></div>
       ${u ? "" : `${campo("fc", "Clave (vacía = la genera el sistema)")}<div class="total">Mínimo 8 caracteres, una letra y un número. La persona deberá cambiarla al entrar.</div>`}
-      <h3 style="margin:18px 0 4px">Limitaciones · qué puede ver y hacer</h3><div class="total">Marca lo que permites. <a href="#" id="dr" style="color:var(--acento)">Usar los del rol</a></div>
+      <div id="avceo" class="card" style="min-height:0;margin-top:16px;border-color:var(--acento2)"><b>Acceso total, igual que tú</b><div class="total" style="margin-top:4px">Un CEO ve y hace todo: Centro de mando, usuarios y permisos, correos corporativos y auditoría. Puede crear y quitar otros CEO, pero nunca puede cambiar ni desactivar tu cuenta principal.</div></div>
+      <div id="lims"><h3 style="margin:18px 0 4px">Limitaciones · qué puede ver y hacer</h3><div class="total">Marca lo que permites. <a href="#" id="dr" style="color:var(--acento)">Usar los del rol</a></div>
       ${grupos.map((g) => `<div style="margin-top:10px;font-weight:800;color:var(--suave);font-size:12px;letter-spacing:.06em">${g.toUpperCase()}</div>${cat.permisos.filter((p) => p.grupo === g).map((p) => `<label style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--borde)"><input type="checkbox" data-p="${p.clave}" ${marcados.has(p.clave) ? "checked" : ""}> ${esc(p.texto)}</label>`).join("")}`).join("")}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:18px"><button class="btn pri" id="gu">${u ? "Guardar cambios" : "Crear usuario"}</button>
+      </div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:18px"><button class="btn pri" id="gu">${u ? "Guardar cambios" : "Crear usuario"}</button>
         ${u ? `<button class="btn sec" id="rc">Restablecer clave</button><button class="btn ${u.activo ? "pel" : "sec"}" id="ac">${u.activo ? "Desactivar" : "Activar"}</button>` : ""}</div>
       <div id="clv"></div><p class="error" id="err"></p>`;
     document.body.appendChild(c);
-    const verTienda = () => ($("#ftw").style.display = ["agente", "tecnico_supervisor"].includes($("#fr").value) ? "block" : "none");
+    const verTienda = () => { $("#ftw").style.display = ["agente", "tecnico_supervisor"].includes($("#fr").value) ? "block" : "none";
+      const esCeo = $("#fr").value === "ceo"; $("#avceo").style.display = esCeo ? "block" : "none"; $("#lims").style.display = esCeo ? "none" : "block"; };
     verTienda();
     if (!u) {  // sugiere el correo corporativo nombre.apellido@aha-go.com
       let tocado = false;
