@@ -23,11 +23,12 @@ body{min-height:100vh}
   radial-gradient(45% 40% at 70% 90%,rgba(98,90,255,.30),transparent 70%),
   radial-gradient(40% 40% at 10% 85%,rgba(33,36,77,.9),transparent 70%)}
 [data-tema="claro"] .escena:before{opacity:.55}
-.esfera{position:absolute;border-radius:50%;filter:saturate(1.15);animation:flotar 14s ease-in-out infinite alternate}
-.esfera.e1{width:340px;height:340px;left:-80px;top:22%;background:radial-gradient(circle at 32% 28%,#FFFFFF 0,#E9F27A 12%,#CFD72A 38%,#7E8410 78%,#3D4006 100%);opacity:.55}
-.esfera.e2{width:220px;height:220px;right:6%;top:-60px;background:radial-gradient(circle at 30% 26%,#FFFFFF 0,#9FFBE0 14%,#34E3B0 40%,#0E7A5C 80%,#053D2E 100%);opacity:.5;animation-duration:17s}
-.esfera.e3{width:420px;height:420px;right:-140px;bottom:-160px;background:radial-gradient(circle at 34% 30%,#FFFFFF 0,#B8B4FF 12%,#6A62FF 42%,#2A2390 80%,#120E4D 100%);opacity:.45;animation-duration:20s}
-.esfera.e4{width:120px;height:120px;left:38%;bottom:6%;background:radial-gradient(circle at 30% 28%,#FFFFFF 0,#FFC9A8 14%,#FF8A4C 44%,#A83F0C 85%);opacity:.45;animation-duration:12s}
+.esfera{position:absolute;border-radius:50%;filter:blur(110px);animation:flotar 18s ease-in-out infinite alternate}
+.esfera.e1{width:520px;height:520px;left:-160px;top:18%;background:#CFD72A;opacity:.32}
+.esfera.e2{width:420px;height:420px;right:4%;top:-160px;background:#34E3B0;opacity:.30;animation-duration:22s}
+.esfera.e3{width:620px;height:620px;right:-200px;bottom:-240px;background:#6A62FF;opacity:.34;animation-duration:26s}
+.esfera.e4{width:320px;height:320px;left:36%;bottom:-60px;background:#FF8A4C;opacity:.20;animation-duration:16s}
+[data-tema="claro"] .esfera{opacity:.22}
 @keyframes flotar{from{transform:translate3d(0,0,0) rotate(0)}to{transform:translate3d(30px,-40px,60px) rotate(25deg)}}
 #app{position:relative;z-index:1}
 
