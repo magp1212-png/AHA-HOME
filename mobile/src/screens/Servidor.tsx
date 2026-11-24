@@ -21,7 +21,7 @@ export default function Servidor() {
   return (
     <Pantalla titulo="Servidor">
       <Tarjeta>
-        <Texto gris size={14}>Dirección del servidor de AHA HOME, por ejemplo https://api.ahahome.app</Texto>
+        <Texto gris size={14}>Dirección del servidor de AHA HOME, por ejemplo https://api-home.aha-go.com</Texto>
         <Campo etiqueta="Dirección" value={url} onChangeText={setUrl} autoCapitalize="none" keyboardType="url" />
         <Aviso texto={msg?.t} tono={msg?.ok ? "ok" : "error"} />
         <Boton titulo="Guardar y probar" onPress={probar} />

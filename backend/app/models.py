@@ -504,6 +504,31 @@ class PrecioItem(Base):
     orden: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class CorreoCorporativo(Base):
+    """Base de datos de correos corporativos @aha-go.com: los de cada persona del equipo, los de cada área y los del sistema."""
+    __tablename__ = "correos_corporativos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    direccion: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    tipo: Mapped[str] = mapped_column(String(12), default="area")  # persona | area | sistema
+    descripcion: Mapped[str] = mapped_column(String(200), default="")
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    reenviar_a: Mapped[str | None] = mapped_column(String(300), nullable=True)  # a qué buzón(es) llega, separados por coma
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+
+
+# Direcciones de área y del sistema con las que arranca la base de datos de correos
+CORREOS_BASE = [
+    ("contacto", "area", "Contacto público (páginas legales, tiendas de apps)"),
+    ("soporte", "area", "Soporte a clientes y técnicos"),
+    ("control", "area", "Centro de control: órdenes del día y emergencias"),
+    ("tecnicos", "area", "Registro, expedientes y altas de técnicos"),
+    ("pagos", "area", "Pagos, liquidaciones y facturación"),
+    ("tiendas", "area", "Relación con las tiendas aliadas (Damasco)"),
+    ("no-responder", "sistema", "Remitente de los correos automáticos de la app"),
+]
+
+
 class Ajuste(Base):
     """Valores del negocio que cambia el superadmin (p. ej. precio de la inspección)."""
     __tablename__ = "ajustes"

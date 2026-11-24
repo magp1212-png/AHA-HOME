@@ -38,7 +38,7 @@ def enviar(destino: str, asunto: str, html: str, texto: str = "") -> bool:
         return True
     msg = EmailMessage()
     msg["Subject"], msg["From"], msg["To"] = asunto, cfg.get("from") or formataddr(("AHA HOME", cfg["user"])), destino
-    msg["Message-ID"] = make_msgid(domain=cfg.get("domain", "ahahome.app"))
+    msg["Message-ID"] = make_msgid(domain=cfg.get("domain", "aha-go.com"))
     msg.set_content(texto or "Abre este correo en un lector que muestre HTML.")
     msg.add_alternative(html, subtype="html")
     try:

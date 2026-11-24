@@ -1,13 +1,16 @@
 # Copia este archivo como config.yml después de crear el túnel:
 #   cloudflared tunnel login
 #   cloudflared tunnel create aha-home
-#   cloudflared tunnel route dns aha-home api.ahahome.app
-#   cloudflared tunnel route dns aha-home www.ahahome.app
+#   cloudflared tunnel route dns aha-home api-home.aha-go.com
+#   cloudflared tunnel route dns aha-home home.aha-go.com
+#   cloudflared tunnel route dns aha-home panel.aha-go.com
 tunnel: aha-home
 credentials-file: C:\Users\Administrator\.cloudflared\ID-DEL-TUNEL.json
 ingress:
-  - hostname: api.ahahome.app
+  - hostname: api-home.aha-go.com
     service: http://127.0.0.1:8096
-  - hostname: www.ahahome.app
+  - hostname: home.aha-go.com
+    service: http://127.0.0.1:8096
+  - hostname: panel.aha-go.com
     service: http://127.0.0.1:8096
   - service: http_status:404

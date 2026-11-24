@@ -46,6 +46,8 @@ ACCIONES = [
     ("POST", r"^/ceo/usuarios$", "Creó una cuenta del personal"),
     ("PUT", r"^/ceo/usuarios/(\d+)$", "Cambió el rol, permisos o estado del usuario #{0}"),
     ("POST", r"^/ceo/usuarios/(\d+)/clave$", "Restableció la clave del usuario #{0}"),
+    ("POST", r"^/ceo/correos$", "Agregó un correo corporativo"),
+    ("PUT", r"^/ceo/correos/(\d+)$", "Cambió el correo corporativo #{0}"),
     ("PUT", r"^/admin/precios/(\d+)$", "Editó un precio de la tabulación (#{0})"),
     ("PUT", r"^/admin/precios-inspeccion$", "Cambió el precio de la inspección"),
 ]

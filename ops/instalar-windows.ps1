@@ -4,7 +4,7 @@
 #    powershell -ExecutionPolicy Bypass -File ops\instalar-windows.ps1
 #  Crea el entorno de Python, la clave secreta, la web, el superadministrador y 4 tareas programadas:
 #    "aha home API"       al iniciar Windows   → ops\servidor-ahahome.cmd (puerto 8096)
-#    "aha home tunel"     al iniciar Windows   → ops\tunel-ahahome.cmd   (api.ahahome.app)
+#    "aha home tunel"     al iniciar Windows   → ops\tunel-ahahome.cmd   (api-home.aha-go.com)
 #    "aha home publicar"  cada 5 minutos       → ops\publicar.py         (rama produccion de GitHub)
 #    "aha home respaldo"  todos los días 3:15  → ops\respaldo.py         (30 días + copia en R2)
 # ============================================================================
@@ -36,7 +36,7 @@ if (-not (Test-Path $correo)) {
   if ($u) {
     $p = Read-Host "  Clave SMTP" -AsSecureString
     $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($p))
-    @{ host = "smtp-relay.brevo.com"; port = 587; user = $u; password = $plain; from = "AHA HOME <no-responder@ahahome.app>"; domain = "ahahome.app" } |
+    @{ host = "smtp-relay.brevo.com"; port = 587; user = $u; password = $plain; from = "AHA HOME <no-responder@aha-go.com>"; domain = "aha-go.com" } |
       ConvertTo-Json | Set-Content -Encoding utf8 $correo
     Write-Host "✓ Correo configurado"
   }
@@ -46,7 +46,7 @@ if (-not (Test-Path $correo)) {
 $r2Anunciate = "C:\Users\Administrator\APP ANUNCIATE\ops\r2.json"
 if ((Test-Path $r2Anunciate) -and -not (Test-Path "$PSScriptRoot\r2.json")) { Copy-Item $r2Anunciate "$PSScriptRoot\r2.json"; Write-Host "✓ Respaldo en R2 (el de anunciate)" }
 
-# 5. Web (la misma app, en www.ahahome.app)
+# 5. Web (la misma app, en home.aha-go.com)
 Push-Location $Mobile
 npm ci --no-audit --no-fund
 npx expo export --platform web --output-dir dist-web

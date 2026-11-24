@@ -20,13 +20,13 @@ MAX_IMAGE_BYTES = 6 * 1024 * 1024
 # Notificaciones push con el servicio gratuito de Expo; las pruebas lo apagan.
 PUSH_ENABLED = os.environ.get("AHAHOME_PUSH", "1") == "1"
 
-# Dirección pública del servidor, para los enlaces de los correos (ej. https://api.ahahome.app)
+# Dirección pública del servidor, para los enlaces de los correos (ej. https://api-home.aha-go.com)
 PUBLIC_URL = os.environ.get("AHAHOME_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
 
 # El cliente tiene 24 horas para verificar su correo; si no, su cuenta se elimina del registro.
 VERIFICACION_HORAS = int(os.environ.get("AHAHOME_VERIFICACION_HORAS", "24"))
 
-# Versión web de la app (mobile/dist-web): el servidor la sirve en "/" para www.ahahome.app y los paneles
+# Versión web de la app (mobile/dist-web): el servidor la sirve en "/" para home.aha-go.com y los paneles
 WEB_DIR = pathlib.Path(os.environ.get("AHAHOME_WEB_DIR", BASE_DIR.parent / "mobile" / "dist-web"))
 
 # Hora de Caracas (UTC-4, sin horario de verano) para saber qué grupo está de guardia hoy.
@@ -42,7 +42,9 @@ TELEFONO_CONTROL = os.environ.get("AHAHOME_TELEFONO_CONTROL", "").strip()
 # Modelos de verificación facial (python descargar_modelos.py)
 MODELOS_DIR = pathlib.Path(os.environ.get("AHAHOME_MODELOS_DIR", pathlib.Path(__file__).resolve().parent.parent / "modelos"))
 # Correos de las cuentas CEO (superadmin con acceso al centro de mando y a la auditoría), separados por coma
-CEO_EMAILS = {e.strip().lower() for e in os.environ.get("AHAHOME_CEO_EMAILS", "").split(",") if e.strip()}
+CEO_EMAILS = {e.strip().lower() for e in os.environ.get("AHAHOME_CEO_EMAILS", "magp@aha-go.com").split(",") if e.strip()}
+# Dominio de los correos corporativos del equipo (nombre.apellido@aha-go.com)
+CORREO_DOMINIO = os.environ.get("AHAHOME_CORREO_DOMINIO", "aha-go.com").strip().lower()
 # Código de cierre (AHA HOGAR v2): vale 30 minutos y se puede pedir otro cada 60 segundos
 CIERRE_MINUTOS = int(os.environ.get("AHAHOME_CIERRE_MINUTOS", "30"))
 INSPECCION_USD = float(os.environ.get("AHAHOME_INSPECCION_USD", "10"))

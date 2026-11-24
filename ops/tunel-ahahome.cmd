@@ -1,7 +1,7 @@
 @echo off
 REM ============================================================================
 REM  Tunel de Cloudflare hacia la API local de AHA HOME (127.0.0.1:8096).
-REM  - Con ops\cloudflared\config.yml (tunel con nombre): publica api.ahahome.app y www.ahahome.app.
+REM  - Con ops\cloudflared\config.yml (tunel con nombre): publica api-home.aha-go.com, home.aha-go.com y panel.aha-go.com.
 REM  - Mientras tanto: tunel temporal trycloudflare (la direccion queda en backend\cf-api.log).
 REM  Lo arranca la tarea programada "aha home tunel" (SYSTEM, al iniciar Windows).
 REM ============================================================================

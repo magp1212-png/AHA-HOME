@@ -1105,3 +1105,30 @@ def test_ceo_crea_usuarios_con_clave_y_limitaciones(client):
     assert "precios" in client.get("/yo", headers=sa).json()["permisos"]
     acc = [a["accion"] for a in client.get("/ceo/actividad", headers=ceo).json()]
     assert "Creó una cuenta del personal" in acc and any(a.startswith("Restableció la clave") for a in acc)
+
+
+def test_correos_corporativos(client):
+    ceo = login(client, "ceo@ahahome.test")
+    sa = login(client, "superadmin@ahahome.test")
+    assert client.get("/ceo/correos", headers=sa).status_code == 403
+    r = client.get("/ceo/correos", headers=ceo).json()
+    dirs = {c["direccion"]: c for c in r["correos"]}
+    assert r["dominio"] == "aha-go.com"
+    assert "magp@aha-go.com" in dirs and dirs["magp@aha-go.com"]["tipo"] == "persona"
+    assert {"soporte@aha-go.com", "contacto@aha-go.com", "no-responder@aha-go.com"} <= set(dirs)
+    # al crear una persona del equipo con correo corporativo queda registrada
+    client.post("/ceo/usuarios", json={"nombre": "Luis Pérez", "email": "luis.perez@aha-go.com", "rol": "supervisor"}, headers=ceo)
+    dirs = {c["direccion"]: c for c in client.get("/ceo/correos", headers=ceo).json()["correos"]}
+    assert dirs["luis.perez@aha-go.com"]["persona"] == "Luis Pérez"
+    # el CEO agrega un correo de área con reenvío
+    c = client.post("/ceo/correos", json={"usuario": "Ventas", "tipo": "area", "descripcion": "Ventas", "reenviar_a": "magp@aha-go.com"}, headers=ceo).json()
+    assert c["direccion"] == "ventas@aha-go.com" and c["reenviar_a"] == "magp@aha-go.com"
+    assert client.post("/ceo/correos", json={"usuario": "ventas"}, headers=ceo).status_code == 409
+    assert client.post("/ceo/correos", json={"usuario": "mal correo"}, headers=ceo).status_code == 422
+    assert client.put(f"/ceo/correos/{c['id']}", json={"tipo": "area", "reenviar_a": "no-es-correo"}, headers=ceo).status_code == 422
+    assert client.put(f"/ceo/correos/{c['id']}", json={"tipo": "area", "activo": False}, headers=ceo).json()["activo"] is False
+
+
+def test_panel_aha_go_abre_el_superadmin(client):
+    r = client.get("/", headers={"host": "panel.aha-go.com"}, follow_redirects=False)
+    assert r.status_code == 302 and r.headers["location"] == "/panel/"

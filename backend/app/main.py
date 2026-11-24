@@ -48,6 +48,10 @@ def _auditar(request: Request, estado: int) -> None:
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
+    # panel.aha-go.com abre directo el superadministrador
+    if request.url.path == "/" and request.headers.get("host", "").split(":")[0].startswith("panel."):
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/panel/", status_code=302)
     response = await call_next(request)
     try:
         from starlette.concurrency import run_in_threadpool
@@ -80,6 +84,8 @@ def crear_tablas() -> None:
             for u in db.scalars(select(User).where(User.email.in_(config.CEO_EMAILS), User.rol == "superadmin")):
                 u.es_ceo = True
             db.commit()
+            from .routers.ceo import sembrar_correos
+            sembrar_correos(db)
     if os.environ.get("AHAHOME_PURGA", "1") == "1":
         threading.Thread(target=_purga_periodica, daemon=True).start()
 

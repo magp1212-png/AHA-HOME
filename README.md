@@ -52,7 +52,7 @@ npx eas build -p android --profile production   # para Google Play
 npx eas build -p ios --profile production       # para App Store / TestFlight
 ```
 
-- **Dirección del servidor:** las compilaciones apuntan a `https://api.ahahome.app` (en `eas.json`).
+- **Dirección del servidor:** las compilaciones apuntan a `https://api-home.aha-go.com` (en `eas.json`).
 - **Notificaciones push:** funcionan en la app compilada una vez configurado el `projectId`. En la web y en Expo Go de Android, los avisos se ven en la **campana** de la app.
 
 ## Servidor (`backend/`)
@@ -100,7 +100,7 @@ El instalador:
   - **aha home publicar**: cada 5 minutos publica lo que llegue a la rama `produccion`, con pruebas, respaldo y vuelta atrás si falla.
   - **aha home respaldo**: todos los días.
 
-Para el túnel con nombre, sigue `ops/cloudflared/config.ejemplo.yml`. Con él, `api.ahahome.app` y `www.ahahome.app` llegan a este servidor.
+Para el túnel con nombre, sigue `ops/cloudflared/config.ejemplo.yml`. Con él, `api-home.aha-go.com` y `home.aha-go.com` llegan a este servidor.
 
 ### Instalar en tu servidor físico (un solo comando)
 
@@ -114,11 +114,11 @@ git clone https://github.com/magp1212-png/AHA-HOME.git && cd AHA-HOME
 El instalador:
 1. Crea la configuración con una clave secreta aleatoria.
 2. Te pide el **usuario y la clave SMTP de Brevo** (los guarda solo en `datos/correo.key`).
-3. Te pide el **token del túnel de Cloudflare**. Con él, `https://api.ahahome.app` funciona con HTTPS **sin abrir puertos en el router**.
+3. Te pide el **token del túnel de Cloudflare**. Con él, `https://api-home.aha-go.com` funciona con HTTPS **sin abrir puertos en el router**.
 4. Levanta el servidor y comprueba que responda.
 5. Te pide crear el **superadministrador** real.
 
-Al final, en Cloudflare → túnel → **Public Hostname**, agrega `api.ahahome.app` → `http://api:8000`.
+Al final, en Cloudflare → túnel → **Public Hostname**, agrega `api-home.aha-go.com` → `http://api:8000`.
 
 - **Respaldos:** copia la carpeta `datos/`, que guarda la base de datos, las fotos y la clave de correo.
 - **Mudar de máquina:** copia `datos/` y `.env` a la máquina nueva y corre `./instalar.sh` otra vez.
@@ -149,7 +149,7 @@ Al final, en Cloudflare → túnel → **Public Hostname**, agrega `api.ahahome.
 - **Pedidos de caja:** los pedidos creados en caja con su teléfono aparecen en su cuenta solo **después de verificar** el correo.
 - **Para enviar correos de verdad:**
   - Crea `backend/correo.key` en el servidor, con `{"host", "port", "user", "password", "from"}` de una cuenta SMTP (por ejemplo Brevo, como en Anunciate).
-  - Define `AHAHOME_PUBLIC_URL` con la dirección pública (por ejemplo `https://api.ahahome.app`) para que el enlace funcione.
+  - Define `AHAHOME_PUBLIC_URL` con la dirección pública (por ejemplo `https://api-home.aha-go.com`) para que el enlace funcione.
   - Sin ese archivo, los correos no se envían. Solo quedan anotados para pruebas.
 
 ### Pendientes conocidos
