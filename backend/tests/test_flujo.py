@@ -1211,3 +1211,10 @@ def test_recuperar_clave_por_correo(client):
     correo.outbox.clear()
     client.post("/auth/recuperar", json={"correo": "maria@ahahome.test"})
     assert not correo.outbox
+
+
+def test_panel_sin_cache_y_con_version(client):
+    r = client.get("/panel/")
+    assert r.status_code == 200 and "no-cache" in r.headers["cache-control"]
+    assert "/panel/panel.js?v=" in r.text and "/panel/ios.css?v=" in r.text
+    assert client.get("/panel/panel.js").status_code == 200
