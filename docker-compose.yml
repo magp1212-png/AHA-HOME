@@ -2,12 +2,12 @@
 # (pide los datos de Brevo y del túnel de Cloudflare, y deja todo andando).
 #
 # Qué levanta:
-#   api          el servidor de AHA HOME (puerto 8000 solo dentro de la máquina)
-#   cloudflared  el túnel de Cloudflare: publica https://api.ahahome.app sin abrir puertos en el router
+#   api          el servidor de AHA HOME, con la web de la caja y el panel (puerto 8000 solo dentro de la máquina)
+#   cloudflared  el túnel de Cloudflare: publica www, superad y api-home.aha-go.com sin abrir puertos en el router
 # La base de datos, las fotos y la clave de correo quedan en ./datos (respáldala).
 services:
   api:
-    build: ./backend
+    build: .
     restart: unless-stopped
     env_file: .env
     environment:

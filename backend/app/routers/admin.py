@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from .. import ordenes as svc
 from ..db import get_db
-from ..deps import require
+from ..deps import require, exigir_permiso
 from ..models import ESTADOS, TIPO_EQUIPO_TEXTO, TIPOS_EQUIPO, ZONAS, Orden, Tarifa, Tienda, User
 from .auth import perfil
 
@@ -58,7 +58,7 @@ def seguimiento(desde: dt.date | None = None, hasta: dt.date | None = None, tien
     califs = [o["calificacion"] for o in salida if o["calificacion"]]
     return {
         "total": len(salida),
-        "por_estado": {s: sum(1 for o in salida if o["estado"] == s) for s in ESTADOS + ("cancelado",)},
+        "por_estado": {s: sum(1 for o in salida if o["estado"] == s) for s in ESTADOS + ("cancelado", "entrega_fallida")},
         "calificacion_promedio": round(sum(califs) / len(califs), 2) if califs else None,
         "ordenes": salida,
     }
@@ -119,6 +119,7 @@ class Activo(BaseModel):
 
 @router.post("/usuarios/{user_id}/activo")
 def activar_usuario(user_id: int, body: Activo, user: User = Depends(solo_superadmin), db: Session = Depends(get_db)):
+    exigir_permiso(user, "activar_cuentas")
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(404)
@@ -146,6 +147,7 @@ class TarifaIn(BaseModel):
 
 @router.put("/tarifas/{tipo}")
 def fijar_tarifa(tipo: str, body: TarifaIn, user: User = Depends(solo_superadmin), db: Session = Depends(get_db)):
+    exigir_permiso(user, "precios")
     if tipo not in TIPOS_EQUIPO:
         raise HTTPException(404, "Tipo de artículo desconocido")
     x = db.get(Tarifa, tipo) or Tarifa(tipo=tipo, precio_centavos=0)

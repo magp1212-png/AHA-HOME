@@ -1,0 +1,14 @@
+**/node_modules
+**/.venv
+**/__pycache__
+mobile/dist-web
+mobile/.expo
+backend/*.db*
+backend/uploads
+backend/modelos
+backend/correo.key
+backend/.secreto-jwt.txt
+datos
+.env
+docs
+.git

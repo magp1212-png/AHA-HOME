@@ -2,7 +2,7 @@ import React, { useState } from "react";
 
 import { api } from "../../api";
 import { useNav } from "../../nav";
-import { Aviso, Boton, Fila, Opcion, Pantalla, Seccion, Tarjeta } from "../../ui";
+import { Aviso, Boton, C, Fila, Opcion, Pantalla, Seccion, Tarjeta, Texto } from "../../ui";
 
 export const FRANJAS = ["8:00-10:00", "10:00-12:00", "13:00-15:00", "15:00-17:00"];
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -32,6 +32,11 @@ export default function Reprogramar({ id }: { id: number }) {
 
   return (
     <Pantalla titulo="Programar instalación">
+      <Tarjeta style={{ backgroundColor: C.limaSuave, borderColor: C.lima }}>
+        <Texto negrita>Puedes reprogramar sin costo</Texto>
+        <Texto size={14}>Hasta 3 horas antes de tu franja y mientras no hayamos retirado tu compra en la tienda.</Texto>
+        <Texto gris size={13}>Si la cuadrilla ya retiró tu compra, salió hacia tu casa y no se pudo entregar, regresa a la tienda y se cobra el servicio completo como penalidad.</Texto>
+      </Tarjeta>
       <Tarjeta>
         <Seccion>DÍA</Seccion>
         <Fila wrap>{dias.map((d) => <Opcion key={d.iso} texto={d.texto} activo={fecha === d.iso} onPress={() => setFecha(d.iso)} />)}</Fila>

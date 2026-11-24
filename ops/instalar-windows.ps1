@@ -4,7 +4,7 @@
 #    powershell -ExecutionPolicy Bypass -File ops\instalar-windows.ps1
 #  Crea el entorno de Python, la clave secreta, la web, el superadministrador y 4 tareas programadas:
 #    "aha home API"       al iniciar Windows   → ops\servidor-ahahome.cmd (puerto 8096)
-#    "aha home tunel"     al iniciar Windows   → ops\tunel-ahahome.cmd   (api.ahahome.app)
+#    "aha home tunel"     al iniciar Windows   → ops\tunel-ahahome.cmd   (api-home.aha-go.com)
 #    "aha home publicar"  cada 5 minutos       → ops\publicar.py         (rama produccion de GitHub)
 #    "aha home respaldo"  todos los días 3:15  → ops\respaldo.py         (30 días + copia en R2)
 # ============================================================================
@@ -31,12 +31,11 @@ if (-not (Test-Path $secreto)) {
 # 3. Correo (Brevo): backend\correo.key
 $correo = Join-Path $Backend "correo.key"
 if (-not (Test-Path $correo)) {
-  Write-Host "`nCorreo de verificación (Brevo → SMTP y API → SMTP). Enter para dejarlo para después."
-  $u = Read-Host "  Usuario SMTP (xxxx@smtp-brevo.com)"
-  if ($u) {
-    $p = Read-Host "  Clave SMTP" -AsSecureString
-    $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($p))
-    @{ host = "smtp-relay.brevo.com"; port = 587; user = $u; password = $plain; from = "AHA HOME <no-responder@ahahome.app>"; domain = "ahahome.app" } |
+  Write-Host "`nCorreo de la app (Brevo → SMTP y API → Claves API; basta permiso de envío). Enter para dejarlo para después."
+  $k = Read-Host "  Llave API de Brevo (xkeysib-…)" -AsSecureString
+  $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($k))
+  if ($plain) {
+    @{ api_key = $plain; from = "AHA HOME <no-responder@aha-go.com>"; domain = "aha-go.com" } |
       ConvertTo-Json | Set-Content -Encoding utf8 $correo
     Write-Host "✓ Correo configurado"
   }
@@ -46,12 +45,19 @@ if (-not (Test-Path $correo)) {
 $r2Anunciate = "C:\Users\Administrator\APP ANUNCIATE\ops\r2.json"
 if ((Test-Path $r2Anunciate) -and -not (Test-Path "$PSScriptRoot\r2.json")) { Copy-Item $r2Anunciate "$PSScriptRoot\r2.json"; Write-Host "✓ Respaldo en R2 (el de anunciate)" }
 
-# 5. Web (la misma app, en www.ahahome.app)
+# 5. Web (la misma app, en www.aha-go.com)
 Push-Location $Mobile
 npm ci --no-audit --no-fund
 npx expo export --platform web --output-dir dist-web
 Pop-Location
 Write-Host "✓ Web armada"
+
+# 5b. Modo equipo: mientras se prueba, solo entran caja, centro de control, superadmin y CEO.
+#     Para abrirla a clientes y técnicos: borra backend\.solo-equipo y reinicia la tarea "aha home API".
+if (-not (Test-Path "$Backend\.solo-equipo-decidido")) {
+  New-Item "$Backend\.solo-equipo" -Force | Out-Null; New-Item "$Backend\.solo-equipo-decidido" | Out-Null
+  Write-Host "✓ Modo equipo activado (solo personal)"
+}
 
 # 6. Tareas programadas (como anunciate)
 $py = "$Backend\.venv\Scripts\python.exe"
@@ -68,8 +74,8 @@ Start-Sleep -Seconds 8
 try { (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8096/salud).Content; Write-Host "✓ API funcionando" -ForegroundColor Green }
 catch { Write-Host "La API todavía no responde: revisa backend\logs\api.log" -ForegroundColor Yellow }
 
-# 8. Superadministrador real
-if (-not (Test-Path "$Backend\.superadmin-listo")) {
-  Push-Location $Backend; & $py crear_superadmin.py; if ($LASTEXITCODE -eq 0) { New-Item "$Backend\.superadmin-listo" | Out-Null }; Pop-Location
+# 8. Cuenta CEO (magp@aha-go.com) y la tienda del piloto. Enter en la clave = clave provisional (se cambia al entrar)
+if (-not (Test-Path "$Backend\.ceo-listo")) {
+  Push-Location $Backend; & $py crear_ceo.py magp@aha-go.com; if ($LASTEXITCODE -eq 0) { New-Item "$Backend\.ceo-listo" | Out-Null }; Pop-Location
 }
-Write-Host "`nListo. Falta el túnel con nombre: ver ops\cloudflared\config.ejemplo.yml" -ForegroundColor Cyan
+Write-Host "`nListo. Falta el túnel: guarda el token del túnel en ops\cloudflared\token.txt (ver ops\cloudflared\LEEME.md)" -ForegroundColor Cyan

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, TextInput, View } from "react-native";
 
 import { api, ApiError, fileUrl, subirFoto } from "../../api";
 import { useNav } from "../../nav";
 import { tomarFoto } from "../../photo";
 import type { Orden } from "../../types";
-import { Aviso, Boton, C, Cargando, Casilla, Pantalla, RESIDUOS, Seccion, Tarjeta, TEXTO_CHECK, TEXTO_FOTO } from "../../ui";
+import { Aviso, Boton, C, Cargando, Casilla, Pantalla, RESIDUOS, Seccion, Tarjeta, TEXTO_CHECK, TEXTO_FOTO, Texto } from "../../ui";
 
 /** Checklist digital obligatorio según el tipo de servicio, fotos de evidencia y cierre. */
 export default function Checklist({ id }: { id: number }) {
@@ -14,6 +14,7 @@ export default function Checklist({ id }: { id: number }) {
   const [error, setError] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState<string | null>(null);
   const [cerrando, setCerrando] = useState(false);
+  const [token, setToken] = useState("");
 
   useEffect(() => { api<Orden>(`/ordenes/${id}`).then(setO).catch((e) => setError(e.message)); }, [id]);
 
@@ -38,7 +39,7 @@ export default function Checklist({ id }: { id: number }) {
 
   async function cerrar() {
     setCerrando(true); setError(null);
-    try { await api(`/tecnico/ordenes/${id}/completar`, { body: {} }); nav.back(); }
+    try { await api(`/tecnico/ordenes/${id}/completar`, { body: { token } }); nav.back(); }
     catch (e: any) { setError(e instanceof ApiError && e.faltan ? `${e.message}: faltan ${e.faltan.length} punto(s).` : e.message); }
     setCerrando(false);
   }
@@ -46,14 +47,15 @@ export default function Checklist({ id }: { id: number }) {
   if (!o) return <Pantalla titulo="Checklist">{error ? <Aviso texto={error} /> : <Cargando />}</Pantalla>;
   const req = o.checklist_requerido;
   const entrega = req.filter((k) => ["entrega_en_empaque_original", "ubicado_en_sitio"].includes(k));
-  const inst = req.filter((k) => !entrega.includes(k) && !RESIDUOS.includes(k));
+  const inst = req.filter((k) => !entrega.includes(k) && !RESIDUOS.includes(k) && k !== "empaque_entregado_al_cliente");
+  const empaque = req.filter((k) => k === "empaque_entregado_al_cliente");
   const res = req.filter((k) => RESIDUOS.includes(k));
   const hechos = req.filter((k) => o.checklist[k]).length + o.fotos_requeridas.filter((k) => o.fotos[k]).length;
   const total = req.length + o.fotos_requeridas.length;
 
   return (
     <Pantalla titulo={`Checklist · ${o.codigo}`} subtitulo={`${hechos} de ${total} · ${o.tipo_servicio_texto}`}
-      pie={<Boton titulo="Completar orden" tipo="exito" onPress={cerrar} cargando={cerrando} deshabilitado={hechos < total} />}>
+      pie={<Boton titulo="Cerrar servicio" tipo="exito" icono="lock-closed" onPress={cerrar} cargando={cerrando} deshabilitado={hechos < total || token.length !== 6} />}>
       {entrega.length ? (
         <Tarjeta>
           <Seccion>ENTREGA EN SU CAJA</Seccion>
@@ -68,8 +70,15 @@ export default function Checklist({ id }: { id: number }) {
       ) : null}
       {res.length ? (
         <Tarjeta>
-          <Seccion color={C.alerta}>RETIRO DE RESIDUOS · OBLIGATORIO</Seccion>
+          <Seccion color={C.alerta}>RETIRO DE RESIDUOS PARA RECICLAR · EL CLIENTE LO PIDIÓ</Seccion>
           {res.map((k) => <Casilla key={k} texto={TEXTO_CHECK[k] ?? k} marcado={!!o.checklist[k]} onPress={() => marcar(k)} tono="obligatorio" />)}
+        </Tarjeta>
+      ) : null}
+      {empaque.length ? (
+        <Tarjeta>
+          <Seccion color={C.alerta}>EMPAQUE · EL CLIENTE SE LO QUEDA (GARANTÍA)</Seccion>
+          <Texto gris size={13}>No retires las cajas ni el empaque: déjalos ordenados donde indique el cliente.</Texto>
+          {empaque.map((k) => <Casilla key={k} texto={TEXTO_CHECK[k] ?? k} marcado={!!o.checklist[k]} onPress={() => marcar(k)} tono="obligatorio" />)}
         </Tarjeta>
       ) : null}
       <Tarjeta>
@@ -85,6 +94,15 @@ export default function Checklist({ id }: { id: number }) {
             </Pressable>
           ))}
         </View>
+      </Tarjeta>
+      <Tarjeta>
+        <Seccion color={C.naranja}>CÓDIGO DE CIERRE DEL CLIENTE</Seccion>
+        <Texto gris size={13}>Cuando el cliente confirme el acta en su app, le llega un código de 6 dígitos (vale 30 minutos). Pídeselo; si no está, te lo envía por el chat de la orden. Si venció, el cliente toca «Pedir otro código».</Texto>
+        <TextInput value={token} onChangeText={(t) => setToken(t.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" maxLength={6}
+          accessibilityLabel="Código de cierre" placeholder="••••••" placeholderTextColor="#9AA3B5"
+          style={{ height: 64, borderRadius: 16, borderWidth: 2, borderColor: token.length === 6 ? C.ok : C.borde, backgroundColor: C.blanco,
+            textAlign: "center", fontSize: 32, fontWeight: "900", letterSpacing: 10, color: C.marino }} />
+        <Boton titulo="Ver el chat de la orden" tipo="secundario" icono="chatbubble-ellipses-outline" onPress={() => nav.push("chat", { id })} />
       </Tarjeta>
       <Aviso texto={error} />
     </Pantalla>

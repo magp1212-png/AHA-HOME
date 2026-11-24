@@ -59,6 +59,9 @@ def normalizar_cedula(c: str) -> str:
 
 @router.post("/registro")
 def registro_campo(body: RegistroCampo, db: Session = Depends(get_db)):
+    from .. import config
+    if config.SOLO_EQUIPO:
+        raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
     if body.rol not in ("tecnico", "ayudante"):
         raise HTTPException(422, "Rol inválido")
     if not db.get(Tienda, body.tienda_id):
@@ -138,11 +141,44 @@ class Onboarding(BaseModel):
     pin: str | None = Field(default=None, min_length=4, max_length=8, pattern=r"^\d+$")
 
 
+class VerificarRostro(BaseModel):
+    selfie_cedula: str = Field(max_length=200)
+    foto_rostro: str = Field(max_length=200)
+
+
+def _archivo(url: str):
+    from .. import config
+    nombre = url.rsplit("/", 1)[-1]
+    ruta = config.UPLOADS_DIR / nombre
+    if not url.startswith("/archivos/") or "/" in nombre or not ruta.exists():
+        raise HTTPException(422, "Foto no encontrada: vuelve a tomarla")
+    return ruta
+
+
+@router.post("/verificar-rostro")
+def verificar_rostro(body: VerificarRostro, user: User = Depends(campo), db: Session = Depends(get_db)):
+    """Compara la foto con la cédula en el pecho con el escaneo de la cara. Tienen que ser la misma persona."""
+    from .. import rostro
+    t = mi_tecnico(user)
+    t.rostro_intentos += 1
+    if t.rostro_intentos > 10:
+        raise HTTPException(429, "Demasiados intentos. Pasa por la oficina de AHA HOME para tu alta.")
+    r = rostro.comparar(_archivo(body.selfie_cedula), _archivo(body.foto_rostro))
+    t.selfie_cedula, t.foto_rostro = body.selfie_cedula, body.foto_rostro
+    t.rostro_resultado = "revision_manual" if not r["disponible"] else "coincide" if r["coincide"] else "no_coincide"
+    t.rostro_similitud = r.get("similitud") or 0.0
+    t.rostro_similitud_cedula = r.get("similitud_cedula") or 0.0
+    db.commit()
+    return r
+
+
 @router.post("/onboarding")
 def onboarding(body: Onboarding, user: User = Depends(campo), db: Session = Depends(get_db)):
     t = mi_tecnico(user)
     if not body.huella_registrada:
         raise HTTPException(422, "Registra tu huella en el teléfono para continuar")
+    if t.rostro_resultado not in ("coincide", "revision_manual") or t.foto_rostro != body.foto_rostro or t.selfie_cedula != body.selfie_cedula:
+        raise HTTPException(422, "Primero verifica tu cara: la foto con la cédula y el escaneo tienen que coincidir")
     t.foto_rostro, t.selfie_cedula, t.huella_registrada = body.foto_rostro, body.selfie_cedula, True
     if body.pin:
         t.pin_hash = hash_password(body.pin)
@@ -243,6 +279,8 @@ def retiro_en_almacen(body: Retiro, user: User = Depends(solo_tecnico), db: Sess
     if o.tecnico_id != t.id:
         raise HTTPException(403, "Esta orden está asignada a otro técnico. Contacta a tu supervisor.")
     svc.exigir_estado(o, "tecnico_asignado", "cita_confirmada")
+    from .presupuestos import exigir_listo
+    exigir_listo(o)
     for a in o.articulos:
         if body.seriales.get(a.id) and not a.serial:
             a.serial = body.seriales[a.id].strip()[:80]
@@ -261,6 +299,8 @@ def salir_a_instalar(orden_id: int, user: User = Depends(solo_tecnico), db: Sess
     if con_retiro(o.tipo_servicio):
         raise HTTPException(409, "Esta orden requiere retirar el equipo en el almacén con el código QR")
     svc.exigir_estado(o, "tecnico_asignado", "cita_confirmada")
+    from .presupuestos import exigir_listo
+    exigir_listo(o)
     _salida(db, o, user, f"Salida directa al domicilio: {svc.nombres_cuadrilla(o)}")
     db.commit()
     return svc.vista(o, "tecnico")
@@ -310,10 +350,38 @@ def fotos(orden_id: int, body: Fotos, user: User = Depends(solo_tecnico), db: Se
     return svc.vista(o, "tecnico")
 
 
+class Cierre(BaseModel):
+    token: str = Field(default="", max_length=12)
+
+
+INTENTOS_TOKEN = 5
+
+
 @router.post("/ordenes/{orden_id}/completar")
-def completar(orden_id: int, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+def completar(orden_id: int, body: Cierre | None = None, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    """Cerrar el servicio: fotos y checklist completos + el código que dicta el cliente (o que envía por el chat)."""
     o = obtener(db, orden_id, user)
     svc.exigir_estado(o, "en_progreso")
+    falta = svc.faltantes_cierre(o)
+    if falta:
+        raise HTTPException(422, {"mensaje": "Completa el checklist y las fotos antes de cerrar", "faltan": falta})
+    if not (o.acta or {}).get("en"):
+        raise HTTPException(409, "Falta que el cliente confirme el acta de conformidad en su app")
+    dado = "".join(ch for ch in (body.token if body else "") if ch.isdigit())
+    if not dado:
+        raise HTTPException(422, "Escribe el código de cierre que te da el cliente")
+    if not svc.codigo_vigente(o):
+        raise HTTPException(422, "El código venció: pídele al cliente que toque «Pedir otro código» en su app")
+    if dado != o.token_cierre:
+        o.token_intentos += 1
+        if o.token_intentos >= INTENTOS_TOKEN:
+            svc.emitir_codigo_cierre(db, o)
+            svc.avisar_seguimiento(db, o, f"{o.codigo}: código de cierre bloqueado", f"{user.nombre} falló {INTENTOS_TOKEN} veces; se generó uno nuevo")
+            db.commit()
+            raise HTTPException(422, "Código incorrecto. Por seguridad se generó uno nuevo: pídeselo al cliente")
+        db.commit()
+        quedan = INTENTOS_TOKEN - o.token_intentos
+        raise HTTPException(422, f"Código de cierre incorrecto. Te quedan {quedan} intento(s)")
     svc.marcar_completada(db, o, user)
     db.commit()
     return svc.vista(o, "tecnico")

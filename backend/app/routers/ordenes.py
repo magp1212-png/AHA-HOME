@@ -10,10 +10,13 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .. import config
+from .tasa import cobro, info_pago
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import current_user, require
-from ..models import METODOS_PAGO, TIPOS_EQUIPO, ZONAS, Articulo, Orden, Tarifa, Tienda, User, ahora, orden_ayudantes
+from ..models import METODOS_PAGO, TIPOS_EQUIPO, TIPOS_INMUEBLE, ZONAS, Articulo, Orden, Tienda, User, ahora, orden_ayudantes
+from ..notificar import notificar
 from ..security import new_qr_token
 from .auth import limpiar_tel
 
@@ -35,7 +38,8 @@ def tiendas(db: Session = Depends(get_db)):
 
 
 class ArticuloIn(BaseModel):
-    tipo: str
+    tipo: str = "otro"
+    precio_id: int | None = None  # artículo exacto de la tabulación de precios del superadmin
     descripcion: str = Field(default="", max_length=120)  # ej. "Juego de comedor 6 puestos"
     marca: str = Field(default="", max_length=60)
     modelo: str = Field(default="", max_length=80)
@@ -69,12 +73,43 @@ def metodos_pago():
     return [{"id": k, "texto": METODO_PAGO_TEXTO[k]} for k in METODOS_PAGO]
 
 
+@router.get("/inspeccion/costo")
+def costo_inspeccion(db: Session = Depends(get_db)):
+    """Lo que cuesta la visita de inspección (se cobra en caja si el cliente la pide al comprar)."""
+    from .precios import precio_inspeccion_centavos
+    return {"costo": svc.dinero(precio_inspeccion_centavos(db))}
+
+
+@router.get("/caja/precios")
+def precios_caja(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Tabulación de precios del superadmin, para que la caja cobre: por artículo, traslado, instalación o los dos."""
+    from .precios import crear_por_defecto, precio_inspeccion_centavos, vista as vista_precio
+    from ..models import PrecioItem
+    crear_por_defecto(db)
+    items = db.scalars(select(PrecioItem).where(PrecioItem.activo.is_(True)).order_by(PrecioItem.orden, PrecioItem.id)).all()
+    return {"inspeccion": svc.dinero(precio_inspeccion_centavos(db)), "items": [vista_precio(p) for p in items]}
+
+
+def precio_de(item, servicio: str) -> int:
+    """Centavos que cobra la caja por un artículo de la tabulación según el servicio (0 = precio por definir)."""
+    if not item:
+        return 0
+    if servicio == "traslado":
+        return item.traslado_centavos
+    if servicio == "instalacion":
+        return item.instalacion_centavos
+    return item.combo_centavos or (item.traslado_centavos + item.instalacion_centavos if item.traslado_centavos and item.instalacion_centavos else 0)
+
+
 @router.get("/tarifas")
 def tarifas(db: Session = Depends(get_db)):
-    """Precios de instalación vigentes (los usa la caja para cobrar)."""
-    from ..models import TIPO_EQUIPO_TEXTO
-    return [{"tipo": x.tipo, "tipo_texto": TIPO_EQUIPO_TEXTO.get(x.tipo, x.tipo), "precio": svc.dinero(x.precio_centavos)}
-            for x in db.scalars(select(Tarifa).where(Tarifa.activa.is_(True)).order_by(Tarifa.tipo))]
+    """Compatibilidad con versiones anteriores de la app: precio de instalación por tipo, tomado de la tabulación."""
+    from ..models import PrecioItem, TIPO_EQUIPO_TEXTO
+    por_tipo: dict[str, int] = {}
+    for p in db.scalars(select(PrecioItem).where(PrecioItem.activo.is_(True)).order_by(PrecioItem.orden)):
+        if p.instalacion_centavos and p.tipo_equipo not in por_tipo:
+            por_tipo[p.tipo_equipo] = p.instalacion_centavos
+    return [{"tipo": t, "tipo_texto": TIPO_EQUIPO_TEXTO.get(t, t), "precio": svc.dinero(c)} for t, c in sorted(por_tipo.items())]
 
 
 class NuevaOrden(BaseModel):
@@ -85,8 +120,11 @@ class NuevaOrden(BaseModel):
     lat: float | None = None
     lng: float | None = None
     zona: str
+    tipo_inmueble: str = ""   # casa | edificio | oficina (la caja lo pide siempre)
     articulos: list[ArticuloIn] = Field(min_length=1, max_length=30)
     solo_instalacion: bool = False  # el cliente ya tiene los artículos en casa: no hay traslado
+    retirar_residuos: bool = True     # opcional: el cliente puede quedarse con el empaque por la garantía
+    requiere_inspeccion: bool = False  # el cliente pide que el técnico inspeccione y presupueste antes del retiro
     pago: PagoIn | None = None      # obligatorio si hay artículos para instalar
     numero_factura: str = Field(default="", max_length=40)
     fecha_compra: str = Field(default="", max_length=10)
@@ -143,30 +181,50 @@ def crear(body: NuevaOrden, user: User = Depends(require("agente", "supervisor")
         tipo_servicio = "instalacion"
     else:
         tipo_servicio = "traslado_instalacion" if a_instalar else "traslado"
-    precios = {x.tipo: x.precio_centavos for x in db.scalars(select(Tarifa).where(Tarifa.activa.is_(True)))}
-    # Mientras no se publique la tabla de precios, la instalación queda «precio por definir» (sin cobro en caja)
-    total = sum(precios.get(a.tipo, 0) for a in a_instalar)
-    if total and not body.pago:
-        raise HTTPException(422, "Registra el pago de la instalación en caja")
+    # Precio de cada artículo según la tabulación del superadmin (traslado, instalación o los dos).
+    # Lo que aún no tiene precio queda «por definir» y no se cobra en caja.
+    from ..models import PrecioItem
+    lineas = []
+    for a in body.articulos:
+        item = db.get(PrecioItem, a.precio_id) if a.precio_id else None
+        if a.precio_id and (not item or not item.activo):
+            raise HTTPException(422, "Ese artículo ya no está en la tabla de precios")
+        servicio = "instalacion" if body.solo_instalacion else ("combo" if a.instalar else "traslado")
+        lineas.append((a, item, servicio, precio_de(item, servicio)))
+    total = sum(c for *_, c in lineas)
+    if body.tipo_inmueble not in ("",) + TIPOS_INMUEBLE:
+        raise HTTPException(422, "Indica si la instalación es en casa, edificio u oficina")
+    # La inspección se cobra en caja, en el momento, junto con la instalación
+    from .precios import precio_inspeccion_centavos
+    insp = precio_inspeccion_centavos(db) if body.requiere_inspeccion else 0
+    if (total or insp) and not body.pago:
+        raise HTTPException(422, "Registra el pago en caja")
 
     tel = limpiar_tel(body.cliente_telefono)
     cliente = db.scalar(select(User).where(User.telefono == tel, User.rol == "cliente"))
     o = Orden(codigo=svc.nuevo_codigo(db), cliente_id=cliente.id if cliente else None,
               cliente_nombre=body.cliente_nombre.strip(), cliente_telefono=tel, direccion=body.direccion.strip(),
-              referencia=body.referencia.strip(), lat=body.lat, lng=body.lng, zona=body.zona, tipo_servicio=tipo_servicio,
+              referencia=body.referencia.strip(), lat=body.lat, lng=body.lng, zona=body.zona, tipo_inmueble=body.tipo_inmueble, tipo_servicio=tipo_servicio,
               numero_factura=body.numero_factura.strip(), fecha_compra=body.fecha_compra, factura=body.factura,
-              monto_instalacion_centavos=total, fecha=body.fecha.isoformat(), franja=body.franja, tienda_id=tienda.id,
-              agente_id=user.id if user.rol == "agente" else None, qr_token=new_qr_token(), checklist={}, fotos={})
-    if total:
+              monto_instalacion_centavos=total, inspeccion_centavos=insp, retirar_residuos=body.retirar_residuos, requiere_inspeccion=body.requiere_inspeccion,
+              inspeccion_fecha=body.fecha.isoformat() if body.requiere_inspeccion else "", inspeccion_franja=body.franja if body.requiere_inspeccion else "", fecha=body.fecha.isoformat(), franja=body.franja, tienda_id=tienda.id,
+              agente_id=user.id if user.rol == "agente" else None, qr_token=new_qr_token(), token_cierre=svc.nuevo_token_cierre(), checklist={}, fotos={})
+    if body.requiere_inspeccion:
+        o.pausa_desde = ahora()
+    if total or insp:
         o.pago_metodo, o.pago_referencia, o.pagado_en, o.cobrado_por = body.pago.metodo, body.pago.referencia.strip(), ahora(), user.id
-    o.articulos = [Articulo(tipo=a.tipo, descripcion=a.descripcion.strip(), marca=a.marca.strip(), modelo=a.modelo.strip(),
-                            serial=a.serial.strip(), garantia=a.garantia.strip(), instalar=a.instalar,
-                            precio_instalacion_centavos=precios.get(a.tipo, 0) if a.instalar else 0) for a in body.articulos]
+        o.pago_moneda, o.pago_tasa = cobro(db, body.pago.metodo)
+    o.articulos = [Articulo(tipo=item.tipo_equipo if item else a.tipo, descripcion=a.descripcion.strip() or (item.nombre if item else ""),
+                            marca=a.marca.strip(), modelo=a.modelo.strip(), serial=a.serial.strip(), garantia=a.garantia.strip(),
+                            instalar=a.instalar or body.solo_instalacion, precio_item_id=item.id if item else None, servicio=servicio,
+                            precio_instalacion_centavos=c) for a, item, servicio, c in lineas]
     db.add(o)
     db.flush()
     o.tienda = tienda
-    pago = f" · instalación cobrada USD {svc.dinero(total)} ({o.pago_metodo})" if total else ""
-    svc.registrar(db, o, "solicitud_enviada", user, f"Registrada en {tienda.nombre}: {len(o.articulos)} artículo(s){pago}")
+    pago = (f" · cobrado en caja {info_pago(o.pago_metodo, total + insp, o.pago_moneda, o.pago_tasa)['cobrado']} ({o.pago_metodo})"
+            + (f": servicio {svc.dinero(total)} + inspección {svc.dinero(insp)}" if insp else "")) if total or insp else ""
+    svc.registrar(db, o, "solicitud_enviada", user, f"Registrada en {tienda.nombre}: {len(o.articulos)} artículo(s){pago}"
+                  + ("" if o.retirar_residuos or tipo_servicio == "traslado" else " · el cliente se queda con el empaque (garantía)"))
     svc.asignar(db, o, user)
     svc.avisar_nueva_orden(db, o)
     db.commit()
@@ -212,6 +270,29 @@ def qr_png(orden_id: int, user: User = Depends(require("agente", "tecnico_superv
     return Response(buf.getvalue(), media_type="image/png")
 
 
+class Residuos(BaseModel):
+    retirar: bool
+
+
+@router.post("/ordenes/{orden_id}/residuos")
+def cambiar_residuos(orden_id: int, body: Residuos, user: User = Depends(require("cliente", "agente", "tecnico_supervisor", "supervisor")),
+                     db: Session = Depends(get_db)):
+    """Retiro de residuos para reciclar: opcional. El cliente puede quedarse con el empaque (garantía) hasta que empiece el servicio."""
+    o = obtener(db, orden_id, user)
+    if o.tipo_servicio == "traslado":
+        raise HTTPException(409, "En traslado se entrega en su caja: no hay residuos que retirar")
+    svc.exigir_estado(o, "solicitud_enviada", "tecnico_asignado", "cita_confirmada", "en_ruta")
+    if o.retirar_residuos != body.retirar:
+        o.retirar_residuos = body.retirar
+        o.checklist = {k: v for k, v in (o.checklist or {}).items() if k in svc.requeridos(o)[0]}
+        svc.registrar(db, o, o.estado, user, "Retiro de residuos para reciclar: " + ("SÍ" if body.retirar else "NO, el cliente se queda con el empaque (garantía)"))
+        if o.tecnico:
+            notificar(db, o.tecnico.user_id, "Cambio en el retiro de residuos",
+                      f"{o.codigo}: " + ("retira los residuos para reciclar." if body.retirar else "el cliente se queda con la caja y el empaque (garantía). No los retires."), o.id)
+        db.commit()
+    return svc.vista(o, user.rol)
+
+
 class Motivo(BaseModel):
     motivo: str = Field(default="", max_length=300)
 
@@ -239,7 +320,16 @@ class Reprogramar(BaseModel):
 def reprogramar(orden_id: int, body: Reprogramar, user: User = Depends(require("cliente", "agente", "supervisor")),
                 db: Session = Depends(get_db)):
     o = obtener(db, orden_id, user)
-    svc.exigir_estado(o, "solicitud_enviada", "tecnico_asignado", "cita_confirmada")
+    from .penalidad import info_reprogramar
+    info = info_reprogramar(o)
+    if o.estado == "entrega_fallida":
+        if not info["puede"]:
+            raise HTTPException(409, info["motivo"])
+        o.retirado_en = None
+    else:
+        svc.exigir_estado(o, "solicitud_enviada", "tecnico_asignado", "cita_confirmada")
+        if user.rol == "cliente" and not info["puede"]:
+            raise HTTPException(409, info["motivo"])
     anteriores = ([o.tecnico] if o.tecnico else []) + list(o.ayudantes)
     o.fecha, o.franja = body.fecha.isoformat(), body.franja
     svc.registrar(db, o, "solicitud_enviada", user, f"Reprogramada para {o.fecha} {o.franja}")
@@ -264,7 +354,8 @@ class Calificar(BaseModel):
 @router.post("/ordenes/{orden_id}/calificar")
 def calificar(orden_id: int, body: Calificar, user: User = Depends(require("cliente")), db: Session = Depends(get_db)):
     o = obtener(db, orden_id, user)
-    svc.exigir_estado(o, "completado")
+    # se califica en la pantalla de cierre, junto al código (con la cuadrilla en casa) o después de completado
+    svc.exigir_estado(o, "en_progreso", "completado")
     o.calificacion, o.comentario = body.estrellas, body.comentario.strip()
     db.commit()
     return svc.vista(o, user.rol)

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from .. import asignacion
 from .. import ordenes as svc
 from ..db import get_db
-from ..deps import require
+from ..deps import require, exigir_permiso
 from ..models import (DOCUMENTOS_OBLIGATORIOS, GRUPOS, ROLES, TIPOS_DOCUMENTO, Documento, Incidencia, Orden, Tecnico, Tienda,
                       User, ahora)
 from ..notificar import notificar
@@ -41,6 +41,8 @@ def tecnico_dict(db: Session, t: Tecnico, fecha: str) -> dict:
             "rol": "ayudante" if t.es_ayudante else "tecnico", "grupo": t.grupo, "tienda": t.tienda.nombre,
             "zona": t.tienda.zona, "verificado": t.verificado, "disponible": t.disponible, "reten_activo": t.reten_activo,
             "foto_rostro": t.foto_rostro, "selfie_cedula": t.selfie_cedula, "foto_perfil": t.foto_perfil,
+            "verificacion_facial": {"resultado": t.rostro_resultado, "similitud": round(t.rostro_similitud, 3),
+                                    "similitud_cedula": round(t.rostro_similitud_cedula, 3) if t.rostro_similitud_cedula else None},
             "huella_registrada": t.huella_registrada, "email": t.user.email,
             "registro_app_completo": bool(t.foto_rostro and t.selfie_cedula and t.huella_registrada),
             "documentos_faltantes": [d for d in DOCUMENTOS_OBLIGATORIOS if d not in {x.tipo for x in t.documentos}],
@@ -73,7 +75,8 @@ def resumen(fecha: dt.date | None = None, zona: str | None = None, tienda_id: in
         "fecha": f.isoformat(), "grupo_de_guardia": guardia,
         "indicadores": {"ordenes": len(ords), "sin_tecnico": sum(1 for o in ords if not o.tecnico_id and o.estado != "cancelado"),
                         "en_ruta_o_en_servicio": cuenta("en_ruta", "en_progreso"), "completadas": cuenta("completado"),
-                        "incidencias_abiertas": len(incs), "por_tipo_servicio": por_tipo},
+                        "incidencias_abiertas": len(incs),
+                        "en_pausa_inspeccion": sum(1 for o in ords if o.requiere_inspeccion and o.estado in ("solicitud_enviada", "tecnico_asignado", "cita_confirmada") and o.pausa_desde is not None), "por_tipo_servicio": por_tipo},
         "ordenes": [svc.vista(o, user.rol) for o in ords],
         "incidencias": [{"id": i.id, "texto": i.texto, "orden_id": i.orden_id,
                          "tecnico": db.get(Tecnico, i.tecnico_id).user.nombre if i.tecnico_id else None,
@@ -181,8 +184,9 @@ def doc_dict(d: Documento) -> dict:
 @router.get("/tecnicos/{tec_id}/expediente")
 def expediente(tec_id: int, user: User = Depends(control), db: Session = Depends(get_db)):
     t = tecnico_controlado(db, user, tec_id)
+    from .presupuestos import cuenta_tecnico
     return tecnico_dict(db, t, asignacion.hoy().isoformat()) | {
-        "documentos": [doc_dict(d) for d in t.documentos], "tipos_documento": TIPOS_DOCUMENTO}
+        "documentos": [doc_dict(d) for d in t.documentos], "tipos_documento": TIPOS_DOCUMENTO, "cuenta_pago": cuenta_tecnico(t)}
 
 
 class NuevoDocumento(BaseModel):
@@ -195,6 +199,7 @@ class NuevoDocumento(BaseModel):
 @router.post("/tecnicos/{tec_id}/documentos")
 def agregar_documento(tec_id: int, body: NuevoDocumento, user: User = Depends(control), db: Session = Depends(get_db)):
     """En la oficina: foto de perfil, cédula, licencia, documentos del vehículo y otros."""
+    exigir_permiso(user, "altas_tecnicos")
     t = tecnico_controlado(db, user, tec_id)
     if body.tipo not in TIPOS_DOCUMENTO:
         raise HTTPException(422, "Tipo de documento inválido")
@@ -228,6 +233,7 @@ class Alta(BaseModel):
 @router.post("/tecnicos/{tec_id}/alta")
 def dar_de_alta(tec_id: int, body: Alta, user: User = Depends(control), db: Session = Depends(get_db)):
     """Alta inmediata en la oficina: exige registro completo en la app y expediente mínimo."""
+    exigir_permiso(user, "altas_tecnicos")
     t = tecnico_controlado(db, user, tec_id)
     falta = []
     if not t.es_ayudante:  # el técnico se registra en la app; el ayudante puede registrarse completo en la oficina
@@ -235,6 +241,10 @@ def dar_de_alta(tec_id: int, body: Alta, user: User = Depends(control), db: Sess
             falta.append("escaneo facial y foto con la cédula (desde la app)")
         if not t.huella_registrada:
             falta.append("huella (desde la app)")
+    if not t.es_ayudante:
+        from .presupuestos import cuenta_tecnico
+        if not cuenta_tecnico(t)["registrada"]:
+            falta.append("datos bancarios o de pago móvil (para pagarle sus servicios)")
     tipos = {d.tipo for d in t.documentos}
     falta += [TIPOS_DOCUMENTO[d] for d in DOCUMENTOS_OBLIGATORIOS if d not in tipos]
     if falta:

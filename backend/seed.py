@@ -9,10 +9,12 @@ Uso:  python seed.py        (no cambia nada si ya hay datos)
 Contraseña de todos los usuarios de prueba: aha12345 · PIN de técnicos y ayudantes: 1234
 Para replicar en otra tienda después del piloto: POST /admin/tiendas y crear su personal desde el panel.
 """
+import datetime as dt
+
 from sqlalchemy import select
 
 from app.db import Base, SessionLocal, engine
-from app.models import Tecnico, Tienda, User, ahora
+from app.models import TasaCambio, Tecnico, Tienda, User, ahora
 from app.security import hash_password
 
 # Coordenadas aproximadas de la zona de San Martín; ajústalas con el punto exacto de Google Maps (PUT /admin/tiendas/{id}).
@@ -51,7 +53,8 @@ def run():
         db.add(u)
         db.flush()
         tec = Tecnico(user_id=u.id, tienda_id=t.id, grupo=grupo, lat=lat + (i - 4) * 0.004, lng=lng + (i % 3 - 1) * 0.004,
-                      pin_hash=pin, verificado=True, alta_en=ahora(), **DEMO_FOTOS)
+                      pin_hash=pin, verificado=True, alta_en=ahora(), pago_movil_banco="Banco de prueba", pago_movil_telefono=u.telefono,
+                      cuenta_cedula=u.cedula, cuenta_titular=nom, **DEMO_FOTOS)
         db.add(tec)
         db.flush()
         a = User(nombre=AYUDANTES[i], telefono=f"04243{i:06d}", cedula=f"V-{20000000 + i * 977}", password_hash=h, rol="ayudante")
@@ -59,6 +62,10 @@ def run():
         db.flush()
         db.add(Tecnico(user_id=a.id, tienda_id=t.id, grupo=grupo, es_ayudante=True, jefe_id=tec.id, pin_hash=pin,
                        verificado=True, alta_en=ahora(), **DEMO_FOTOS))
+    # CEO (superadmin con centro de mando y auditoría) — cuenta de prueba
+    db.add(User(nombre="CEO Onyxa", email="ceo@ahahome.test", telefono="04140000099", password_hash=h, rol="superadmin", es_ceo=True))
+    # Tasa de PRUEBA para cobrar en bolívares (el superadmin carga la oficial del BCV cada día)
+    db.add(TasaCambio(bs_por_usd=250.0, fuente="BCV (prueba)", fecha=dt.date.today().isoformat()))
     # Sin tarifas todavía: la tabla de precios de instalación se define al final (PUT /admin/tarifas/{tipo}).
     db.commit()
     print(f"Listo: piloto {nombre} con 10 técnicos, 10 ayudantes, agente, técnico supervisor, supervisor, superadmin "

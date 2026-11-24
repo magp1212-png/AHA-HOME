@@ -41,8 +41,11 @@ def normalizar_cedula(c: str) -> str:
 
 def perfil(u: User) -> dict:
     d = {"id": u.id, "nombre": u.nombre, "telefono": u.telefono, "email": u.email, "rol": u.rol, "cedula": u.cedula,
-         "tienda_id": u.tienda_id, "foto": u.foto, "email_verificado": u.email_verificado,
+         "tienda_id": u.tienda_id, "foto": u.foto, "email_verificado": u.email_verificado, "es_ceo": bool(u.es_ceo and u.rol == "superadmin"), "clave_temporal": bool(u.clave_temporal),
          "verificacion_vence": u.verificacion_vence.isoformat() + "Z" if u.verificacion_vence and not u.email_verificado else None}
+    if u.rol in ("agente", "tecnico_supervisor", "supervisor", "superadmin"):
+        from ..deps import permisos_de
+        d["permisos"] = permisos_de(u)
     if u.tecnico:
         t = u.tecnico
         d["tecnico"] = {"id": t.id, "grupo": t.grupo, "tienda": t.tienda.nombre, "zona": t.tienda.zona,
@@ -90,6 +93,9 @@ class Registro(BaseModel):
 
 @router.post("/auth/registro")
 def registro(body: Registro, db: Session = Depends(get_db)):
+    from .. import config
+    if config.SOLO_EQUIPO:
+        raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
     purgar_no_verificados(db)  # libera teléfonos y correos de registros vencidos
     tel = limpiar_tel(body.telefono)
     email = body.email.strip().lower()
@@ -169,6 +175,12 @@ def login(body: Login, db: Session = Depends(get_db)):
     u = db.scalar(select(User).where(or_(User.email == ident, User.telefono == limpiar_tel(ident))))
     if not u or not u.activo or not verify_password(body.password, u.password_hash):
         raise HTTPException(401, "Teléfono, correo o contraseña incorrectos. Si no verificaste tu correo en 24 horas, regístrate de nuevo.")
+    from .. import config
+    if config.SOLO_EQUIPO and u.rol not in config.ROLES_EQUIPO:
+        raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
+    from ..auditoria import registrar
+    registrar(db, u, "POST", "/auth/login", 200, "", "Inició sesión")
+    db.commit()
     return {"token": make_token(u.id), "usuario": perfil(u)}
 
 
@@ -180,6 +192,9 @@ class LoginPin(BaseModel):
 @router.post("/auth/login-pin")
 def login_pin(body: LoginPin, db: Session = Depends(get_db)):
     """Acceso del técnico o ayudante con su PIN personal (la app pide antes huella o rostro del teléfono)."""
+    from .. import config
+    if config.SOLO_EQUIPO:
+        raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
     u = db.scalar(select(User).where(User.telefono == limpiar_tel(body.telefono), User.rol.in_(("tecnico", "ayudante"))))
     if not u or not u.activo or not u.tecnico or not verify_password(body.pin, u.tecnico.pin_hash):
         raise HTTPException(401, "Teléfono o PIN incorrectos")
@@ -211,11 +226,72 @@ def quitar_push(body: PushToken, user: User = Depends(current_user), db: Session
     return {"ok": True}
 
 
+class DatosPersonales(BaseModel):
+    nombre: str = Field(min_length=3, max_length=120)
+    telefono: str = Field(min_length=7, max_length=30)
+    email: str = Field(default="", max_length=160)
+
+
+@router.put("/yo")
+def editar_datos(body: DatosPersonales, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Mi perfil · Datos personales (AHA HOGAR v2). La cédula no se cambia desde la app."""
+    tel = limpiar_tel(body.telefono)
+    if not tel or not re.fullmatch(r"04(12|14|16|22|24|26)\d{7}", tel):
+        raise HTTPException(422, "Teléfono venezolano no válido (0412, 0414, 0416, 0422, 0424 o 0426 + 7 dígitos)")
+    email = body.email.strip().lower() or None
+    if email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise HTTPException(422, "Correo no válido")
+    if db.scalar(select(User).where(User.telefono == tel, User.id != user.id)):
+        raise HTTPException(409, "Ese teléfono ya está registrado en otra cuenta")
+    if email and db.scalar(select(User).where(User.email == email, User.id != user.id)):
+        raise HTTPException(409, "Ese correo ya está registrado en otra cuenta")
+    user.nombre, user.telefono = body.nombre.strip(), tel
+    if user.rol != "cliente" or email:
+        user.email = email or user.email
+    db.commit()
+    return perfil(user)
+
+
+class CambioClave(BaseModel):
+    actual: str = Field(max_length=100)
+    nueva: str = Field(max_length=100)
+    repetir: str = Field(max_length=100)
+
+
+@router.post("/yo/contrasena")
+def cambiar_contrasena(body: CambioClave, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Mi perfil · Contraseña y seguridad: 8 caracteres o más, con una letra y un número."""
+    if not user.password_hash or not verify_password(body.actual, user.password_hash):
+        raise HTTPException(422, "La contraseña actual no es correcta")
+    if len(body.nueva) < 8 or not re.search(r"[A-Za-zÁÉÍÓÚáéíóúÑñ]", body.nueva) or not re.search(r"\d", body.nueva):
+        raise HTTPException(422, "La nueva contraseña debe tener al menos 8 caracteres, una letra y un número")
+    if body.nueva != body.repetir:
+        raise HTTPException(422, "Las contraseñas nuevas no coinciden")
+    if verify_password(body.nueva, user.password_hash):
+        raise HTTPException(422, "La nueva contraseña debe ser distinta de la actual")
+    user.password_hash = hash_password(body.nueva)
+    user.clave_temporal = False
+    from ..notificar import notificar
+    notificar(db, user.id, "Cambiaste tu contraseña", "Si no fuiste tú, escribe de inmediato a Soporte AHA HOME.")
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/notificaciones")
 def notificaciones(user: User = Depends(current_user), db: Session = Depends(get_db)):
     ns = db.scalars(select(Notificacion).where(Notificacion.user_id == user.id).order_by(Notificacion.id.desc()).limit(50)).all()
     return [{"id": n.id, "titulo": n.titulo, "texto": n.texto, "orden_id": n.orden_id, "leida": n.leida,
              "fecha": n.creado.isoformat() + "Z"} for n in ns]
+
+
+@router.post("/notificaciones/{nid}/leer")
+def leer_una(nid: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    n = db.get(Notificacion, nid)
+    if not n or n.user_id != user.id:
+        raise HTTPException(404, "Aviso no encontrado")
+    n.leida = True
+    db.commit()
+    return {"ok": True}
 
 
 @router.post("/notificaciones/leer")

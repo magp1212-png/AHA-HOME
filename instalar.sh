@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Instalador de AHA HOME para tu servidor físico (Linux o Mac).
 # Uso:  ./instalar.sh
-# Te pide: la clave SMTP de Brevo y el token del túnel de Cloudflare. Nada de eso sale de esta máquina.
+# Te pide: la llave de Brevo, el token del túnel de Cloudflare y crea la cuenta CEO. Nada de eso sale de esta máquina.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -16,10 +16,11 @@ mkdir -p datos
 
 # 1. Configuración (.env) con una clave secreta aleatoria
 if [ ! -f .env ]; then
-  read -rp "Dirección pública del servidor [https://api.ahahome.app]: " PUB
-  PUB=${PUB:-https://api.ahahome.app}
+  read -rp "Dirección pública del servidor [https://api-home.aha-go.com]: " PUB
+  PUB=${PUB:-https://api-home.aha-go.com}
   SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '/+=\n' | head -c 64)
-  printf 'AHAHOME_JWT_SECRET=%s\nAHAHOME_PUBLIC_URL=%s\nCLOUDFLARE_TUNNEL_TOKEN=\n' "$SECRET" "$PUB" > .env
+  # AHAHOME_SOLO_EQUIPO=1: mientras se prueba, solo entran caja, centro de control, superadmin y CEO (pon 0 para abrir)
+  printf 'AHAHOME_JWT_SECRET=%s\nAHAHOME_PUBLIC_URL=%s\nAHAHOME_SOLO_EQUIPO=1\nCLOUDFLARE_TUNNEL_TOKEN=\n' "$SECRET" "$PUB" > .env
   chmod 600 .env
   echo "✓ .env creado"
 fi
@@ -27,17 +28,12 @@ fi
 # 2. Correo (Brevo)
 if [ ! -f datos/correo.key ]; then
   echo
-  echo "Correo de verificación (Brevo → SMTP y API → pestaña SMTP). Deja vacío para configurarlo después."
-  read -rp "  Usuario SMTP (ej. xxxx@smtp-brevo.com): " SMTP_USER
-  if [ -n "$SMTP_USER" ]; then
-    read -rsp "  Clave SMTP (no se muestra): " SMTP_PASS; echo
-    read -rp "  Remitente [AHA HOME <no-responder@ahahome.app>]: " SMTP_FROM
-    SMTP_FROM=${SMTP_FROM:-AHA HOME <no-responder@ahahome.app>}
-    python3 - "$SMTP_USER" "$SMTP_PASS" "$SMTP_FROM" <<'PY'
+  echo "Correo de la app (Brevo → SMTP y API → Claves API; basta permiso de envío). Deja vacío para configurarlo después."
+  read -rsp "  Llave API de Brevo (xkeysib-…, no se muestra): " BREVO_KEY; echo
+  if [ -n "$BREVO_KEY" ]; then
+    python3 - "$BREVO_KEY" <<'PY'
 import json, sys
-u, p, f = sys.argv[1:4]
-json.dump({"host": "smtp-relay.brevo.com", "port": 587, "user": u, "password": p, "from": f, "domain": "ahahome.app"},
-          open("datos/correo.key", "w"))
+json.dump({"api_key": sys.argv[1], "from": "AHA HOME <no-responder@aha-go.com>", "domain": "aha-go.com"}, open("datos/correo.key", "w"))
 PY
     chmod 600 datos/correo.key
     echo "✓ Correo configurado"
@@ -62,13 +58,14 @@ docker compose $PERFIL up -d --build
 sleep 4
 curl -fsS http://127.0.0.1:8000/salud && echo && echo "✓ Servidor funcionando"
 
-# 5. Superadministrador real (solo la primera vez)
-if [ ! -f datos/.superadmin-listo ]; then
+# 5. Cuenta CEO y tienda del piloto (solo la primera vez). Enter en la clave = clave provisional
+if [ ! -f datos/.ceo-listo ]; then
   echo
-  echo "Crea el usuario superadministrador:"
-  docker compose exec api python crear_superadmin.py && touch datos/.superadmin-listo
+  echo "Cuenta CEO (magp@aha-go.com). Si dejas la clave vacía, se genera una provisional: anótala."
+  docker compose exec api python crear_ceo.py magp@aha-go.com && touch datos/.ceo-listo
 fi
 
 echo
-echo "Listo. En Cloudflare, en el túnel, agrega el «Public Hostname»:  api.ahahome.app  →  http://api:8000"
+echo "Listo. En Cloudflare, en el túnel, agrega los «Public Hostnames», todos hacia  http://api:8000 :"
+echo "   superad.aha-go.com   www.aha-go.com   api-home.aha-go.com"
 echo "Respaldos: copia la carpeta ./datos."

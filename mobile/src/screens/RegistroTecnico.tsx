@@ -10,7 +10,10 @@ import { Aviso, Boton, C, Campo, Fila, Opcion, Pantalla, Seccion, Tarjeta, Texto
 
 type Tienda = { id: number; nombre: string };
 
-/** Registro del técnico o ayudante en la app: datos, escaneo facial, foto con la cédula en alto y huella.
+type Verificacion = { disponible: boolean; coincide: boolean | null; nivel?: string; similitud?: number; cedula_visible?: boolean; cedula_coincide?: boolean | null; motivo: string };
+
+/** Registro del técnico o ayudante en la app: datos, foto con la cédula en el pecho, escaneo facial de verificación
+ *  (el servidor compara las dos caras y tienen que coincidir) y huella.
  *  Luego la oficina completa su expediente y le da el alta con su grupo. */
 export default function RegistroTecnico() {
   const { entrar } = useSession();
@@ -21,6 +24,8 @@ export default function RegistroTecnico() {
   const [rostro, setRostro] = useState<{ uri: string; url: string } | null>(null);
   const [selfie, setSelfie] = useState<{ uri: string; url: string } | null>(null);
   const [huella, setHuella] = useState(false);
+  const [verif, setVerif] = useState<Verificacion | null>(null);
+  const [analizando, setAnalizando] = useState(false);
   const [bio, setBio] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -48,9 +53,19 @@ export default function RegistroTecnico() {
     setCargando(true);
     try {
       const url = await subirFoto(r.base64);
-      if (cual === "rostro") { setRostro({ uri: r.uri, url }); setPaso(3); } else { setSelfie({ uri: r.uri, url }); setPaso(4); }
+      if (cual === "selfie") { setSelfie({ uri: r.uri, url }); setRostro(null); setVerif(null); setPaso(3); }
+      else { setRostro({ uri: r.uri, url }); await analizar(url); }
     } catch (e: any) { setError(e.message); }
     setCargando(false);
+  }
+
+  /** El servidor compara la cara de la foto con la cédula con la del escaneo. */
+  async function analizar(urlRostro: string) {
+    if (!selfie) return;
+    setAnalizando(true); setVerif(null);
+    try { setVerif(await api<Verificacion>("/tecnico/verificar-rostro", { body: { selfie_cedula: selfie.url, foto_rostro: urlRostro } })); }
+    catch (e: any) { setError(e.message); }
+    setAnalizando(false);
   }
 
   async function registrarHuella() {
@@ -70,7 +85,7 @@ export default function RegistroTecnico() {
   }
 
   return (
-    <Pantalla titulo="Registro de técnico" subtitulo={`Paso ${paso} de 4`}>
+    <Pantalla titulo="Registro de técnico" subtitulo={`Paso ${paso} de 4 · ${["Tus datos", "Foto con tu cédula", "Verificación facial", "Huella"][paso - 1]}`}>
       {paso === 1 ? (
         <Tarjeta>
           <Seccion>TUS DATOS</Seccion>
@@ -92,20 +107,49 @@ export default function RegistroTecnico() {
 
       {paso === 2 ? (
         <Tarjeta>
-          <Seccion>ESCANEO FACIAL</Seccion>
-          <Texto>Toma una foto de tu cara de frente, con buena luz, sin lentes oscuros ni gorra.</Texto>
+          <Seccion>FOTO CON TU CÉDULA EN EL PECHO</Seccion>
+          <View style={{ alignItems: "center", paddingVertical: 6 }}>
+            <View style={{ width: 150, height: 150, borderRadius: 20, backgroundColor: C.limaSuave, alignItems: "center", justifyContent: "flex-end", overflow: "hidden" }}>
+              <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: C.marino, marginBottom: 4 }} />
+              <View style={{ width: 120, height: 56, borderTopLeftRadius: 60, borderTopRightRadius: 60, backgroundColor: C.marino, alignItems: "center", justifyContent: "center" }}>
+                <View style={{ width: 52, height: 32, borderRadius: 5, backgroundColor: C.blanco, borderWidth: 2, borderColor: C.lima, flexDirection: "row", alignItems: "center", padding: 3, gap: 3 }}>
+                  <View style={{ width: 12, height: 18, borderRadius: 2, backgroundColor: "#9EB3CC" }} /><View style={{ flex: 1, gap: 3 }}><View style={{ height: 3, backgroundColor: "#9EB3CC" }} /><View style={{ height: 3, backgroundColor: "#9EB3CC" }} /></View>
+                </View>
+              </View>
+            </View>
+          </View>
+          <Texto>Sostén tu cédula a la altura del pecho, con la foto y el número bien visibles. Tu cara completa, de frente, con buena luz, sin lentes oscuros ni gorra.</Texto>
           <Aviso texto={error} />
-          <Boton titulo="Tomar foto de mi cara" icono="scan" onPress={() => foto("rostro")} cargando={cargando} />
+          <Boton titulo="Tomar foto con mi cédula" icono="id-card" onPress={() => foto("selfie")} cargando={cargando} />
         </Tarjeta>
       ) : null}
 
       {paso === 3 ? (
         <Tarjeta>
-          <Seccion>TU CARA CON LA CÉDULA EN ALTO</Seccion>
-          <Texto>Sostén tu cédula a la altura del pecho, con la foto y el número bien visibles.</Texto>
-          {rostro ? <Image source={{ uri: rostro.uri }} style={{ width: 90, height: 90, borderRadius: 45 }} /> : null}
+          <Seccion>ESCANEO FACIAL DE VERIFICACIÓN</Seccion>
+          <Texto>Ahora escanea tu cara de frente. La app la compara con la foto donde sostienes tu cédula: tienen que ser la misma persona.</Texto>
+          <View style={{ flexDirection: "row", gap: 10, justifyContent: "center", alignItems: "center" }}>
+            {selfie ? <View style={{ alignItems: "center", gap: 4 }}><Image source={{ uri: selfie.uri }} style={{ width: 120, height: 150, borderRadius: 14 }} /><Texto gris size={12}>Con la cédula</Texto></View> : null}
+            <Texto negrita size={22}>{verif?.coincide ? "=" : verif?.coincide === false ? "≠" : "?"}</Texto>
+            <View style={{ alignItems: "center", gap: 4 }}>
+              {rostro ? <Image source={{ uri: rostro.uri }} style={{ width: 120, height: 150, borderRadius: 14 }} />
+                : <View style={{ width: 120, height: 150, borderRadius: 14, borderWidth: 2, borderStyle: "dashed", borderColor: C.borde, alignItems: "center", justifyContent: "center" }}><Texto gris size={12}>Escaneo</Texto></View>}
+              <Texto gris size={12}>Escaneo facial</Texto>
+            </View>
+          </View>
+          {analizando ? <Aviso tono="info" texto="Analizando tu cara… comparando las dos fotos." /> : null}
+          {verif ? (
+            <View style={{ borderRadius: 14, padding: 12, gap: 4, backgroundColor: verif.coincide ? "#E7F5EC" : verif.coincide === false ? "#FDECEC" : C.limaSuave }}>
+              <Texto negrita size={16}>{verif.coincide ? "✓ Verificación facial aprobada" : verif.coincide === false ? "✗ Las caras no coinciden" : "La revisará la oficina"}</Texto>
+              <Texto size={14}>{verif.motivo}</Texto>
+              {verif.coincide ? <Texto gris size={13}>Coincidencia {verif.nivel}{verif.cedula_visible ? (verif.cedula_coincide ? " · la foto impresa en tu cédula también coincide" : " · la foto de tu cédula no se leyó bien; la oficina la revisará") : " · no se vio la foto de tu cédula; la oficina la revisará"}.</Texto> : null}
+            </View>
+          ) : null}
           <Aviso texto={error} />
-          <Boton titulo="Tomar foto con mi cédula" icono="id-card" onPress={() => foto("selfie")} cargando={cargando} />
+          {verif && verif.coincide !== false ? <Boton titulo="Continuar" tipo="exito" onPress={() => setPaso(4)} /> : (
+            <Boton titulo={rostro ? "Repetir el escaneo" : "Escanear mi cara"} icono="scan" onPress={() => foto("rostro")} cargando={cargando || analizando} />
+          )}
+          {verif?.coincide === false ? <Boton titulo="Repetir la foto con la cédula" tipo="secundario" icono="id-card" onPress={() => { setVerif(null); setRostro(null); setPaso(2); }} /> : null}
         </Tarjeta>
       ) : null}
 

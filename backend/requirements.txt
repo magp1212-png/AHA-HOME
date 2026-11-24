@@ -9,3 +9,4 @@ qrcode==8.0
 pillow==11.3.0
 pytest==8.3.4
 psycopg[binary]==3.2.3
+opencv-python-headless==4.10.0.84

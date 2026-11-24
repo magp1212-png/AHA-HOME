@@ -52,7 +52,7 @@ npx eas build -p android --profile production   # para Google Play
 npx eas build -p ios --profile production       # para App Store / TestFlight
 ```
 
-- **Dirección del servidor:** las compilaciones apuntan a `https://api.ahahome.app` (en `eas.json`).
+- **Dirección del servidor:** las compilaciones apuntan a `https://api-home.aha-go.com` (en `eas.json`).
 - **Notificaciones push:** funcionan en la app compilada una vez configurado el `projectId`. En la web y en Expo Go de Android, los avisos se ven en la **campana** de la app.
 
 ## Servidor (`backend/`)
@@ -100,7 +100,7 @@ El instalador:
   - **aha home publicar**: cada 5 minutos publica lo que llegue a la rama `produccion`, con pruebas, respaldo y vuelta atrás si falla.
   - **aha home respaldo**: todos los días.
 
-Para el túnel con nombre, sigue `ops/cloudflared/config.ejemplo.yml`. Con él, `api.ahahome.app` y `www.ahahome.app` llegan a este servidor.
+Para el túnel con nombre, sigue `ops/cloudflared/config.ejemplo.yml`. Con él, `api-home.aha-go.com` y `www.aha-go.com` llegan a este servidor.
 
 ### Instalar en tu servidor físico (un solo comando)
 
@@ -113,12 +113,12 @@ git clone https://github.com/magp1212-png/AHA-HOME.git && cd AHA-HOME
 
 El instalador:
 1. Crea la configuración con una clave secreta aleatoria.
-2. Te pide el **usuario y la clave SMTP de Brevo** (los guarda solo en `datos/correo.key`).
-3. Te pide el **token del túnel de Cloudflare**. Con él, `https://api.ahahome.app` funciona con HTTPS **sin abrir puertos en el router**.
+2. Te pide la **llave API de Brevo** (basta permiso de envío; la guarda solo en `datos/correo.key`). Los correos salen desde `no-responder@aha-go.com`.
+3. Te pide el **token del túnel de Cloudflare**. Con él, `https://api-home.aha-go.com` funciona con HTTPS **sin abrir puertos en el router**.
 4. Levanta el servidor y comprueba que responda.
-5. Te pide crear el **superadministrador** real.
+5. Crea la **cuenta CEO** (`magp@aha-go.com`) con `python crear_ceo.py magp@aha-go.com`: si dejas la clave vacía, genera una **clave provisional** que se muestra una sola vez y obliga a cambiarla al primer ingreso. Con esa cuenta, el CEO crea al resto del equipo en **Centro de mando › Usuarios y permisos**.
 
-Al final, en Cloudflare → túnel → **Public Hostname**, agrega `api.ahahome.app` → `http://api:8000`.
+Al final, en Cloudflare → túnel → **Public Hostname**, agrega `api-home.aha-go.com` → `http://api:8000`.
 
 - **Respaldos:** copia la carpeta `datos/`, que guarda la base de datos, las fotos y la clave de correo.
 - **Mudar de máquina:** copia `datos/` y `.env` a la máquina nueva y corre `./instalar.sh` otra vez.
@@ -133,7 +133,7 @@ Al final, en Cloudflare → túnel → **Public Hostname**, agrega `api.ahahome.
   3. Si no hay, la **Guardia Retén** activada por el supervisor.
   4. Si tampoco hay, se avisa al supervisor.
 - **Retiro en almacén:** solo el técnico asignado y verificado puede escanear el QR. Queda registrado quién retiró, qué producto y serial, de qué sucursal y a qué hora. En ese momento el cliente recibe la ficha de seguridad del técnico.
-- **Pedido con varios artículos:** todos los artículos van en el traslado. En caja, el cliente marca cuáles quiere instalar y paga esa instalación en el momento. El precio sale de la tarifa por tipo de artículo, que fija el superadmin (`PUT /admin/tarifas/{tipo}`). **La tabla de precios se define al final del proyecto**, después de entrevistar a los técnicos. Mientras tanto, la instalación queda como «precio por definir» y no se cobra en caja.
+- **Pedido con varios artículos:** todos los artículos van en el traslado. En caja, el cliente marca cuáles quiere instalar y paga esa instalación en el momento. El precio sale de la **tabulación de precios** del superadmin, por artículo exacto y servicio (traslado, instalación o los dos; `GET /caja/precios`). Lo que todavía no tiene precio queda «por definir» y no se cobra. La caja se actualiza sola cada 30 s con los cambios del superadmin. Los precios se definen con los técnicos.
 - **Tipo de servicio:** se calcula solo según lo que pide el cliente.
   - **Traslado:** ningún artículo se instala. Se entrega tal cual sale de la tienda, en su caja, sin desembalar ni retirar residuos.
   - **Traslado e instalación:** algún artículo se instala.
@@ -148,8 +148,9 @@ Al final, en Cloudflare → túnel → **Public Hostname**, agrega `api.ahahome.
 - **Verificación:** llega un correo con un enlace que dura **24 horas**. Si no lo verifica a tiempo, la cuenta se **elimina del registro** (el servidor revisa cada hora) y la persona puede registrarse de nuevo.
 - **Pedidos de caja:** los pedidos creados en caja con su teléfono aparecen en su cuenta solo **después de verificar** el correo.
 - **Para enviar correos de verdad:**
-  - Crea `backend/correo.key` en el servidor, con `{"host", "port", "user", "password", "from"}` de una cuenta SMTP (por ejemplo Brevo, como en Anunciate).
-  - Define `AHAHOME_PUBLIC_URL` con la dirección pública (por ejemplo `https://api.ahahome.app`) para que el enlace funcione.
+  - Crea `backend/correo.key` en el servidor con `{"api_key": "xkeysib-…", "from": "AHA HOME <no-responder@aha-go.com>"}` (llave de Brevo con permiso solo de envío). También acepta SMTP: `{"host", "port", "user", "password", "from"}`.
+  - El dominio aha-go.com ya está autenticado en Brevo y el remitente `no-responder@aha-go.com` está verificado.
+  - Define `AHAHOME_PUBLIC_URL` con la dirección pública (por ejemplo `https://api-home.aha-go.com`) para que el enlace funcione.
   - Sin ese archivo, los correos no se envían. Solo quedan anotados para pruebas.
 
 ### Pendientes conocidos

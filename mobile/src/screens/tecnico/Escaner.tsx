@@ -7,7 +7,7 @@ import { useNav } from "../../nav";
 import type { Orden } from "../../types";
 import { Aviso, Boton, C, Campo, Pantalla, Tarjeta, Texto } from "../../ui";
 
-/** Retiro en almacén: lee el QR de la orden. El servidor valida que sea el técnico asignado y registra el retiro. */
+/** Retiro en almacén: lee el QR de la tienda (la caja autoriza con OK) o el QR de la orden. El servidor valida que sea el técnico asignado y registra el retiro. */
 export default function Escaner() {
   const nav = useNav();
   const [perm, pedirPerm] = useCameraPermissions();
@@ -19,7 +19,14 @@ export default function Escaner() {
   async function enviar(qr: string) {
     if (ocupado.current) return;
     ocupado.current = true; setError(null);
-    try { setHecho(await api<Orden>("/tecnico/retiro", { body: { qr } })); } catch (e: any) { setError(e.message); ocupado.current = false; }
+    try {
+      if (qr.trim().startsWith("AHATIENDA:")) {
+        // QR de la tienda: avisa a caja y espera su OK
+        await api("/tecnico/tienda/escanear", { body: { qr } });
+        nav.back(); nav.push("visitaTienda"); return;
+      }
+      setHecho(await api<Orden>("/tecnico/retiro", { body: { qr } }));
+    } catch (e: any) { setError(e.message); ocupado.current = false; }
   }
 
   if (hecho) {
@@ -34,6 +41,10 @@ export default function Escaner() {
 
   return (
     <Pantalla titulo="Escanear QR de retiro" fondo={C.marino}>
+      <Tarjeta>
+        <Texto negrita>Escanea el QR de la tienda (en caja)</Texto>
+        <Texto gris size={13}>La caja recibe el aviso con lo que vas a retirar y te da el OK. También sirve el QR de la orden.</Texto>
+      </Tarjeta>
       {Platform.OS !== "web" && perm?.granted ? (
         <View style={{ height: 320, borderRadius: 24, overflow: "hidden", borderWidth: 4, borderColor: C.lima }}>
           <CameraView style={{ flex: 1 }} barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={(r) => enviar(r.data)} />

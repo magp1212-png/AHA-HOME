@@ -3,6 +3,7 @@ import { View } from "react-native";
 
 import { api } from "../../api";
 import type { Orden } from "../../types";
+import { PagoServicio } from "../../components";
 import { Aviso, Boton, Cargando, Etiqueta, Pantalla, QR, Seccion, Tarjeta, Texto, tonoEstado } from "../../ui";
 
 /** Detalle de la orden en caja: el QR de retiro para el almacén, la cuadrilla y los artículos. */
@@ -38,10 +39,11 @@ export default function OrdenCaja({ id }: { id: number }) {
       <Tarjeta>
         <Seccion>CLIENTE Y ARTÍCULOS</Seccion>
         <Texto negrita>{o.cliente.nombre} · {o.cliente.telefono}</Texto>
-        <Texto gris>{o.cliente.direccion}</Texto>
+        <Texto gris>{o.cliente.tipo_inmueble_texto ? `${o.cliente.tipo_inmueble_texto} · ` : ""}{o.cliente.direccion}</Texto>
         {o.articulos.map((a) => <Texto key={a.id}>• {a.nombre} {a.modelo} {a.instalar ? "— con instalación" : "— en su caja"}</Texto>)}
         <Texto gris>Cita: {o.fecha} · {o.franja}</Texto>
-        <Texto gris>Instalación: {o.pago_instalacion.precio_por_definir ? "precio por definir" : o.pago_instalacion.pagado ? `pagada USD ${o.pago_instalacion.monto}` : "no aplica"}</Texto>
+        {o.pago_instalacion.pagado ? <PagoServicio pago={o.pago_instalacion as any} titulo="COBRADO EN CAJA" donde="pagado en la tienda" />
+          : <Texto gris>Instalación: {o.pago_instalacion.precio_por_definir ? "precio por definir" : "no aplica"}</Texto>}
       </Tarjeta>
       <Aviso texto={error} />
       {["solicitud_enviada", "tecnico_asignado", "cita_confirmada"].includes(o.estado) ? <Boton titulo="Cancelar orden" tipo="peligro" onPress={cancelar} /> : null}
