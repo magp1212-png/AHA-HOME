@@ -1,0 +1,30 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "local" },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "AHAHOME_API_URL": "https://api.ahahome.app" }
+    },
+    "production": {
+      "android": { "buildType": "app-bundle" },
+      "env": { "AHAHOME_API_URL": "https://api.ahahome.app" },
+      "ios": { "resourceClass": "m-medium" }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascApiKeyPath": "C:\\Users\\Administrator\\claves-shaazan\\AuthKey_9P62M8G5VW.p8",
+        "ascApiKeyId": "9P62M8G5VW",
+        "ascApiKeyIssuerId": "b60083c7-e800-4d87-be6c-52a4b53b2df5",
+        "appleTeamId": "RBX8RRR6ZU",
+        "ascAppId": "PENDIENTE_ID_DE_AHA_HOME_EN_APP_STORE_CONNECT"
+      },
+      "android": {
+        "serviceAccountKeyPath": "C:\\Users\\Administrator\\claves-shaazan\\google-play.json",
+        "track": "internal"
+      }
+    }
+  }
+}

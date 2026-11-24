@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>AHA HOME — Superadministrador</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#21244D}a:hover{color:#383D78}
+input::placeholder{color:#6B7789}
+</style>
+</helmet>
+<div style="min-height: 1400px; background: #F4F7FB; font-family: Inter, system-ui, sans-serif; color: #1A1C3D">
+
+<header style="background: #21244D; color: #FFFFFF">
+<div style="box-sizing: border-box; padding: 14px 24px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<svg width="38" height="38" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="24" fill="#2E3266"></rect><g transform="translate(12 10) scale(0.76)"><path d="M50 13 L85 38.5 Q87.5 40.3 87.5 43.4 L87.5 69 Q87.5 76 80.5 76 L45 76 L29.5 88.5 Q26.5 90.8 26.5 87 L26.5 76 L19.5 76 Q12.5 76 12.5 69 L12.5 43.4 Q12.5 40.3 15 38.5 Z" fill="#CFD72A" stroke="#CFD72A" stroke-width="5" stroke-linejoin="round"></path><path d="M38.95898692810458 68.75C45.02794117647059 68.75 49.95996732026144 65.1470588235294 51.0328431372549 58.613725490196074L51.609313725490196 55.10686274509804H41.0406862745098L40.288071895424835 59.71862745098039H44.595588235294116C44.09918300653595 61.70424836601307 42.24166666666667 63.113398692810456 39.29526143790849 63.113398692810456C36.6531045751634 63.113398692810456 35.38807189542484 61.57614379084967 35.38807189542484 58.8218954248366C35.38807189542484 54.56241830065359 37.66192810457517 49.88660130718954 42.177614379084964 49.88660130718954C44.03513071895425 49.88660130718954 45.10800653594771 50.81535947712418 45.236111111111114 52.448692810457516H51.769444444444446C52.089705882352945 47.372549019607845 47.71813725490196 44.25 42.32173202614379 44.25C34.29918300653595 44.25 28.790686274509806 50.87941176470588 28.790686274509806 58.86993464052287C28.790686274509806 65.01895424836601 32.69787581699347 68.75 38.95898692810458 68.75ZM60.67271241830065 68.75C67.46225490196078 68.75 71.20931372549019 63.67385620915032 71.20931372549019 57.90915032679739C71.20931372549019 53.32941176470588 68.3109477124183 50.30294117647058 63.05866013071895 50.30294117647058C56.317156862745094 50.30294117647058 52.49003267973856 55.33104575163399 52.49003267973856 61.1437908496732C52.49003267973856 65.73954248366013 55.388398692810455 68.75 60.67271241830065 68.75ZM60.928921568627445 63.94607843137255C59.72794117647058 63.94607843137255 58.95931372549019 63.03333333333333 58.95931372549019 61.36797385620915C58.95931372549019 59.2062091503268 59.88807189542483 55.10686274509804 62.80245098039215 55.10686274509804C63.98741830065359 55.10686274509804 64.74003267973856 55.955555555555556 64.74003267973856 57.60490196078431C64.74003267973856 59.75065359477124 63.79526143790849 63.94607843137255 60.928921568627445 63.94607843137255Z" fill="#21244D"></path></g></svg>
+<div style="display: flex; flex-direction: column">
+<span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 20px; font-weight: 700; letter-spacing: 0.4px">AHA HOME · Superadministrador</span>
+<span style="font-size: 13px; color: #C5C8E4">Seguimiento completo del proceso · Piloto Damasco San Martín</span>
+</div>
+<div style="margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<label style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 20px; background: #2E3266; font-size: 14px; color: #DCDEF0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><input type="search" placeholder="Buscar orden, cliente o cédula" style="width: 210px; border: none; background: transparent; color: #FFFFFF; font-size: 14px; font-family: inherit; outline: none"></label>
+<button type="button" aria-label="Notificaciones" style="position: relative; width: 44px; height: 44px; border: none; border-radius: 22px; background: #2E3266; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg><span style="position: absolute; top: 6px; right: 6px; min-width: 18px; height: 18px; border-radius: 9px; background: #CFD72A; color: #21244D; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">5</span></button>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="width: 36px; height: 36px; border-radius: 18px; background: #CFD72A; color: #21244D; font-weight: 700; display: flex; align-items: center; justify-content: center">SA</span>Superadmin</span>
+</div>
+</div>
+</header>
+
+<div style="box-sizing: border-box; padding: 20px 24px 40px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+<nav aria-label="Módulos" style="flex: 1 1 220px; max-width: 250px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 4px">
+<sc-for list="{{modulos}}" as="m" hint-placeholder-count="9">
+<sc-if value="{{m.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{m.pick}}" style="min-height: 44px; border: none; border-radius: 12px; background: #21244D; color: #FFFFFF; display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 14px; font-weight: 700; font-family: inherit; text-align: left; cursor: pointer"><span style="width: 8px; height: 8px; border-radius: 4px; background: #CFD72A"></span><span style="flex: 1">{{m.label}}</span><sc-if value="{{m.hasBadge}}" hint-placeholder-val="{{false}}"><span style="min-width: 22px; height: 22px; border-radius: 11px; background: #CFD72A; color: #21244D; font-size: 12px; display: flex; align-items: center; justify-content: center">{{m.badge}}</span></sc-if></button></sc-if>
+<sc-if value="{{m.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{m.pick}}" style="min-height: 44px; border: none; border-radius: 12px; background: transparent; color: #1A1C3D; display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 14px; font-weight: 500; font-family: inherit; text-align: left; cursor: pointer"><span style="width: 8px; height: 8px; border-radius: 4px; background: #CBD5E1"></span><span style="flex: 1">{{m.label}}</span><sc-if value="{{m.hasBadge}}" hint-placeholder-val="{{false}}"><span style="min-width: 22px; height: 22px; border-radius: 11px; background: #F1F3D4; color: #21244D; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{m.badge}}</span></sc-if></button></sc-if>
+</sc-for>
+<p style="margin: 10px 12px 6px; font-size: 12px; color: #4A5568">Datos de ejemplo para la maqueta.</p>
+</nav>
+
+<main style="flex: 999 1 680px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+
+<sc-if value="{{isGeneral}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px"><h1 style="margin: 0; font-size: 24px">Panel general · Analítica</h1>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{rangos}}" as="r" hint-placeholder-count="4">
+<sc-if value="{{r.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{r.pick}}" style="height: 36px; padding: 0 14px; border: none; border-radius: 18px; background: #21244D; color: #FFFFFF; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer">{{r.label}}</button></sc-if>
+<sc-if value="{{r.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{r.pick}}" style="height: 36px; padding: 0 14px; border: 1px solid #CBD5E1; border-radius: 18px; background: #FFFFFF; color: #1A1C3D; font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer">{{r.label}}</button></sc-if>
+</sc-for>
+</div></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px">
+<sc-for list="{{kpis}}" as="k" hint-placeholder-count="6">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #4A5568">{{k.label}}</span><strong style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 30px; color: #1A1C3D">{{k.valor}}</strong><span style="font-size: 12px; color: {{k.notaColor}}">{{k.nota}}</span></div>
+</sc-for>
+</div>
+<dc-import name="MapaCaracas" hint-size="100%,620px"></dc-import>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px">
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap"><h2 style="margin: 0; font-size: 16px">¿Qué tienda solicita más el servicio?</h2><span style="font-size: 12px; color: #4A5568">Órdenes · {{rangoTexto}}</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px" role="img" aria-label="Órdenes por tienda">
+<sc-for list="{{tiendasBar}}" as="t" hint-placeholder-count="6">
+<div onMouseEnter="{{t.hover}}" style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 48px; gap: 10px; align-items: center; min-height: 28px; cursor: default">
+<span style="font-size: 13px; font-weight: {{t.peso}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.nombre}}</span>
+<span style="height: 18px; background: #F4F7FB; border-radius: 0 4px 4px 0; display: block"><span style="display: block; height: 18px; border-radius: 0 4px 4px 0; width: {{t.w}}; background: {{t.color}}"></span></span>
+<strong style="font-size: 13px; text-align: right">{{t.n}}</strong>
+</div>
+</sc-for>
+</div>
+<span style="font-size: 12px; color: #4A5568; min-height: 16px">{{tiendaHover}}</span>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap"><h2 style="margin: 0; font-size: 16px">Órdenes por día y tipo de servicio</h2><span style="font-size: 12px; color: #4A5568">Últimos 14 días</span></div>
+<div style="display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: #4A5568">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #2A78D6"></span>Traslado</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #EB6834"></span>Traslado e instalación</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #1BAF7A"></span>Instalación</span>
+</div>
+<svg viewBox="0 0 560 200" style="width: 100%; height: auto" role="img" aria-label="Órdenes por día, apiladas por tipo de servicio">
+<line x1="30" y1="170" x2="556" y2="170" stroke="#CBD5E1" stroke-width="1"></line>
+<line x1="30" y1="110" x2="556" y2="110" stroke="#EEF2F7" stroke-width="1"></line>
+<line x1="30" y1="50" x2="556" y2="50" stroke="#EEF2F7" stroke-width="1"></line>
+<text x="24" y="174" text-anchor="end" font-size="11" fill="#4A5568">0</text>
+<text x="24" y="114" text-anchor="end" font-size="11" fill="#4A5568">10</text>
+<text x="24" y="54" text-anchor="end" font-size="11" fill="#4A5568">20</text>
+<sc-for list="{{dias14}}" as="d" hint-placeholder-count="14">
+<g onMouseEnter="{{d.hover}}">
+<rect x="{{d.x}}" y="20" width="34" height="150" fill="transparent"></rect>
+<rect x="{{d.x}}" y="{{d.y1}}" width="30" height="{{d.h1}}" fill="#2A78D6"></rect>
+<rect x="{{d.x}}" y="{{d.y2}}" width="30" height="{{d.h2}}" fill="#EB6834"></rect>
+<rect x="{{d.x}}" y="{{d.y3}}" width="30" height="{{d.h3}}" rx="4" fill="#1BAF7A"></rect>
+<text x="{{d.cx}}" y="188" text-anchor="middle" font-size="10" fill="#4A5568">{{d.etq}}</text>
+</g>
+</sc-for>
+</svg>
+<span style="font-size: 12px; color: #4A5568; min-height: 16px">{{diaHover}}</span>
+</section>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px">
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 16px">¿Cuándo piden más? Día y hora</h2>
+<div style="display: grid; grid-template-columns: 34px repeat(11, minmax(0, 1fr)); gap: 3px; font-size: 10px; color: #4A5568" role="img" aria-label="Mapa de calor de solicitudes por día y hora">
+<span></span>
+<sc-for list="{{horas}}" as="h" hint-placeholder-count="11"><span style="text-align: center">{{h}}</span></sc-for>
+<sc-for list="{{calor}}" as="c" hint-placeholder-count="84">
+<sc-if value="{{c.esEtiqueta}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; display: flex; align-items: center">{{c.dia}}</span></sc-if>
+<sc-if value="{{c.esCelda}}" hint-placeholder-val="{{true}}"><span onMouseEnter="{{c.hover}}" style="height: 22px; border-radius: 4px; background: {{c.color}}"></span></sc-if>
+</sc-for>
+</div>
+<div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #4A5568">Menos<span style="width: 14px; height: 10px; border-radius: 2px; background: #EEF0FA"></span><span style="width: 14px; height: 10px; border-radius: 2px; background: #CDD2EE"></span><span style="width: 14px; height: 10px; border-radius: 2px; background: #9DA5D9"></span><span style="width: 14px; height: 10px; border-radius: 2px; background: #6B74C0"></span><span style="width: 14px; height: 10px; border-radius: 2px; background: #3F4795"></span><span style="width: 14px; height: 10px; border-radius: 2px; background: #21244D"></span>Más</div>
+<span style="font-size: 12px; color: #4A5568; min-height: 16px">{{calorHover}}</span>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 16px">Artículos más solicitados</h2>
+<sc-for list="{{articulosTop}}" as="a" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: 130px minmax(0, 1fr) 70px; gap: 10px; align-items: center; font-size: 13px">
+<span>{{a.nombre}}</span>
+<span style="height: 14px; background: #F4F7FB; display: block; border-radius: 0 4px 4px 0"><span style="display: block; height: 14px; border-radius: 0 4px 4px 0; background: #21244D; width: {{a.w}}"></span></span>
+<span style="text-align: right"><strong>{{a.n}}</strong> · {{a.inst}}</span>
+</div>
+</sc-for>
+<span style="font-size: 12px; color: #4A5568">Total · cuántos se instalaron</span>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 16px">Cumplimiento del servicio</h2>
+<sc-for list="{{cumplimiento}}" as="c" hint-placeholder-count="5">
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="display: flex; justify-content: space-between; font-size: 13px"><span>{{c.label}}</span><strong>{{c.pct}}</strong></span><span style="height: 10px; border-radius: 5px; background: #EEF2F7; display: block; overflow: hidden"><span style="display: block; height: 10px; border-radius: 5px; background: #21244D; width: {{c.pct}}"></span></span></div>
+</sc-for>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{isMapa}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Mapa en vivo · todas las tiendas Damasco</h1>
+<dc-import name="MapaCaracas" hint-size="100%,620px"></dc-import>
+</sc-if>
+
+<sc-if value="{{isCalidad}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px"><h1 style="margin: 0; font-size: 24px">Calidad: técnicos, puntuación y reseñas</h1><span style="font-size: 13px; color: #4A5568">Índice de excelencia = calificación, puntualidad, checklist sin reproceso y cero incidencias</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+<section style="flex: 999 1 560px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 8px; overflow-x: auto">
+<table style="width: 100%; min-width: 760px; border-collapse: collapse; font-size: 13px">
+<thead><tr style="text-align: left; color: #4A5568; font-size: 11px; letter-spacing: 0.4px"><th style="padding: 10px">#</th><th style="padding: 10px">TÉCNICO Y AYUDANTE</th><th style="padding: 10px">SERVICIOS</th><th style="padding: 10px">CALIFICACIÓN</th><th style="padding: 10px">PUNTUALIDAD</th><th style="padding: 10px">SIN REPROCESO</th><th style="padding: 10px">INCID.</th><th style="padding: 10px">ÍNDICE</th></tr></thead>
+<tbody>
+<sc-for list="{{ranking}}" as="t" hint-placeholder-count="8">
+<tr onClick="{{t.pick}}" style="cursor: pointer; background: {{t.fila}}">
+<td style="padding: 10px; border-top: 1px solid #EEF2F7; font-weight: 700">{{t.pos}}</td>
+<td style="padding: 10px; border-top: 1px solid #EEF2F7"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 17px; background: #21244D; color: #CFD72A; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{t.ini}}</span><span style="display: flex; flex-direction: column"><strong>{{t.nombre}}</strong><span style="font-size: 12px; color: #4A5568">+ {{t.ayudante}} · Grupo {{t.grupo}}</span></span><sc-if value="{{t.impecable}}" hint-placeholder-val="{{false}}"><span style="height: 22px; padding: 0 8px; border-radius: 11px; background: #CFD72A; color: #21244D; font-size: 11px; font-weight: 700; display: flex; align-items: center">IMPECABLE</span></sc-if></span></td>
+<td style="padding: 10px; border-top: 1px solid #EEF2F7">{{t.servicios}}</td>
+<td style="padding: 10px; border-top: 1px solid #EEF2F7"><span style="display: flex; align-items: center; gap: 4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="#E8A317" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg><strong>{{t.cal}}</strong><span style="color: #4A5568">({{t.resenas}})</span></span></td>
+<td style="padding: 10px; border-top: 1px solid #EEF2F7">{{t.puntual}}</td>
+<td style="padding: 10px; border-top: 1px solid #EEF2F7">{{t.sinRep}}</td>
+<td style="padding: 10px; border-top: 1px solid #EEF2F7">{{t.inc}}</td>
+<td style="padding: 10px; border-top: 1px solid #EEF2F7; min-width: 110px"><span style="display: flex; align-items: center; gap: 8px"><span style="flex: 1; height: 8px; border-radius: 4px; background: #EEF2F7; display: block"><span style="display: block; height: 8px; border-radius: 4px; background: #21244D; width: {{t.indiceW}}"></span></span><strong>{{t.indice}}</strong></span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</section>
+
+<section style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<div style="background: #21244D; color: #FFFFFF; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 14px"><span style="width: 60px; height: 60px; border-radius: 30px; background: #2E3266; border: 3px solid #CFD72A; color: #CFD72A; font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{sel.ini}}</span><span style="display: flex; flex-direction: column"><strong style="font-size: 18px">{{sel.nombre}}</strong><span style="font-size: 13px; color: #C5C8E4">Ayudante: {{sel.ayudante}} · Grupo {{sel.grupo}}</span></span></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center">
+<span style="background: #2E3266; border-radius: 12px; padding: 10px 4px; display: flex; flex-direction: column"><strong style="font-size: 20px">{{sel.cal}}</strong><span style="font-size: 11px; color: #C5C8E4">calificación</span></span>
+<span style="background: #2E3266; border-radius: 12px; padding: 10px 4px; display: flex; flex-direction: column"><strong style="font-size: 20px">{{sel.servicios}}</strong><span style="font-size: 11px; color: #C5C8E4">servicios</span></span>
+<span style="background: #2E3266; border-radius: 12px; padding: 10px 4px; display: flex; flex-direction: column"><strong style="font-size: 20px">{{sel.puntual}}</strong><span style="font-size: 11px; color: #C5C8E4">puntual</span></span>
+</div>
+<span style="font-size: 12px; color: #C5C8E4">Calificación por mes</span>
+<svg viewBox="0 0 280 70" style="width: 100%; height: auto" role="img" aria-label="Tendencia de la calificación mensual">
+<line x1="0" y1="62" x2="280" y2="62" stroke="#5A5F99" stroke-width="1"></line>
+<polyline points="{{sel.linea}}" fill="none" stroke="#CFD72A" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>
+<sc-for list="{{sel.puntos}}" as="p" hint-placeholder-count="6"><circle cx="{{p.x}}" cy="{{p.y}}" r="4" fill="#CFD72A" stroke="#21244D" stroke-width="2"></circle></sc-for>
+</svg>
+<div style="display: flex; justify-content: space-between; font-size: 11px; color: #C5C8E4"><span>Jun</span><span>Jul</span><span>Ago</span><span>Sep</span><span>Oct</span><span>Nov</span></div>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 16px">Distribución de calificaciones</h2>
+<sc-for list="{{estrellas}}" as="e" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 30px minmax(0, 1fr) 44px; gap: 8px; align-items: center; font-size: 13px"><span>{{e.n}} ★</span><span style="height: 12px; background: #F4F7FB; display: block; border-radius: 0 4px 4px 0"><span style="display: block; height: 12px; border-radius: 0 4px 4px 0; background: #E8A317; width: {{e.w}}"></span></span><span style="text-align: right">{{e.pct}}</span></div>
+</sc-for>
+</div>
+</section>
+</div>
+
+<h2 style="margin: 4px 0 0; font-size: 18px">Reseñas de clientes · {{sel.nombre}}</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px">
+<sc-for list="{{sel.resenas}}" as="r" hint-placeholder-count="3">
+<article style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center"><strong style="font-size: 14px">{{r.cliente}}</strong><span style="font-size: 12px; color: #4A5568">{{r.fecha}} · {{r.orden}}</span></div>
+<span style="font-size: 14px; color: #E8A317; letter-spacing: 2px" aria-label="{{r.aria}}">{{r.estrellas}}</span>
+<p style="margin: 0; font-size: 14px; line-height: 1.45">{{r.texto}}</p>
+<span style="font-size: 12px; color: #4A5568">{{r.servicio}}</span>
+</article>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{isSeguimiento}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px"><h1 style="margin: 0; font-size: 24px">Seguimiento de órdenes</h1>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{filtros}}" as="f" hint-placeholder-count="5">
+<sc-if value="{{f.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{f.pick}}" style="height: 36px; padding: 0 14px; border: none; border-radius: 18px; background: #21244D; color: #FFFFFF; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer">{{f.label}}</button></sc-if>
+<sc-if value="{{f.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{f.pick}}" style="height: 36px; padding: 0 14px; border: 1px solid #CBD5E1; border-radius: 18px; background: #FFFFFF; color: #1A1C3D; font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer">{{f.label}}</button></sc-if>
+</sc-for>
+</div></div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+<section style="flex: 999 1 420px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 8px; display: flex; flex-direction: column">
+<sc-for list="{{ordenes}}" as="o" hint-placeholder-count="6">
+<sc-if value="{{o.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{o.pick}}" style="border: 2px solid #21244D; border-radius: 12px; background: #F1F3D4; padding: 10px 12px; display: grid; grid-template-columns: 82px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-family: inherit; text-align: left; color: #1A1C3D; cursor: pointer"><strong style="font-size: 14px">{{o.wo}}</strong><span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 14px; font-weight: 600">{{o.cliente}} · {{o.tipo}}</span><span style="font-size: 12px; color: #4A5568">{{o.cuadrilla}} · {{o.franja}}</span></span><span style="height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: {{o.bg}}; color: {{o.fg}}">{{o.estado}}</span></button></sc-if>
+<sc-if value="{{o.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{o.pick}}" style="border: 2px solid transparent; border-radius: 12px; background: transparent; padding: 10px 12px; display: grid; grid-template-columns: 82px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-family: inherit; text-align: left; color: #1A1C3D; cursor: pointer"><strong style="font-size: 14px">{{o.wo}}</strong><span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 14px; font-weight: 600">{{o.cliente}} · {{o.tipo}}</span><span style="font-size: 12px; color: #4A5568">{{o.cuadrilla}} · {{o.franja}}</span></span><span style="height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: {{o.bg}}; color: {{o.fg}}">{{o.estado}}</span></button></sc-if>
+</sc-for>
+</section>
+<section style="flex: 1 1 360px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><strong style="font-size: 20px">{{det.wo}}</strong><span style="height: 28px; padding: 0 12px; border-radius: 14px; font-size: 13px; font-weight: 700; display: flex; align-items: center; background: {{det.bg}}; color: {{det.fg}}">{{det.estado}}</span></div>
+<span style="font-size: 14px; color: #4A5568">{{det.tipo}} · {{det.cliente}} · {{det.direccion}}</span>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">ARTÍCULOS</span>
+<sc-for list="{{det.articulos}}" as="ar" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="flex: 1">{{ar.nombre}}</span><span style="height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: {{ar.bg}}; color: {{ar.fg}}">{{ar.tag}}</span></div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">CUADRILLA</span>
+<sc-for list="{{det.cuadrilla}}" as="c" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 18px; background: #21244D; color: #CFD72A; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{c.ini}}</span><span style="display: flex; flex-direction: column"><strong style="font-size: 14px">{{c.nombre}}</strong><span style="font-size: 12px; color: #4A5568">{{c.rol}} · {{c.cedula}}</span></span></div>
+</sc-for>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 14px; background: #F4F7FB; border-radius: 12px; padding: 10px 12px"><span>Pago de instalación</span><strong>{{det.pago}}</strong></div>
+<div style="display: flex; flex-direction: column; gap: 0"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px; margin-bottom: 8px">BITÁCORA (QUIÉN Y CUÁNDO)</span>
+<sc-for list="{{det.bitacora}}" as="e" hint-placeholder-count="5">
+<div style="display: flex; gap: 10px; min-height: 44px"><div style="display: flex; flex-direction: column; align-items: center; width: 14px"><span style="width: 12px; height: 12px; border-radius: 6px; background: #21244D; margin-top: 4px"></span><span style="flex: 1; width: 2px; background: #E2E8F0"></span></div><div style="display: flex; flex-direction: column; padding-bottom: 10px"><span style="font-size: 13px; font-weight: 700">{{e.hora}} · {{e.estado}}</span><span style="font-size: 12px; color: #4A5568">{{e.nota}}</span></div></div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<div style="height: 70px; border-radius: 10px; background: #F1F3D4; display: flex; align-items: flex-end; padding: 8px; box-sizing: border-box; font-size: 12px; font-weight: 600; color: #21244D">Foto: equipo instalado</div>
+<div style="height: 70px; border-radius: 10px; background: #E7F6EE; display: flex; align-items: flex-end; padding: 8px; box-sizing: border-box; font-size: 12px; font-weight: 600; color: #0F5132">Foto: espacio limpio</div>
+</div>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{isTecnicos}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Técnicos y ayudantes</h1>
+<section style="background: #FFFFFF; border: 2px solid #CFD72A; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<span style="width: 56px; height: 56px; border-radius: 28px; background: #21244D; color: #CFD72A; font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center">KS</span>
+<span style="display: flex; flex-direction: column; flex: 1; min-width: 200px"><strong style="font-size: 18px">Kevin Suárez · Técnico</strong><span style="font-size: 13px; color: #4A5568">V-25.123.456 · 0412-999-0000 · kevin@correo.com · Damasco San Martín</span></span>
+<span style="height: 28px; padding: 0 12px; border-radius: 14px; font-size: 13px; font-weight: 700; display: flex; align-items: center; background: {{altaBg}}; color: {{altaFg}}">{{altaEstado}}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">REGISTRO EN LA APP</span>
+<sc-for list="{{regApp}}" as="r" hint-placeholder-count="5">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#167A45" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{r}}</span>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">EXPEDIENTE EN OFICINA</span>
+<sc-for list="{{docs}}" as="d" hint-placeholder-count="6">
+<button type="button" onClick="{{d.toggle}}" style="min-height: 36px; border: none; background: transparent; padding: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; font-family: inherit; color: #1A1C3D; text-align: left; cursor: pointer">
+<sc-if value="{{d.ok}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#167A45" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+<sc-if value="{{d.falta}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA8BA" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></sc-if>
+{{d.label}}<span style="font-size: 12px; color: #4A5568">{{d.nota}}</span></button>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px"><span style="font-size: 12px; font-weight: 700; color: #4A5568; letter-spacing: 0.5px">ALTA Y GRUPO</span>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{grupos}}" as="g" hint-placeholder-count="4">
+<sc-if value="{{g.sel}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{g.pick}}" style="height: 44px; border: 2px solid #21244D; border-radius: 10px; background: #F1F3D4; color: #21244D; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer">{{g.label}}</button></sc-if>
+<sc-if value="{{g.unsel}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{g.pick}}" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; color: #1A1C3D; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer">{{g.label}}</button></sc-if>
+</sc-for>
+</div>
+<sc-if value="{{puedeAlta}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{darAlta}}" style="height: 48px; border: none; border-radius: 12px; background: #21244D; color: #FFFFFF; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer">Dar de alta ahora</button></sc-if>
+<sc-if value="{{noPuedeAlta}}" hint-placeholder-val="{{true}}"><button type="button" disabled style="height: 48px; border: none; border-radius: 12px; background: #E2E8F0; color: #4A5568; font-size: 15px; font-weight: 700; font-family: inherit">Dar de alta ahora</button><span style="font-size: 12px; color: #4A5568">{{altaAyuda}}</span></sc-if>
+</div>
+</div>
+</section>
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 8px 8px 4px; overflow-x: auto">
+<table style="width: 100%; min-width: 720px; border-collapse: collapse; font-size: 14px">
+<thead><tr style="text-align: left; color: #4A5568; font-size: 12px; letter-spacing: 0.4px"><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">NOMBRE</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">ROL</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">GRUPO</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">CÉDULA</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">SALE CON</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">EXPEDIENTE</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">ESTADO</th></tr></thead>
+<tbody>
+<sc-for list="{{personal}}" as="p" hint-placeholder-count="6">
+<tr><td style="padding: 10px; border-bottom: 1px solid #EEF2F7; font-weight: 600">{{p.nombre}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7">{{p.rol}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7">{{p.grupo}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7">{{p.cedula}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7">{{p.con}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7">{{p.docs}}</td><td style="padding: 10px; border-bottom: 1px solid #EEF2F7"><span style="height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; background: {{p.bg}}; color: {{p.fg}}">{{p.estado}}</span></td></tr>
+</sc-for>
+</tbody>
+</table>
+</section>
+</sc-if>
+
+<sc-if value="{{isGuardias}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Guardias y escuadras · Damasco San Martín</h1>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{semana}}" as="d" hint-placeholder-count="7">
+<span style="flex: 1 1 80px; min-width: 80px; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; background: {{d.bg}}; color: {{d.fg}}"><span style="font-size: 12px">{{d.dia}}</span><strong style="font-size: 16px">Grupo {{d.g}}</strong></span>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">
+<sc-for list="{{escuadras}}" as="e" hint-placeholder-count="3">
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center"><strong style="font-size: 17px">{{e.nombre}}</strong><span style="height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: {{e.bg}}; color: {{e.fg}}">{{e.estado}}</span></div>
+<sc-for list="{{e.tecnicos}}" as="t" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #F4F7FB"><strong style="font-size: 14px">{{t.nombre}}</strong><span style="font-size: 12px; color: #4A5568">Ayudante: {{t.ayudante}} · {{t.ordenes}}</span></div>
+</sc-for>
+</section>
+</sc-for>
+</div>
+<section style="background: #21244D; color: #FFFFFF; border-radius: 18px; padding: 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<span style="display: flex; flex-direction: column; flex: 1; min-width: 220px"><strong style="font-size: 16px">Guardia Retén · Ricardo Pérez + Valentina Morales</strong><span style="font-size: 13px; color: #C5C8E4">Respaldo para picos de demanda, emergencias o ausencias.</span></span>
+<sc-if value="{{retenOn}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{toggleReten}}" style="height: 44px; padding: 0 18px; border: none; border-radius: 12px; background: #CFD72A; color: #21244D; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer">Retén activado</button></sc-if>
+<sc-if value="{{retenOff}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{toggleReten}}" style="height: 44px; padding: 0 18px; border: 1px solid #5A5F99; border-radius: 12px; background: transparent; color: #FFFFFF; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer">Activar retén</button></sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{isTiendas}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Tiendas</h1>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px">
+<section style="background: #FFFFFF; border: 2px solid #21244D; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+<span style="align-self: flex-start; height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: #CFD72A; color: #21244D">PRUEBA PILOTO</span>
+<strong style="font-size: 20px">Damasco San Martín</strong>
+<span style="font-size: 14px; color: #4A5568">Av. Sur 19 con Av. Urdaneta, San Martín, Caracas · Zona Central</span>
+<span style="font-size: 14px">10 técnicos · 10 ayudantes · 1 agente en caja · 1 técnico supervisor</span>
+<a href="#" style="font-size: 14px; font-weight: 600">Ajustar ubicación en el mapa</a>
+</section>
+<section style="background: #FFFFFF; border: 1px dashed #9EB3CC; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<strong style="font-size: 17px">Replicar en otra tienda</strong>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Nombre<input type="text" placeholder="Damasco …" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Dirección<input type="text" placeholder="Avenida, esquina, sector" style="height: 44px; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0 12px; font-size: 15px; font-family: inherit"></label>
+<div style="display: flex; gap: 6px"><button type="button" style="flex: 1; height: 40px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; font-family: inherit; font-size: 14px; cursor: pointer">Oeste</button><button type="button" style="flex: 1; height: 40px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; font-family: inherit; font-size: 14px; cursor: pointer">Central</button><button type="button" style="flex: 1; height: 40px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; font-family: inherit; font-size: 14px; cursor: pointer">Este</button></div>
+<button type="button" style="height: 46px; border: none; border-radius: 12px; background: #21244D; color: #FFFFFF; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer">Crear tienda</button>
+<span style="font-size: 12px; color: #4A5568">Luego: agente en caja, técnico supervisor, 9 técnicos en grupos A/B/C con sus ayudantes y la Guardia Retén.</span>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{isPagos}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Pagos de instalación en caja</h1>
+<div style="border-radius: 14px; background: #F1F3D4; padding: 12px 16px; font-size: 14px; color: #21244D"><strong>Tabla de precios pendiente.</strong> Las instalaciones quedan «precio por definir» y no se cobran hasta publicar las tarifas.</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px">
+<sc-for list="{{metodos}}" as="m" hint-placeholder-count="5">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #4A5568">{{m}}</span><strong style="font-size: 24px; font-family: 'Space Grotesk', Inter, sans-serif">USD —</strong><span style="font-size: 12px; color: #4A5568">0 cobros</span></div>
+</sc-for>
+</div>
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><strong style="font-size: 16px">Reembolsos pendientes</strong><span style="font-size: 14px; color: #4A5568">Cuando se cancela una orden con instalación pagada, aparece aquí con el monto y el método.</span></section>
+</sc-if>
+
+<sc-if value="{{isTarifas}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Tarifas de instalación</h1>
+<p style="margin: 0; font-size: 14px; color: #4A5568">Se definen al final, después de entrevistar a los técnicos. Solo el superadmin las cambia.</p>
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 8px; display: flex; flex-direction: column">
+<sc-for list="{{tarifas}}" as="t" hint-placeholder-count="7">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid #EEF2F7"><span style="flex: 1; font-size: 15px; font-weight: 600">{{t}}</span><span style="font-size: 14px; color: #4A5568">Por definir</span><button type="button" style="height: 36px; padding: 0 14px; border: 1px solid #CBD5E1; border-radius: 10px; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Fijar precio</button></div>
+</sc-for>
+</section>
+</sc-if>
+
+<sc-if value="{{isIncidencias}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Incidencias</h1>
+<sc-for list="{{incidencias}}" as="i" hint-placeholder-count="3">
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<span style="display: flex; flex-direction: column; flex: 1; min-width: 240px"><strong style="font-size: 15px">{{i.titulo}}</strong><span style="font-size: 13px; color: #4A5568">{{i.detalle}}</span></span>
+<sc-if value="{{i.abierta}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{i.toggle}}" style="height: 40px; padding: 0 14px; border: none; border-radius: 10px; background: #C2410C; color: #FFFFFF; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer">Marcar resuelta</button></sc-if>
+<sc-if value="{{i.resuelta}}" hint-placeholder-val="{{false}}"><span style="height: 28px; padding: 0 12px; border-radius: 14px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: #E7F6EE; color: #0F5132">Resuelta</span></sc-if>
+</section>
+</sc-for>
+</sc-if>
+
+<sc-if value="{{isUsuarios}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 0; font-size: 24px">Usuarios y roles</h1>
+<section style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 8px; overflow-x: auto">
+<table style="width: 100%; min-width: 760px; border-collapse: collapse; font-size: 14px">
+<thead><tr style="text-align: left; color: #4A5568; font-size: 12px; letter-spacing: 0.4px"><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">ROL</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">USUARIOS</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">QUÉ PUEDE HACER</th><th style="padding: 10px; border-bottom: 1px solid #E2E8F0">QUÉ VE</th></tr></thead>
+<tbody>
+<sc-for list="{{roles}}" as="r" hint-placeholder-count="7">
+<tr><td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7; font-weight: 700">{{r.rol}}</td><td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7">{{r.n}}</td><td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7">{{r.puede}}</td><td style="padding: 12px 10px; border-bottom: 1px solid #EEF2F7; color: #4A5568">{{r.ve}}</td></tr>
+</sc-for>
+</tbody>
+</table>
+</section>
+</sc-if>
+
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mod: 'general', rango: 'mes', tecnico: 'José Hernández', hT: '', hD: '', hC: '', filtro: 'Todas', orden: 'WO-4921', grupo: null, alta: false,
+                   docs: { foto_perfil: true, cedula: true, licencia: true }, reten: false, resueltas: {} };
+  }
+  renderVals() {
+    const s = this.state;
+    const ESTILO = {
+      'En ruta': ['#FFF1E8', '#9A3412'], 'En servicio': ['#E6E8F7', '#21244D'], 'Completada': ['#E7F6EE', '#0F5132'],
+      'Asignada': ['#EEF2F7', '#334155'], 'Sin técnico': ['#FDECEC', '#B42318'], 'Cancelada': ['#EEF2F7', '#4A5568'],
+    };
+    const ORD = [
+      { wo: 'WO-4921', cliente: 'María González', tipo: 'Traslado e instalación', estado: 'En ruta', franja: '10:00–12:00', direccion: 'Av. San Martín, Res. Los Pinos',
+        cuadrilla: [['José Hernández', 'Técnico · Grupo A', 'V-12.000.000'], ['Daniel Pérez', 'Ayudante', 'V-20.000.000']],
+        articulos: [['Nevera Samsung RT38', true], ['Juego de comedor 6 puestos', false]], pago: 'Precio por definir',
+        bitacora: [['8:41', 'Solicitud enviada', 'Caja San Martín · Agente Caja · 2 artículos'], ['8:41', 'Técnico asignado', 'Automática: José Hernández + Daniel Pérez (Grupo A)'],
+                   ['8:55', 'Cita confirmada', 'José Hernández'], ['9:42', 'Técnico en ruta', 'Retiro en almacén con QR · serial 0B5R4AAN300125']] },
+      { wo: 'WO-4922', cliente: 'Luis Rangel', tipo: 'Traslado', estado: 'Completada', franja: '8:00–10:00', direccion: 'Calle Real de San Martín',
+        cuadrilla: [['Luis Rodríguez', 'Técnico · Grupo A', 'V-12.001.371'], ['Carmen Rojas', 'Ayudante', 'V-20.000.977']],
+        articulos: [['Lavadora LG', false], ['Colchón matrimonial', false]], pago: 'No aplica (solo traslado)',
+        bitacora: [['7:30', 'Solicitud enviada', 'Caja San Martín'], ['7:30', 'Técnico asignado', 'Luis Rodríguez + Carmen Rojas'], ['8:10', 'Técnico en ruta', 'Retiro con QR'],
+                   ['8:52', 'Servicio en progreso', 'Llegada al domicilio'], ['9:05', 'Servicio completado', 'Entrega en empaque original · foto de entrega']] },
+      { wo: 'WO-4923', cliente: 'Ana Mora', tipo: 'Instalación', estado: 'En servicio', franja: '10:00–12:00', direccion: 'Sector El Paraíso',
+        cuadrilla: [['Pedro Silva', 'Técnico · Grupo A', 'V-12.002.742'], ['Rafael Mendoza', 'Ayudante', 'V-20.001.954']],
+        articulos: [['Aire acondicionado 12.000 BTU', true]], pago: 'Precio por definir',
+        bitacora: [['8:00', 'Solicitud enviada', 'Caja San Martín · solo instalación'], ['8:00', 'Técnico asignado', 'Pedro Silva + Rafael Mendoza'], ['9:20', 'Técnico en ruta', 'Salida directa (sin almacén)'], ['9:58', 'Servicio en progreso', 'Llegada al domicilio']] },
+      { wo: 'WO-4924', cliente: 'Carlos Peña', tipo: 'Traslado e instalación', estado: 'Sin técnico', franja: '15:00–17:00', direccion: 'Av. Páez',
+        cuadrilla: [], articulos: [['Secadora Whirlpool', true]], pago: 'Precio por definir',
+        bitacora: [['11:02', 'Solicitud enviada', 'Caja San Martín · aviso: sin técnico de guardia disponible']] },
+      { wo: 'WO-4925', cliente: 'Rosa Díaz', tipo: 'Traslado', estado: 'Asignada', franja: '13:00–15:00', direccion: 'Artigas',
+        cuadrilla: [['José Hernández', 'Técnico · Grupo A', 'V-12.000.000'], ['Daniel Pérez', 'Ayudante', 'V-20.000.000']],
+        articulos: [['Cocina Mabe 4 hornillas', false]], pago: 'No aplica (solo traslado)',
+        bitacora: [['10:15', 'Solicitud enviada', 'Caja San Martín'], ['10:15', 'Técnico asignado', 'José Hernández + Daniel Pérez']] },
+    ];
+    const mapFiltro = { 'Todas': null, 'En curso': ['En ruta', 'En servicio', 'Asignada'], 'Sin técnico': ['Sin técnico'], 'Completadas': ['Completada'] };
+    const lista = ORD.filter((o) => !mapFiltro[s.filtro] || mapFiltro[s.filtro].includes(o.estado));
+    const d = ORD.find((o) => o.wo === s.orden) || ORD[0];
+    const ini = (n) => n.split(' ').map((x) => x[0]).slice(0, 2).join('');
+    const MODS = [['general', 'Panel general', ''], ['mapa', 'Mapa en vivo', ''], ['calidad', 'Calidad y reseñas', ''], ['seguimiento', 'Seguimiento de órdenes', '5'], ['tecnicos', 'Técnicos y ayudantes', '1'],
+                  ['guardias', 'Guardias y escuadras', ''], ['tiendas', 'Tiendas', ''], ['pagos', 'Pagos en caja', ''], ['tarifas', 'Tarifas', ''],
+                  ['incidencias', 'Incidencias', '2'], ['usuarios', 'Usuarios y roles', '']];
+    const DOCS = [['foto_perfil', 'Foto de perfil', ''], ['cedula', 'Cédula', ''], ['licencia', 'Licencia de conducir', 'vence 2028'],
+                  ['vehiculo_titulo', 'Carnet de circulación', ''], ['vehiculo_seguro', 'Seguro del vehículo', ''], ['antecedentes', 'Antecedentes', 'otro documento']];
+    const docsOk = s.docs.foto_perfil && s.docs.cedula;
+    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const escuadra = (g, nombres, ayud, ords) => ({ nombre: 'Escuadra ' + g, estado: g === 'A' ? 'De guardia hoy' : 'Descanso',
+      bg: g === 'A' ? '#CFD72A' : '#EEF2F7', fg: g === 'A' ? '#21244D' : '#334155',
+      tecnicos: nombres.map((n, i) => ({ nombre: n, ayudante: ayud[i], ordenes: ords[i] })) });
+    const INC = [['i1', 'WO-4923 · Toma de agua sin llave de paso', 'Pedro Silva · necesita plomería del cliente'],
+                 ['i2', 'WO-4921 · Espera en despacho', 'Almacén San Martín · 25 min']];
+    const RANGO = { hoy: ['Hoy', 1], semana: ['Esta semana', 6], mes: ['Este mes', 26], trimestre: ['Trimestre', 78] }[s.rango];
+    const TIENDAS = [['Damasco San Martín (piloto)', 52], ['Damasco Catia', 41], ['Damasco Sabana Grande', 37], ['Damasco La Trinidad', 29], ['Damasco Chuao', 23], ['Damasco Las Mercedes', 18]];
+    const maxT = TIENDAS[0][1];
+    const DIAS14 = [[4,5,2],[5,6,1],[3,7,2],[6,5,3],[7,8,2],[2,3,1],[1,2,0],[5,7,2],[6,6,3],[4,8,2],[7,9,3],[8,7,2],[3,4,1],[2,2,1]];
+    const fechas14 = ['10','11','12','13','14','15','16','17','18','19','20','21','22','23'];
+    const esc = 6; // px por orden
+    const HORAS = ['8','9','10','11','12','13','14','15','16','17','18'];
+    const DSEM = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const CALOR = [[2,4,6,5,3,2,4,5,4,2,1],[1,3,5,6,4,2,3,4,3,2,1],[2,3,4,5,3,2,3,4,4,2,1],[2,4,5,5,4,3,4,5,4,3,1],[3,5,6,6,5,4,5,6,5,4,2],[4,6,6,5,4,3,3,3,2,1,0],[1,2,3,3,2,1,1,1,0,0,0]];
+    const RAMPA = ['#EEF0FA', '#CDD2EE', '#9DA5D9', '#6B74C0', '#3F4795', '#21244D', '#21244D'];
+    const TECS = [
+      ['José Hernández', 'Daniel Pérez', 'A', 48, 4.96, 61, 100, 100, 0, [4.8,4.9,4.9,5.0,4.95,4.96]],
+      ['Andrea Medina', 'Luisa Romero', 'B', 44, 4.93, 52, 98, 100, 0, [4.7,4.8,4.9,4.9,4.95,4.93]],
+      ['Luis Rodríguez', 'Carmen Rojas', 'A', 51, 4.88, 58, 96, 98, 1, [4.7,4.75,4.8,4.85,4.9,4.88]],
+      ['Miguel Castillo', 'Héctor Blanco', 'C', 39, 4.85, 41, 95, 97, 1, [4.6,4.7,4.8,4.8,4.85,4.85]],
+      ['Ana Torres', 'Patricia Vargas', 'B', 36, 4.79, 38, 92, 97, 1, [4.6,4.7,4.7,4.75,4.8,4.79]],
+      ['Pedro Silva', 'Rafael Mendoza', 'A', 42, 4.71, 45, 90, 95, 2, [4.5,4.6,4.6,4.7,4.75,4.71]],
+      ['Rosa Díaz', 'Gabriela Flores', 'C', 33, 4.64, 30, 88, 94, 2, [4.4,4.5,4.6,4.6,4.65,4.64]],
+      ['Carlos Rivas', 'Andrés Guzmán', 'B', 30, 4.52, 29, 84, 90, 3, [4.3,4.4,4.5,4.5,4.55,4.52]],
+    ];
+    const indice = (t) => Math.round(((t[4] - 4) / 1) * 40 + t[6] * 0.3 + t[7] * 0.3 - t[8] * 4);
+    const fmt = (x) => x.toFixed(2).replace('.', ',');
+    const tsel = TECS.find((t) => t[0] === s.tecnico) || TECS[0];
+    const RESENAS = {
+      'José Hernández': [['María González', '23 nov', 'WO-4921', 5, 'Puntuales, instalaron la nevera y se llevaron todas las cajas y el anime. Muy amables.', 'Traslado e instalación'],
+                         ['Luis Rangel', '18 nov', 'WO-4890', 5, 'Me explicaron cómo usar el aire y dejaron todo limpio.', 'Instalación'],
+                         ['Carla Ruiz', '12 nov', 'WO-4855', 5, 'Me mostraron su identificación al llegar. Excelente servicio.', 'Traslado e instalación']],
+      'default': [['Cliente', '20 nov', 'WO-4900', 5, 'Buen servicio y a tiempo.', 'Traslado'],
+                  ['Cliente', '15 nov', 'WO-4870', 4, 'Todo bien, llegaron un poco tarde.', 'Traslado e instalación'],
+                  ['Cliente', '09 nov', 'WO-4830', 5, 'Instalación impecable.', 'Instalación']],
+    };
+    const res = (RESENAS[tsel[0]] || RESENAS.default).map(([cliente, fecha, orden, n, texto, servicio]) =>
+      ({ cliente, fecha, orden, texto, servicio, estrellas: '★'.repeat(n) + '☆'.repeat(5 - n), aria: n + ' de 5 estrellas' }));
+    const trend = tsel[9];
+    const px = (i) => 10 + i * 52, py = (v) => 62 - (v - 4.2) / 0.8 * 56;
+    return {
+      rangos: [['hoy', 'Hoy'], ['semana', 'Semana'], ['mes', 'Mes'], ['trimestre', 'Trimestre']].map(([k, label]) => ({ label, sel: s.rango === k, unsel: s.rango !== k, pick: () => this.setState({ rango: k }) })),
+      rangoTexto: RANGO[0].toLowerCase(),
+      tiendasBar: TIENDAS.map(([nombre, n], i) => {
+        const v = Math.max(1, Math.round(n * RANGO[1] / 26));
+        return { nombre, n: v, w: Math.round(n / maxT * 100) + '%', color: i === 0 ? '#21244D' : '#6B74C0', peso: i === 0 ? '700' : '500',
+                 hover: () => this.setState({ hT: nombre + ': ' + v + ' órdenes · ' + Math.round(n / 200 * 100) + '% del total' }) };
+      }),
+      tiendaHover: s.hT || 'Pasa el cursor por una barra para ver el detalle. Las otras tiendas son una proyección de ejemplo para cuando se replique.',
+      dias14: DIAS14.map((d, i) => {
+        const [a, b, c] = d; const x = 36 + i * 37;
+        return { x, cx: x + 15, etq: fechas14[i],
+                 y1: 170 - a * esc, h1: Math.max(0, a * esc - 2), y2: 170 - (a + b) * esc, h2: Math.max(0, b * esc - 2), y3: 170 - (a + b + c) * esc, h3: c * esc,
+                 hover: () => this.setState({ hD: fechas14[i] + ' nov: ' + (a + b + c) + ' órdenes · ' + a + ' traslado · ' + b + ' traslado e instalación · ' + c + ' instalación' }) };
+      }),
+      diaHover: s.hD || 'Pasa el cursor por un día para ver el desglose.',
+      horas: HORAS,
+      calor: CALOR.flatMap((fila, di) => [{ esEtiqueta: true, esCelda: false, dia: DSEM[di] }].concat(fila.map((v, hi) => ({ esEtiqueta: false, esCelda: true, color: RAMPA[v],
+        hover: () => this.setState({ hC: DSEM[di] + ' ' + HORAS[hi] + ':00 · ' + v * 2 + ' solicitudes en promedio' }) })))),
+      calorHover: s.hC || 'Más demanda: viernes y sábado entre 10:00 y 12:00.',
+      articulosTop: [['Nevera', 64, 41], ['Lavadora', 52, 30], ['Aire acondicionado', 38, 38], ['Cocina', 29, 12], ['Televisor', 24, 9], ['Muebles y otros', 21, 0]]
+        .map(([nombre, n, inst]) => ({ nombre, n, inst: inst + ' inst.', w: Math.round(n / 64 * 100) + '%' })),
+      cumplimiento: [{ label: 'Llegada dentro de la franja', pct: '94%' }, { label: 'Cierre con fotos de evidencia', pct: '100%' },
+                     { label: 'Retiro de residuos en instalaciones', pct: '100%' }, { label: 'Órdenes sin incidencias', pct: '91%' }, { label: 'Clientes que califican', pct: '78%' }],
+      ranking: TECS.map((t, i) => ({ pos: i + 1, nombre: t[0], ayudante: t[1], grupo: t[2], servicios: t[3], cal: fmt(t[4]), resenas: t[5],
+        puntual: t[6] + '%', sinRep: t[7] + '%', inc: t[8], indice: indice(t), indiceW: indice(t) + '%', ini: t[0].split(' ').map((x) => x[0]).join(''),
+        impecable: t[4] >= 4.9 && t[6] >= 98 && t[8] === 0, fila: t[0] === tsel[0] ? '#F1F3D4' : 'transparent', pick: () => this.setState({ tecnico: t[0] }) })),
+      sel: { nombre: tsel[0], ayudante: tsel[1], grupo: tsel[2], servicios: tsel[3], cal: fmt(tsel[4]), puntual: tsel[6] + '%',
+             ini: tsel[0].split(' ').map((x) => x[0]).join(''), resenas: res,
+             linea: trend.map((v, i) => px(i) + ',' + py(v).toFixed(1)).join(' '), puntos: trend.map((v, i) => ({ x: px(i), y: py(v).toFixed(1) })) },
+      estrellas: [[5, 84], [4, 12], [3, 3], [2, 1], [1, 0]].map(([n, p]) => ({ n, pct: p + '%', w: p + '%' })),
+      isCalidad: s.mod === 'calidad',
+      isMapa: s.mod === 'mapa',
+      modulos: MODS.map(([k, label, badge]) => ({ label, badge, hasBadge: !!badge, sel: s.mod === k, unsel: s.mod !== k, pick: () => this.setState({ mod: k }) })),
+      isGeneral: s.mod === 'general', isSeguimiento: s.mod === 'seguimiento', isTecnicos: s.mod === 'tecnicos', isGuardias: s.mod === 'guardias',
+      isTiendas: s.mod === 'tiendas', isPagos: s.mod === 'pagos', isTarifas: s.mod === 'tarifas', isIncidencias: s.mod === 'incidencias', isUsuarios: s.mod === 'usuarios',
+      kpis: [
+        { label: 'Órdenes', valor: String(Math.round(200 * RANGO[1] / 26)), nota: '▲ 12% vs. período anterior', notaColor: '#167A45' },
+        { label: 'Artículos movidos', valor: String(Math.round(228 * RANGO[1] / 26)), nota: '1,4 por orden', notaColor: '#4A5568' },
+        { label: 'Instalaciones', valor: String(Math.round(130 * RANGO[1] / 26)), nota: '57% de los artículos', notaColor: '#4A5568' },
+        { label: 'Calificación promedio', valor: '4,82', nota: '▲ 0,05 vs. período anterior', notaColor: '#167A45' },
+        { label: 'Tiempo total promedio', valor: '1 h 35', nota: 'caja → servicio completado', notaColor: '#4A5568' },
+        { label: 'Incidencias', valor: String(Math.max(1, Math.round(18 * RANGO[1] / 26))), nota: '▼ 3 vs. período anterior', notaColor: '#167A45' },
+      ],
+      filtros: Object.keys(mapFiltro).map((f) => ({ label: f, sel: s.filtro === f, unsel: s.filtro !== f, pick: () => this.setState({ filtro: f }) })),
+      ordenes: lista.map((o) => ({ wo: o.wo, cliente: o.cliente, tipo: o.tipo, franja: o.franja, estado: o.estado,
+        cuadrilla: o.cuadrilla.length ? o.cuadrilla.map((c) => c[0].split(' ')[0]).join(' + ') : 'Sin cuadrilla',
+        bg: ESTILO[o.estado][0], fg: ESTILO[o.estado][1], sel: o.wo === d.wo, unsel: o.wo !== d.wo, pick: () => this.setState({ orden: o.wo }) })),
+      det: { wo: d.wo, estado: d.estado, bg: ESTILO[d.estado][0], fg: ESTILO[d.estado][1], tipo: d.tipo, cliente: d.cliente, direccion: d.direccion, pago: d.pago,
+        articulos: d.articulos.map(([n, inst]) => ({ nombre: n, tag: inst ? 'Instalar' : 'En su caja', bg: inst ? '#F1F3D4' : '#EEF2F7', fg: inst ? '#21244D' : '#334155' })),
+        cuadrilla: d.cuadrilla.map(([n, rol, ced]) => ({ nombre: n, rol, cedula: ced, ini: ini(n) })),
+        bitacora: d.bitacora.map(([hora, estado, nota]) => ({ hora, estado, nota })) },
+      regApp: ['Escaneo facial', 'Foto con la cédula en alto', 'Huella registrada', 'Cédula, teléfono y correo', 'PIN personal'],
+      docs: DOCS.map(([k, label, nota]) => ({ label, nota, ok: !!s.docs[k], falta: !s.docs[k], toggle: () => this.setState({ docs: Object.assign({}, s.docs, { [k]: !s.docs[k] }) }) })),
+      grupos: ['A', 'B', 'C', 'Retén'].map((g) => ({ label: g, sel: s.grupo === g, unsel: s.grupo !== g, pick: () => this.setState({ grupo: g }) })),
+      puedeAlta: !s.alta && docsOk && !!s.grupo, noPuedeAlta: s.alta || !docsOk || !s.grupo,
+      altaAyuda: s.alta ? 'Alta dada.' : !docsOk ? 'Falta foto de perfil o cédula en el expediente.' : 'Elige el grupo A, B o C.',
+      darAlta: () => this.setState({ alta: true }),
+      altaEstado: s.alta ? 'Alta · Grupo ' + s.grupo : 'Pendiente de alta', altaBg: s.alta ? '#E7F6EE' : '#FFF1E8', altaFg: s.alta ? '#0F5132' : '#9A3412',
+      personal: [
+        { nombre: 'José Hernández', rol: 'Técnico', grupo: 'A', cedula: 'V-12.000.000', con: 'Daniel Pérez', docs: '6/6', estado: 'Alta', bg: '#E7F6EE', fg: '#0F5132' },
+        { nombre: 'Daniel Pérez', rol: 'Ayudante', grupo: 'A', cedula: 'V-20.000.000', con: 'José Hernández', docs: '3/3', estado: 'Alta', bg: '#E7F6EE', fg: '#0F5132' },
+        { nombre: 'Luis Rodríguez', rol: 'Técnico', grupo: 'A', cedula: 'V-12.001.371', con: 'Carmen Rojas', docs: '5/6', estado: 'Alta', bg: '#E7F6EE', fg: '#0F5132' },
+        { nombre: 'Pedro Ayala', rol: 'Ayudante', grupo: 'A', cedula: 'V-27.111.222', con: 'José Hernández', docs: '0/2', estado: 'Anotado por su técnico', bg: '#FFF1E8', fg: '#9A3412' },
+        { nombre: 'Kevin Suárez', rol: 'Técnico', grupo: s.alta ? s.grupo : '—', cedula: 'V-25.123.456', con: '—', docs: Object.values(s.docs).filter(Boolean).length + '/6',
+          estado: s.alta ? 'Alta' : 'Pendiente de alta', bg: s.alta ? '#E7F6EE' : '#FFF1E8', fg: s.alta ? '#0F5132' : '#9A3412' },
+        { nombre: 'Ricardo Pérez', rol: 'Técnico', grupo: 'Retén', cedula: 'V-12.012.339', con: 'Valentina Morales', docs: '6/6', estado: 'Alta', bg: '#E7F6EE', fg: '#0F5132' },
+      ],
+      semana: dias.map((dia, i) => ({ dia, g: 'ABC'[i % 3], bg: i === 0 ? '#21244D' : '#FFFFFF', fg: i === 0 ? '#FFFFFF' : '#1A1C3D' })),
+      escuadras: [
+        escuadra('A', ['José Hernández', 'Luis Rodríguez', 'Pedro Silva'], ['Daniel Pérez', 'Carmen Rojas', 'Rafael Mendoza'], ['2 órdenes hoy', '1 orden hoy', '1 orden hoy']),
+        escuadra('B', ['Andrea Medina', 'Carlos Rivas', 'Ana Torres'], ['Luisa Romero', 'Andrés Guzmán', 'Patricia Vargas'], ['—', '—', '—']),
+        escuadra('C', ['Miguel Castillo', 'Rosa Díaz', 'Jorge Suárez'], ['Héctor Blanco', 'Gabriela Flores', 'Ricardo Herrera'], ['—', '—', '—']),
+      ],
+      retenOn: s.reten, retenOff: !s.reten, toggleReten: () => this.setState({ reten: !s.reten }),
+      metodos: ['Pago móvil', 'Efectivo en bolívares', 'Efectivo en dólares', 'Zelle', 'Punto de venta'],
+      tarifas: ['Nevera', 'Lavadora', 'Secadora', 'Aire acondicionado', 'Cocina', 'Televisor', 'Otro artículo'],
+      incidencias: INC.map(([k, titulo, detalle]) => ({ titulo, detalle, abierta: !s.resueltas[k], resuelta: !!s.resueltas[k],
+        toggle: () => this.setState({ resueltas: Object.assign({}, s.resueltas, { [k]: true }) }) })),
+      roles: [
+        { rol: 'Superadministrador', n: '1', puede: 'Todo: tiendas, tarifas, usuarios y bitácora completa', ve: 'Todas las tiendas y órdenes' },
+        { rol: 'Equipo supervisor', n: '1', puede: 'Reasignar, activar retén, altas, incidencias, crear agentes y técnicos', ve: 'Todas las tiendas' },
+        { rol: 'Técnico supervisor', n: '1', puede: 'Recibe cada orden nueva; reasigna, altas y expedientes de su tienda', ve: 'Solo su tienda' },
+        { rol: 'Agente en caja', n: '1', puede: 'Crear órdenes, marcar instalación, cobrar y mostrar el QR', ve: 'Órdenes de su tienda' },
+        { rol: 'Técnico', n: '10', puede: 'Confirmar cita, retiro con QR, checklist, fotos y cierre; anotar ayudantes', ve: 'Sus órdenes' },
+        { rol: 'Ayudante', n: '11', puede: 'Ver la orden y reportar incidencias', ve: 'Órdenes donde sale' },
+        { rol: 'Cliente', n: '—', puede: 'Seguir su pedido, reprogramar, cancelar y calificar', ve: 'Sus pedidos; foto y nombre de la cuadrilla' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>AHA HOME — Portada del cliente</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+
+:root{--marino:#21244D;--marino2:#1A1C3D;--lima:#CFD72A;--limaS:#F1F3D4;--naranja:#C8461B;--verde:#1E8A4C;--gris:#5B6474;--linea:#E2E8F0;--fondo:#F4F7FB}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,"Helvetica Neue",Arial,sans-serif;color:#1A1C3D;background:#E9EDF3}
+.lamina{width:1600px;padding:40px 48px;background:#fff}
+h1{margin:0;font-size:34px;color:var(--marino)} .sub{color:var(--gris);font-size:17px;margin:6px 0 26px}
+.cols{display:flex;gap:36px;align-items:flex-start}
+.col{display:flex;flex-direction:column;align-items:center;gap:12px}
+.tag{font-weight:800;font-size:16px;letter-spacing:.5px;padding:6px 14px;border-radius:20px}
+.hoy{background:#EEF2F7;color:#334155}.prop{background:var(--lima);color:var(--marino)}
+.tel{width:390px;height:844px;border-radius:44px;border:10px solid #15172E;overflow:hidden;position:relative;background:var(--fondo);box-shadow:0 18px 40px rgba(20,24,60,.25)}
+.tel img{width:100%;display:block}
+.mejoras{width:520px;flex:0 0 auto;align-self:stretch;display:flex;flex-direction:column;gap:12px;padding-top:42px}
+.mejoras h2{margin:0 0 4px;font-size:22px;color:var(--marino)}
+.m{display:flex;gap:12px;align-items:flex-start;background:var(--fondo);border-radius:14px;padding:12px 14px;font-size:15.5px;line-height:1.4}
+.n{flex:0 0 30px;height:30px;border-radius:15px;background:var(--marino);color:var(--lima);font-weight:800;display:flex;align-items:center;justify-content:center}
+.flecha{align-self:center;font-size:54px;color:var(--lima);font-weight:900;-webkit-text-stroke:2px var(--marino)}
+/* ---- maqueta de la propuesta ---- */
+.p{height:100%;display:flex;flex-direction:column;font-size:14px}
+.cab{background:var(--marino);color:#fff;padding:14px 16px 12px;display:flex;align-items:center;gap:12px}
+.cab .t{flex:1;text-align:center}.cab b{display:block;font-size:20px}.cab span{font-size:12.5px;color:#DCDEF0}
+.cuerpo{flex:1;overflow:hidden;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.tit{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:17px}
+.est{font-size:13px;font-weight:800;color:var(--naranja)}
+.card{background:#fff;border:1px solid var(--linea);border-radius:14px;padding:10px 12px;box-shadow:0 2px 6px rgba(20,24,60,.06)}
+.pasos{display:flex;position:relative;padding-top:2px}
+.paso{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:10px;font-weight:700;text-align:center;position:relative}
+.paso .c{position:relative;z-index:2;width:26px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px}
+.paso .l{z-index:0;position:absolute;top:11px;right:50%;width:100%;height:4px}
+.ok{background:var(--verde)}.hecho{background:var(--naranja)}.pend{background:#CBD5E1}
+.arts{display:flex;gap:8px}
+.art{flex:1;background:#fff;border:1px solid var(--linea);border-radius:14px;padding:8px;text-align:center;position:relative}
+.art .ilu{height:70px;display:flex;align-items:center;justify-content:center}
+.art b{display:block;font-size:12.5px}.art small{font-weight:700;font-size:12px}
+.chk{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:10px;background:var(--verde);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+.tec{display:flex;gap:12px;align-items:center}
+.av{width:56px;height:56px;border-radius:28px;background:#DCE7F5;flex:0 0 56px;overflow:hidden;border:3px solid var(--lima)}
+.estrellas{color:#E8A317;font-size:15px;letter-spacing:1px}
+.btn{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-weight:800;font-size:14px;letter-spacing:.3px}
+.naranja{background:var(--naranja)}.verde{background:var(--verde)}.marino{background:var(--marino)}
+.tabs{height:62px;background:#fff;border-top:1px solid var(--linea);display:flex;justify-content:space-around;align-items:center;font-size:11px;color:#6B7789}
+.tabs div{display:flex;flex-direction:column;align-items:center;gap:3px}.tabs .on{color:var(--marino);font-weight:800}
+.ico{width:22px;height:22px}
+.guardia{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.punto{display:inline-block;width:10px;height:10px;border-radius:5px;background:var(--verde);margin-right:5px}
+.carrusel{display:flex;gap:8px;overflow:hidden}
+.orden{flex:0 0 330px;background:#fff;border-radius:14px;overflow:hidden;border:1px solid var(--linea);box-shadow:0 3px 10px rgba(20,24,60,.1)}
+.orden .h{background:var(--marino);color:#fff;text-align:center;padding:8px}.orden .h b{font-size:17px}.orden .h div{font-size:12.5px;color:#DCDEF0}
+.orden .b{padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.lbl{color:var(--gris);font-size:11.5px}
+.mapa{width:64px;height:54px;border-radius:8px;background:linear-gradient(135deg,#E3EEDB,#D4E4F3);position:relative;flex:0 0 64px;border:1px solid var(--linea)}
+.pend-l{display:flex;flex-direction:column;gap:6px}
+.pi{background:#fff;border:1px solid var(--linea);border-radius:12px;padding:8px 10px;font-size:12.5px}
+.pi b{font-size:13px}
+
+</style>
+</helmet>
+<div class="tel" style="width:390px;height:844px;border:0;border-radius:0;box-shadow:none;margin:0"><div style="height:100%;background:#fff;display:flex;flex-direction:column">
+ <div style="display:flex;flex-direction:column;align-items:center;padding:48px 20px 8px;gap:8px">
+  <svg width="96" height="96" viewBox="0 0 100 100"><path d="M50 13 L85 38.5 Q87.5 40.3 87.5 43.4 L87.5 69 Q87.5 76 80.5 76 L45 76 L29.5 88.5 Q26.5 90.8 26.5 87 L26.5 76 L19.5 76 Q12.5 76 12.5 69 L12.5 43.4 Q12.5 40.3 15 38.5 Z" fill="#CFD72A" stroke="#CFD72A" stroke-width="5" stroke-linejoin="round"/><path d="M38.95898692810458 68.75C45.02794117647059 68.75 49.95996732026144 65.1470588235294 51.0328431372549 58.613725490196074L51.609313725490196 55.10686274509804H41.0406862745098L40.288071895424835 59.71862745098039H44.595588235294116C44.09918300653595 61.70424836601307 42.24166666666667 63.113398692810456 39.29526143790849 63.113398692810456C36.6531045751634 63.113398692810456 35.38807189542484 61.57614379084967 35.38807189542484 58.8218954248366C35.38807189542484 54.56241830065359 37.66192810457517 49.88660130718954 42.177614379084964 49.88660130718954C44.03513071895425 49.88660130718954 45.10800653594771 50.81535947712418 45.236111111111114 52.448692810457516H51.769444444444446C52.089705882352945 47.372549019607845 47.71813725490196 44.25 42.32173202614379 44.25C34.29918300653595 44.25 28.790686274509806 50.87941176470588 28.790686274509806 58.86993464052287C28.790686274509806 65.01895424836601 32.69787581699347 68.75 38.95898692810458 68.75ZM60.67271241830065 68.75C67.46225490196078 68.75 71.20931372549019 63.67385620915032 71.20931372549019 57.90915032679739C71.20931372549019 53.32941176470588 68.3109477124183 50.30294117647058 63.05866013071895 50.30294117647058C56.317156862745094 50.30294117647058 52.49003267973856 55.33104575163399 52.49003267973856 61.1437908496732C52.49003267973856 65.73954248366013 55.388398692810455 68.75 60.67271241830065 68.75ZM60.928921568627445 63.94607843137255C59.72794117647058 63.94607843137255 58.95931372549019 63.03333333333333 58.95931372549019 61.36797385620915C58.95931372549019 59.2062091503268 59.88807189542483 55.10686274509804 62.80245098039215 55.10686274509804C63.98741830065359 55.10686274509804 64.74003267973856 55.955555555555556 64.74003267973856 57.60490196078431C64.74003267973856 59.75065359477124 63.79526143790849 63.94607843137255 60.928921568627445 63.94607843137255Z" fill="#21244D"></path></svg>
+  <div style="font-size:36px;font-weight:900;color:#21244D;letter-spacing:1px;line-height:1">AHA HOME</div>
+ </div>
+ <div style="padding:14px 20px 18px;display:flex;flex-direction:column;gap:9px;flex:1">
+  <div style="font-size:24px;font-weight:900;color:#21244D;line-height:1.1;text-align:center">Hacemos todo por ti</div>
+  <div style="font-size:13.5px;color:#4A5568;line-height:1.4;text-align:center">Desde la caja de Damasco hasta tu casa, con tu compra instalada y sin cajas que botar.</div>
+  <div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;gap:12px;align-items:center;background:#F4F7FB;border:1px solid #E2E8F0;border-radius:14px;padding:7px 10px"><div style="width:38px;height:38px;border-radius:12px;background:#CFD72A;display:flex;align-items:center;justify-content:center;flex:0 0 38px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#21244D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg></div><div><div style="color:#1A1C3D;font-weight:800;font-size:14px">Retiramos tu compra</div><div style="color:#4A5568;font-size:12px">en la tienda</div></div></div><div style="display:flex;gap:12px;align-items:center;background:#F4F7FB;border:1px solid #E2E8F0;border-radius:14px;padding:7px 10px"><div style="width:38px;height:38px;border-radius:12px;background:#CFD72A;display:flex;align-items:center;justify-content:center;flex:0 0 38px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#21244D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="14" height="10" rx="1"/><path d="M15 9h4l3 3v4h-7"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></div><div><div style="color:#1A1C3D;font-weight:800;font-size:14px">La llevamos a tu casa</div><div style="color:#4A5568;font-size:12px">con seguimiento en vivo</div></div></div><div style="display:flex;gap:12px;align-items:center;background:#F4F7FB;border:1px solid #E2E8F0;border-radius:14px;padding:7px 10px"><div style="width:38px;height:38px;border-radius:12px;background:#CFD72A;display:flex;align-items:center;justify-content:center;flex:0 0 38px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#21244D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-2.5z"/></svg></div><div><div style="color:#1A1C3D;font-weight:800;font-size:14px">Desembalamos e instalamos</div><div style="color:#4A5568;font-size:12px">técnicos verificados</div></div></div><div style="display:flex;gap:12px;align-items:center;background:#F4F7FB;border:1px solid #E2E8F0;border-radius:14px;padding:7px 10px"><div style="width:38px;height:38px;border-radius:12px;background:#CFD72A;display:flex;align-items:center;justify-content:center;flex:0 0 38px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#21244D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg></div><div><div style="color:#1A1C3D;font-weight:800;font-size:14px">Nos llevamos los desechos</div><div style="color:#4A5568;font-size:12px">cajas, anime y plásticos</div></div></div></div>
+  <div style="flex:1"></div>
+  <div class="btn naranja" style="height:50px;border-radius:25px;font-size:16px">CREAR MI CUENTA</div>
+  <div class="btn marino" style="height:48px;border-radius:24px;font-size:15px">YA TENGO CUENTA · ENTRAR</div>
+  <div style="text-align:center;color:#4A5568;font-size:13px">¿Eres técnico o ayudante? <b style="color:#21244D;text-decoration:underline">Entra aquí</b></div>
+ </div></div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
