@@ -645,3 +645,14 @@ class ReclamoFinanciero(Base):
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
     resuelto_en: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class InterfazVersion(Base):
+    """Diseño de la app (colores, textos y menús) que controla el panel: un borrador, la publicada y el historial."""
+    __tablename__ = "interfaz_versiones"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    estado: Mapped[str] = mapped_column(String(12), default="borrador")  # borrador | publicada | archivada
+    datos: Mapped[dict] = mapped_column(JSON, default=dict)
+    nota: Mapped[str] = mapped_column(String(120), default="")
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())

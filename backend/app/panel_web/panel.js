@@ -30,6 +30,8 @@
     { g: "Órdenes", i: "🛒", hijos: [["ordenes", "Lista"], ["transacciones", "Transacciones"], ["liquidaciones", "Liquidaciones"]] },
     { g: "Centro de soporte", i: "◎", hijos: [["mensajeria", "Mensajería"], ["reportes", "Reportes", "rep"], ["resenas", "Reseñas"]] },
     { k: "anuncios", t: "Banners y aliados", i: "▤" },
+    { sec: "DISEÑO" },
+    { k: "diseno", t: "Diseño de la app", i: "🎨" },
     { sec: "FINANZAS" },
     { k: "finanzas", t: "Finanzas y contabilidad", i: "💼" },
     { sec: "NEGOCIO" },
@@ -43,12 +45,12 @@
     equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Órdenes", "Lista"], transacciones: ["Órdenes", "Transacciones"],
     mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Órdenes", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
     resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"], usuarios: ["Centro de mando", "Usuarios y permisos"], correos: ["Centro de mando", "Correos corporativos"],
-    finanzas: ["Finanzas", "Finanzas y contabilidad"], tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
+    finanzas: ["Finanzas", "Finanzas y contabilidad"], diseno: ["Diseño", "Diseño de la app"], tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
 
   // Permiso que necesita cada pantalla (el CEO lo asigna a cada usuario)
   const PERM_RUTA = { inicio: "ver_tablero", clientes: "ver_clientes", empresas: "ver_empresas", tecnicos: "ver_tecnicos", verificaciones: "ver_tecnicos",
     ordenes: "ver_ordenes", transacciones: "ver_finanzas", liquidaciones: "ver_finanzas", mensajeria: "ver_soporte", reportes: "ver_soporte", resenas: "ver_soporte",
-    anuncios: "banners", finanzas: "ver_finanzas", tasa: "ver_tablero", precios: "ver_tablero", qrs: "qr_tiendas", administradores: "ver_personal", control: "ver_personal", caja: "ver_personal" };
+    anuncios: "banners", finanzas: "ver_finanzas", diseno: "diseno", tasa: "ver_tablero", precios: "ver_tablero", qrs: "qr_tiendas", administradores: "ver_personal", control: "ver_personal", caja: "ver_personal" };
   const puede = (k) => S.yo?.es_ceo || !PERM_RUTA[k] || (S.yo?.permisos || []).includes(PERM_RUTA[k]);
   const puedeHacer = (p) => S.yo?.es_ceo || (S.yo?.permisos || []).includes(p);
 
@@ -516,6 +518,118 @@
         moneda: $("#pm") ? $("#pm").value : m.moneda, activo: m ? $("#pa").checked : true } }));
   }
 
+  // ---------- Diseño de la app: el panel controla colores, textos, menús y avisos ----------
+  const ICO_MENU = { inicio: "🏠", pedidos: "🧾", mensajes: "💬", cuenta: "👤", avisos: "🔔", soporte: "🎧", ordenes: "📄", mapa: "📍", perfil: "👤" };
+  const MENUS_NOMBRE = { cliente: "Cliente · menú de abajo", cliente_lateral: "Cliente · menú ☰", tecnico: "Técnico · menú de abajo" };
+  const VISTAS = [["portada", "Portada"], ["cliente", "Inicio del cliente"], ["cliente_lateral", "Menú ☰ del cliente"], ["tecnico", "Inicio del técnico"], ["caja", "Inicio de la caja"]];
+  async function diseno(main) {
+    S.dis = S.dis || await api("/admin/interfaz");
+    S.disVista = S.disVista || "portada"; S.disSec = S.disSec || "marca";
+    const D = S.dis.borrador;
+    const sec = (k, t) => `<button class="${S.disSec === k ? "on" : ""}" data-ds="${k}">${t}</button>`;
+    main.innerHTML += `<div class="dis-estado ${S.dis.hay_cambios ? "pend" : ""}">
+        <div><b>${S.dis.hay_cambios ? "● Tienes cambios sin publicar" : "✓ La app muestra la versión publicada"}</b><span class="total"> · ${S.dis.version ? "Versión publicada #" + S.dis.version : "La app usa el diseño de fábrica"}. Los cambios llegan a la app al publicarlos, sin publicar una app nueva.</span></div>
+        <div class="fin-acc"><button class="btn sec" id="dgu">Guardar borrador</button>${S.dis.hay_cambios ? `<button class="btn sec" id="dde">Descartar cambios</button>` : ""}<button class="btn pri" id="dpu" ${S.dis.hay_cambios ? "" : "disabled"}>Publicar en la app</button></div></div>
+      <div class="dis">
+        <div class="dis-edit">
+          <div class="tabs">${sec("marca", "Marca y colores")}${sec("portada", "Portada")}${sec("menus", "Menús")}${sec("aviso", "Aviso")}${sec("historial", "Historial")}</div>
+          <div id="dform"></div>
+        </div>
+        <div class="dis-prev"><div class="tabs chica">${VISTAS.map(([k, t]) => `<button class="${S.disVista === k ? "on" : ""}" data-dv="${k}">${t}</button>`).join("")}</div>
+          <div class="telefono"><div class="tel-isla"></div><div class="tel-pantalla" id="dprev"></div></div>
+          <div class="total" style="text-align:center;margin-top:8px">Vista previa del borrador · se actualiza mientras escribes</div></div>
+      </div>`;
+    main.querySelectorAll("[data-ds]").forEach((b) => (b.onclick = () => { S.disSec = b.dataset.ds; if (b.dataset.ds === "menus" && !["cliente", "cliente_lateral", "tecnico"].includes(S.disVista)) S.disVista = "cliente"; if (b.dataset.ds === "portada") S.disVista = "portada"; pintar(true); }));
+    main.querySelectorAll("[data-dv]").forEach((b) => (b.onclick = () => { S.disVista = b.dataset.dv; vistaPrevia(D); main.querySelectorAll("[data-dv]").forEach((x) => x.classList.toggle("on", x === b)); }));
+    const guardar = async () => { S.dis = await api("/admin/interfaz/borrador", { method: "PUT", body: { datos: D } }); };
+    $("#dgu").onclick = async () => { await guardar(); pintar(true); };
+    const de = $("#dde"); if (de) de.onclick = async () => { S.dis = await api("/admin/interfaz/descartar", { body: {} }); pintar(true); };
+    $("#dpu").onclick = () => publicarDiseno(guardar);
+    formDiseno(D, () => { S.dis.hay_cambios = true; $("#dpu").disabled = false; $(".dis-estado").classList.add("pend"); $(".dis-estado b").textContent = "● Tienes cambios sin publicar"; vistaPrevia(D); });
+    vistaPrevia(D);
+  }
+  function publicarDiseno(guardar) {
+    document.querySelector(".cajon")?.remove();
+    const c = document.createElement("div"); c.className = "cajon";
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="total">Diseño de la app</span><button class="btn sec" id="cer">✕</button></div>
+      <h2 style="margin-top:8px">Publicar en la app</h2><div class="total">La próxima vez que cada persona abra la app verá el diseño nuevo. Queda en el historial y puedes volver atrás cuando quieras.</div>
+      <label class="flab">¿Qué cambiaste? (para el historial)</label><input id="dnota" class="finp" placeholder="Ej. Aviso de feriado y menú más corto">
+      <div style="margin-top:18px;display:flex;gap:8px"><button class="btn pri" id="dok">Publicar ahora</button><button class="btn sec" id="dno">Cancelar</button></div><p class="error" id="derr"></p>`;
+    document.body.appendChild(c);
+    $("#cer").onclick = $("#dno").onclick = () => c.remove();
+    $("#dok").onclick = async () => { try { await guardar(); S.dis = await api("/admin/interfaz/publicar", { body: { nota: $("#dnota").value } }); c.remove(); pintar(true); } catch (e) { $("#derr").textContent = e.message; } };
+  }
+  function formDiseno(D, cambio) {
+    const f = $("#dform");
+    const inp = (ruta, l, v, extra = "") => `<label class="flab">${l}</label><input class="finp" data-r="${ruta}" value="${esc(v)}" ${extra}>`;
+    if (S.disSec === "marca") {
+      f.innerHTML = inp("marca.nombre", "Nombre de la app", D.marca.nombre, 'maxlength="30"') + inp("marca.eslogan", "Eslogan", D.marca.eslogan, 'maxlength="60"') +
+        `<label class="flab">Colores</label><div class="colores">${[["marino", "Principal (azul marino)"], ["lima", "Acento (lima)"], ["naranja", "Botones de acción (naranja)"], ["fondo", "Fondo de pantallas"]]
+          .map(([k, t]) => `<label class="color"><input type="color" data-c="${k}" value="${D.marca.colores[k]}"><span><b>${t}</b><small>${D.marca.colores[k]}</small></span></label>`).join("")}</div>
+        <button class="enlace" id="dfab" style="align-self:flex-start">Volver a los colores de fábrica</button>`;
+      f.querySelectorAll("[data-c]").forEach((x) => (x.oninput = () => { D.marca.colores[x.dataset.c] = x.value.toUpperCase(); x.nextElementSibling.querySelector("small").textContent = x.value.toUpperCase(); cambio(); }));
+      $("#dfab").onclick = () => { D.marca.colores = { ...S.dis.defecto.marca.colores }; formDiseno(D, cambio); cambio(); };
+    } else if (S.disSec === "portada") {
+      f.innerHTML = inp("portada.titulo", "Título", D.portada.titulo, 'maxlength="60"') + `<label class="flab">Texto debajo del título</label><textarea class="finp" rows="3" data-r="portada.subtitulo" maxlength="180">${esc(D.portada.subtitulo)}</textarea>` +
+        `<label class="flab">Los 4 pasos</label>` + D.portada.pasos.map((p, i) => `<div class="fila2">${`<input class="finp" data-r="portada.pasos.${i}.titulo" value="${esc(p.titulo)}" maxlength="40">`}${`<input class="finp" data-r="portada.pasos.${i}.detalle" value="${esc(p.detalle)}" maxlength="50">`}</div>`).join("") +
+        inp("portada.boton_crear", "Botón naranja", D.portada.boton_crear, 'maxlength="30"') + inp("portada.boton_entrar", "Botón azul", D.portada.boton_entrar, 'maxlength="34"');
+    } else if (S.disSec === "menus") {
+      f.innerHTML = Object.keys(MENUS_NOMBRE).map((m) => `<div class="dis-menu"><div class="dm-t">${MENUS_NOMBRE[m]}</div>${D.menus[m].map((it, i) => `<div class="dm-fila">
+          <span class="dm-ic">${ICO_MENU[it.id] || "•"}</span><input class="finp" data-m="${m}" data-i="${i}" value="${esc(it.texto)}" maxlength="22">
+          <label class="sw" title="${it.id === "inicio" ? "Inicio siempre se muestra" : "Mostrar u ocultar"}"><input type="checkbox" data-mv="${m}" data-i="${i}" ${it.visible ? "checked" : ""} ${it.id === "inicio" ? "disabled" : ""}><i></i></label>
+          <button class="dm-b" data-sube="${m}" data-i="${i}" ${i === 0 ? "disabled" : ""}>↑</button><button class="dm-b" data-baja="${m}" data-i="${i}" ${i === D.menus[m].length - 1 ? "disabled" : ""}>↓</button></div>`).join("")}</div>`).join("") +
+        `<div class="total">Cambia el nombre, el orden (↑ ↓) o apaga los botones que no quieras mostrar. «Inicio» siempre queda visible.</div>`;
+      f.querySelectorAll("[data-m]").forEach((x) => (x.oninput = () => { D.menus[x.dataset.m][x.dataset.i].texto = x.value; S.disVista = x.dataset.m; cambio(); }));
+      f.querySelectorAll("[data-mv]").forEach((x) => (x.onchange = () => { D.menus[x.dataset.mv][x.dataset.i].visible = x.checked; S.disVista = x.dataset.mv; cambio(); }));
+      const mover = (m, i, d) => { const a = D.menus[m]; [a[i], a[i + d]] = [a[i + d], a[i]]; S.disVista = m; formDiseno(D, cambio); cambio(); };
+      f.querySelectorAll("[data-sube]").forEach((x) => (x.onclick = () => mover(x.dataset.sube, Number(x.dataset.i), -1)));
+      f.querySelectorAll("[data-baja]").forEach((x) => (x.onclick = () => mover(x.dataset.baja, Number(x.dataset.i), 1)));
+    } else if (S.disSec === "aviso") {
+      const A = D.aviso;
+      f.innerHTML = `<label class="flab" style="display:flex;gap:10px;align-items:center"><span class="sw"><input type="checkbox" id="aact" ${A.activo ? "checked" : ""}><i></i></span> Mostrar un aviso arriba del inicio</label>
+        <label class="flab">Texto del aviso</label><textarea class="finp" rows="3" id="atx" maxlength="160" placeholder="Ej. El 24 de diciembre no hay servicio de instalación.">${esc(A.texto)}</textarea>
+        <label class="flab">Color</label><div class="fin-acc">${[["info", "Informativo"], ["ok", "Buena noticia"], ["alerta", "Importante"]].map(([k, t]) => `<button class="btn ${A.tono === k ? "pri" : "sec"}" data-at="${k}">${t}</button>`).join("")}</div>
+        <label class="flab">¿Quién lo ve?</label><div class="fin-acc">${[["cliente", "Clientes"], ["tecnico", "Técnicos"], ["agente", "Caja"]].map(([k, t]) => `<label class="chipsel"><input type="checkbox" data-ap="${k}" ${A.para.includes(k) ? "checked" : ""}> ${t}</label>`).join("")}</div>`;
+      $("#aact").onchange = (e) => { A.activo = e.target.checked; cambio(); };
+      $("#atx").oninput = (e) => { A.texto = e.target.value; if (A.texto && !A.activo) { A.activo = true; $("#aact").checked = true; } cambio(); };
+      f.querySelectorAll("[data-at]").forEach((x) => (x.onclick = () => { A.tono = x.dataset.at; formDiseno(D, cambio); cambio(); }));
+      f.querySelectorAll("[data-ap]").forEach((x) => (x.onchange = () => { A.para = [...f.querySelectorAll("[data-ap]:checked")].map((y) => y.dataset.ap); cambio(); }));
+      if (!["cliente", "tecnico", "caja"].includes(S.disVista)) S.disVista = "cliente";
+    } else {
+      f.innerHTML = `<div class="dis-hist">${S.dis.historial.length ? S.dis.historial.map((h) => `<div class="dh-f"><div><b>#${h.id} · ${esc(h.nota || "Cambios de diseño")}</b><small>${esc(h.por)} · ${fmt("", h.en)}</small></div>
+          ${h.estado === "publicada" ? '<span class="est ok">En la app</span>' : `<button class="btn sec" data-res="${h.id}">Volver a esta versión</button>`}</div>`).join("") : `<div class="fin-vacio">Todavía no has publicado cambios: la app usa el diseño de fábrica.</div>`}</div>
+        <div class="total" style="margin-top:10px">«Volver a esta versión» la copia al borrador para que la revises y la publiques.</div>`;
+      f.querySelectorAll("[data-res]").forEach((x) => (x.onclick = async () => { S.dis = await api(`/admin/interfaz/restaurar/${x.dataset.res}`, { body: {} }); S.disSec = "marca"; pintar(true); }));
+    }
+    f.querySelectorAll("[data-r]").forEach((x) => (x.oninput = () => { const k = x.dataset.r.split("."); let o = D; while (k.length > 1) o = o[k.shift()]; o[k[0]] = x.value; if (x.dataset.r.startsWith("portada")) S.disVista = "portada"; cambio(); }));
+  }
+  function vistaPrevia(D) {
+    const c = D.marca.colores, v = S.disVista, el = $("#dprev"); if (!el) return;
+    document.querySelectorAll("[data-dv]").forEach((x) => x.classList.toggle("on", x.dataset.dv === v));
+    el.style.setProperty("--m", c.marino); el.style.setProperty("--l", c.lima); el.style.setProperty("--n", c.naranja); el.style.setProperty("--f", c.fondo);
+    const logo = (px) => `<svg width="${px}" height="${px}" viewBox="0 0 100 100"><use href="#logo"/></svg>`;
+    const aviso = (rol) => D.aviso.activo && D.aviso.texto && D.aviso.para.includes(rol) ? `<div class="tp-aviso ${D.aviso.tono}">${esc(D.aviso.texto)}</div>` : "";
+    const cab = (t, s) => `<div class="tp-cab"><span>☰</span><div><b>${esc(t)}</b><small>${esc(s)}</small></div><span>🔔</span></div>`;
+    const tarjetas = `<div class="tp-card"><b>Tu servicio</b><small>Traslado e instalación · Aire 12.000 BTU</small><div class="tp-barra"><i></i></div></div><div class="tp-card"><b>Mis equipos</b><small>Nevera · Lavadora</small></div>`;
+    const vis = (m) => D.menus[m].filter((x) => x.visible);
+    if (v === "portada") {
+      el.innerHTML = `<div class="tp tp-portada">${logo(78)}<div class="tp-nom">${esc(D.marca.nombre)}</div><div class="tp-tit">${esc(D.portada.titulo)}</div><div class="tp-sub">${esc(D.portada.subtitulo)}</div>
+        ${D.portada.pasos.map((p, i) => `<div class="tp-paso"><span>${["🏬", "🚚", "🛠", "♻"][i]}</span><div><b>${esc(p.titulo)}</b><small>${esc(p.detalle)}</small></div></div>`).join("")}
+        <div class="tp-btn n">${esc(D.portada.boton_crear)}</div><div class="tp-btn m">${esc(D.portada.boton_entrar)}</div></div>`;
+    } else if (v === "cliente") {
+      const it = vis("cliente"), mitad = Math.ceil(it.length / 2), b = (x, i) => `<div class="tp-tab ${i === 0 ? "on" : ""}"><span>${ICO_MENU[x.id]}</span>${esc(x.texto)}</div>`;
+      el.innerHTML = `<div class="tp">${cab(D.marca.nombre, "Rastreo de pedido e instalación")}${aviso("cliente")}${tarjetas}
+        <div class="tp-flot">${it.slice(0, mitad).map(b).join("")}<div class="tp-hueco"></div>${it.slice(mitad).map((x) => b(x, 9)).join("")}<div class="tp-centro">🚗</div></div></div>`;
+    } else if (v === "cliente_lateral") {
+      el.innerHTML = `<div class="tp tp-lat"><div class="tp-lat-c">${logo(40)}<b>${esc(D.marca.nombre)}</b></div>${vis("cliente_lateral").map((x) => `<div class="tp-lat-i"><span>${ICO_MENU[x.id]}</span>${esc(x.texto)}</div>`).join("")}<div class="tp-lat-i rojo"><span>↩</span>Cerrar sesión</div></div>`;
+    } else if (v === "tecnico") {
+      el.innerHTML = `<div class="tp">${cab(D.marca.nombre + " Técnico", "Damasco San Martín")}${aviso("tecnico")}<div class="tp-card"><b>Guardia de hoy · Grupo A</b><small>2 órdenes asignadas</small></div><div class="tp-card"><b>WO-4921 · En ruta</b><small>Av. Urdaneta · Instalación</small></div>
+        <div class="tp-bar">${vis("tecnico").map((x, i) => `<div class="tp-tab ${i === 0 ? "on" : ""}"><span>${ICO_MENU[x.id]}</span>${esc(x.texto)}</div>`).join("")}</div></div>`;
+    } else {
+      el.innerHTML = `<div class="tp">${cab(D.marca.nombre + " · Caja", "Damasco San Martín")}${aviso("agente")}<div class="tp-btn l">＋ Nueva orden de servicio</div><div class="tp-card"><b>Precios · Bs o $</b><small>Tasa BCV del día y tabla de precios</small></div><div class="tp-card"><b>Órdenes de la tienda</b><small>Hoy: 3</small></div></div>`;
+    }
+  }
+
   async function usuarios(main) {
     const [cat, us, ts, cc] = await Promise.all([api("/ceo/permisos"), api("/ceo/usuarios"), api("/admin/tiendas"), api("/ceo/correos")]);
     S.dominio = cc.dominio;
@@ -679,6 +793,7 @@
       else if (S.ruta === "usuarios") await usuarios(main);
       else if (S.ruta === "correos") await correos(main);
       else if (S.ruta === "finanzas") await finanzas(main);
+      else if (S.ruta === "diseno") await diseno(main);
       else if (S.ruta === "inicio") await inicio(main);
       else if (S.ruta === "anuncios") await anuncios(main);
       else if (S.ruta === "auditoria") await auditoria(main);

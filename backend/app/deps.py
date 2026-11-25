@@ -45,6 +45,7 @@ PERMISOS = [
     ("altas_tecnicos", "Editar", "Expedientes y altas de técnicos"),
     ("activar_cuentas", "Editar", "Activar o desactivar cuentas"),
     ("finanzas", "Editar", "Finanzas: pagos, gastos, reclamos, bancos y tipos de pago"),
+    ("diseno", "Editar", "Diseño de la app: colores, textos, menús y avisos"),
 ]
 CLAVES_PERMISO = [p[0] for p in PERMISOS]
 TEXTO_PERMISO = {p[0]: p[2] for p in PERMISOS}

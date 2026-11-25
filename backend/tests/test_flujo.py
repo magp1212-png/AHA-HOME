@@ -1257,3 +1257,35 @@ def test_finanzas_contables(client):
     assert client.get("/finanzas/resumen", headers=sup).status_code == 200
     assert client.post("/finanzas/reclamos", json={"cliente": "X Y", "motivo": "abc"}, headers=sup).status_code == 403
     assert client.get("/finanzas/resumen", headers=login(client, "agente@ahahome.test")).status_code == 403
+
+
+def test_diseno_de_la_app_desde_el_panel(client):
+    sa = login(client, "superadmin@ahahome.test")
+    sup = login(client, "supervisor@ahahome.test")
+    base = client.get("/interfaz").json()
+    assert base["marca"]["nombre"] == "AHA HOME" and [x["id"] for x in base["menus"]["cliente"]] == ["inicio", "pedidos", "mensajes", "cuenta"]
+    assert client.get("/admin/interfaz", headers=sup).status_code == 403
+    v = client.get("/admin/interfaz", headers=sa).json()
+    d = v["borrador"]
+    d["marca"]["colores"]["lima"] = "#ff9900"; d["marca"]["colores"]["marino"] = "rojo"  # inválido: se ignora
+    d["portada"]["titulo"] = "Tu compra, instalada hoy"
+    d["menus"]["cliente"] = [{"id": "mensajes", "texto": "Chat", "visible": True}, {"id": "inicio", "texto": "Casa", "visible": False},
+                             {"id": "pedidos", "texto": "Pedidos", "visible": False}, {"id": "nada", "texto": "x"}]
+    d["aviso"] = {"activo": True, "texto": "Mañana no hay servicio por feriado", "tono": "alerta", "para": ["cliente"]}
+    r = client.put("/admin/interfaz/borrador", json={"datos": d}, headers=sa).json()
+    assert r["hay_cambios"] and client.get("/interfaz").json()["portada"]["titulo"] == "Hacemos todo por ti"  # aún no publicado
+    b = r["borrador"]
+    assert b["marca"]["colores"]["lima"] == "#FF9900" and b["marca"]["colores"]["marino"] == "#21244D"
+    assert [x["id"] for x in b["menus"]["cliente"]] == ["mensajes", "inicio", "pedidos", "cuenta"]
+    assert next(x for x in b["menus"]["cliente"] if x["id"] == "inicio")["visible"] is True  # Inicio no se puede ocultar
+    client.post("/admin/interfaz/publicar", json={"nota": "Feriado y color nuevo"}, headers=sa)
+    pub = client.get("/interfaz").json()
+    assert pub["portada"]["titulo"] == "Tu compra, instalada hoy" and pub["aviso"]["activo"] and pub["version"] > 0
+    hist = client.get("/admin/interfaz", headers=sa).json()["historial"]
+    assert hist[0]["nota"] == "Feriado y color nuevo"
+    # volver a la versión de fábrica: descartar no toca lo publicado; restaurar copia al borrador
+    client.put("/admin/interfaz/borrador", json={"datos": {}}, headers=sa)
+    client.post("/admin/interfaz/publicar", json={"nota": "Volver al diseño original"}, headers=sa)
+    assert client.get("/interfaz").json()["portada"]["titulo"] == "Hacemos todo por ti"
+    r = client.post(f"/admin/interfaz/restaurar/{hist[0]['id']}", headers=sa).json()
+    assert r["borrador"]["portada"]["titulo"] == "Tu compra, instalada hoy" and r["hay_cambios"]

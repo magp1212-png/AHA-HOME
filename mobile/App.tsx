@@ -40,6 +40,7 @@ import Incidencia from "./src/screens/tecnico/Incidencia";
 import InicioTecnico from "./src/screens/tecnico/InicioTecnico";
 import MapaTecnico from "./src/screens/tecnico/MapaTecnico";
 import OrdenesTecnico from "./src/screens/tecnico/OrdenesTecnico";
+import { cargarInterfaz } from "./src/interfaz";
 import CambioClave from "./src/screens/CambioClave";
 import { SessionProvider, useSession } from "./src/session";
 import type { Rol } from "./src/types";
@@ -108,6 +109,10 @@ function Router() {
 }
 
 export default function App() {
+  // El diseño (colores, textos y menús) lo controla el panel: se descarga antes de mostrar la app
+  const [diseno, setDiseno] = React.useState(false);
+  React.useEffect(() => { cargarInterfaz().finally(() => setDiseno(true)); }, []);
+  if (!diseno) return <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.marino }}><ActivityIndicator color={C.lima} size="large" /></View>;
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
