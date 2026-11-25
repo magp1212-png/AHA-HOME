@@ -1314,3 +1314,12 @@ def test_departamento_de_ventas(client):
     assert client.get("/ventas/resumen", headers=agente).status_code == 403
     assert client.get("/ventas/resumen", headers=login(client, "supervisor@ahahome.test")).status_code == 200
     assert client.get("/finanzas/resumen", headers=ven).status_code == 403
+
+
+def test_ventas_clasifica_eventos():
+    from app.ventas_avisos import tipo_de
+    assert tipo_de("solicitud_enviada", "Registrada en Damasco: 1 artículo(s)") == "nuevo"
+    assert tipo_de("solicitud_enviada", "Reprogramada para 2026-11-30 10:00-12:00") == "reprogramado"
+    assert tipo_de("cancelado", "") == "cancelado"
+    assert tipo_de("entrega_fallida", "") == "fallido"
+    assert tipo_de("completado", "") == "completado"
