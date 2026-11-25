@@ -20,7 +20,7 @@ def tipo_de(estado: str, nota: str) -> str | None:
         return "cancelado"
     if estado == ESTADO_FALLIDA:
         return "fallido"
-    if estado == "servicio_completado":
+    if estado == "completado":
         return "completado"
     return None
 
