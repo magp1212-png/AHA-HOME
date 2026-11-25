@@ -72,9 +72,32 @@ for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.
     app.include_router(r)
 
 
+def _llave_compartida() -> None:
+    """Con PostgreSQL compartido, todos los servidores firman las sesiones con la misma llave (guardada en la base
+    de datos): si una persona entra por un servidor y la atiende el otro, sigue conectada."""
+    from . import config
+    if config.DATABASE_URL.startswith("sqlite") or os.environ.get("AHAHOME_JWT_SECRET"):
+        return
+    import secrets as _s
+    from sqlalchemy.exc import IntegrityError
+    from .db import SessionLocal
+    from .models import Ajuste
+    with SessionLocal() as db:
+        a = db.get(Ajuste, "jwt_secreto")
+        if not a:
+            try:
+                db.add(Ajuste(clave="jwt_secreto", valor=_s.token_urlsafe(48)))
+                db.commit()
+            except IntegrityError:  # el otro servidor la creó al mismo tiempo
+                db.rollback()
+            a = db.get(Ajuste, "jwt_secreto")
+        config.JWT_SECRET = a.valor
+
+
 @app.on_event("startup")
 def crear_tablas() -> None:
     Base.metadata.create_all(engine)
+    _llave_compartida()
     from .db import agregar_columnas_nuevas
     nuevas = agregar_columnas_nuevas(engine)
     if nuevas:

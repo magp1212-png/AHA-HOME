@@ -1,7 +1,7 @@
 """Tablas de AHA HOME."""
 import datetime as dt
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Table, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -655,4 +655,12 @@ class InterfazVersion(Base):
     datos: Mapped[dict] = mapped_column(JSON, default=dict)
     nota: Mapped[str] = mapped_column(String(120), default="")
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+
+
+class ArchivoFoto(Base):
+    """Fotos guardadas en la base de datos (cuando varios servidores comparten PostgreSQL)."""
+    __tablename__ = "archivos_fotos"
+    nombre: Mapped[str] = mapped_column(String(80), primary_key=True)
+    datos: Mapped[bytes] = mapped_column(LargeBinary)
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())

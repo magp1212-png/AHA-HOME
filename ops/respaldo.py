@@ -22,6 +22,23 @@ def log(msg: str) -> None:
 
 
 def main() -> int:
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import conjunto
+    if conjunto.url():  # servidores trabajando juntos: la base está en PostgreSQL
+        try:
+            target = conjunto.respaldar(DEST)
+        except Exception as e:
+            log(f"ERROR respaldo de PostgreSQL: {e}")
+            return 2
+        log(f"OK {target.name} ({target.stat().st_size // 1024} KB, PostgreSQL compartido)")
+        try:
+            from subir_respaldo import upload
+            log(upload(target, f"ahahome/diario/{target.name}"))
+        except Exception as e:
+            log(f"ERROR subiendo a R2: {e}")
+        for f in sorted(DEST.glob("ahahome-*.dump"))[:-KEEP_DAYS]:
+            f.unlink(missing_ok=True)
+        return 0
     if not DB.exists():
         log(f"ERROR no existe {DB}")
         return 1
