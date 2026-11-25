@@ -4,10 +4,10 @@ import binascii
 import secrets
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from .. import config
+from .. import almacen, config
 from ..deps import current_user
 from ..models import User
 
@@ -23,9 +23,8 @@ async def subir(archivo: UploadFile = File(...), user: User = Depends(current_us
     data = await archivo.read(config.MAX_IMAGE_BYTES + 1)
     if len(data) > config.MAX_IMAGE_BYTES:
         raise HTTPException(413, "La foto pesa demasiado (máximo 6 MB)")
-    config.UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     nombre = secrets.token_urlsafe(18) + ext  # nombre imposible de adivinar
-    (config.UPLOADS_DIR / nombre).write_bytes(data)
+    almacen.guardar(nombre, data)
     return {"url": f"/archivos/{nombre}"}
 
 
@@ -45,9 +44,8 @@ def subir_base64(body: FotoBase64, user: User = Depends(current_user)):
         raise HTTPException(422, "La foto llegó dañada; intenta de nuevo")
     if len(data) > config.MAX_IMAGE_BYTES:
         raise HTTPException(413, "La foto pesa demasiado (máximo 6 MB)")
-    config.UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     nombre = secrets.token_urlsafe(18) + ext
-    (config.UPLOADS_DIR / nombre).write_bytes(data)
+    almacen.guardar(nombre, data)
     return {"url": f"/archivos/{nombre}"}
 
 
@@ -55,7 +53,7 @@ def subir_base64(body: FotoBase64, user: User = Depends(current_user)):
 def ver(nombre: str):
     if "/" in nombre or "\\" in nombre or nombre.startswith("."):
         raise HTTPException(404)
-    ruta = config.UPLOADS_DIR / nombre
-    if not ruta.is_file():
+    datos = almacen.leer(nombre)
+    if datos is None:
         raise HTTPException(404)
-    return FileResponse(ruta)
+    return Response(datos, media_type=almacen.tipo(nombre), headers={"Cache-Control": "private, max-age=86400"})
