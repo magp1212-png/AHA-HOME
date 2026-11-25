@@ -31,30 +31,38 @@ function Reiniciar-API {
 
 if ($Rol -eq "principal") {
   Write-Host "== AHA HOME - servidor PRINCIPAL (guarda la base de datos compartida) ==" -ForegroundColor Cyan
-  # 1. PostgreSQL 16
-  $pgBin = Get-ChildItem "C:\Program Files\PostgreSQL\*\bin\psql.exe" -ErrorAction SilentlyContinue | Select-Object -Last 1
-  if (-not $pgBin) {
-    Write-Host "Instalando PostgreSQL 16 (unos minutos)..."
+  # 1. PostgreSQL 16: el SERVIDOR de base de datos (no basta con tener las herramientas psql)
+  $svc = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $svc) {
+    Write-Host "Instalando el servidor PostgreSQL 16 (unos minutos)..."
     $sp = Plano (Read-Host "  Crea la clave del administrador de PostgreSQL (anotala, no se muestra)" -AsSecureString)
     if ($sp.Length -lt 8) { Write-Host "La clave debe tener al menos 8 caracteres." -ForegroundColor Red; exit 1 }
     $inst = Join-Path $env:TEMP "postgresql16.exe"
     Invoke-WebRequest https://get.enterprisedb.com/postgresql/postgresql-16.4-1-windows-x64.exe -OutFile $inst -UseBasicParsing
     Start-Process $inst -ArgumentList "--mode unattended --unattendedmodeui none --superpassword `"$sp`" --serverport 5432 --servicename postgresql-16 --enable-components server,commandlinetools" -Wait
-    $pgBin = Get-ChildItem "C:\Program Files\PostgreSQL\*\bin\psql.exe" -ErrorAction SilentlyContinue | Select-Object -Last 1
-    if (-not $pgBin) { Write-Host "No se pudo instalar PostgreSQL." -ForegroundColor Red; exit 1 }
-    Write-Host "[OK] PostgreSQL instalado"
+    $svc = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $svc) { Write-Host "No se pudo instalar el servidor PostgreSQL." -ForegroundColor Red; exit 1 }
+    Write-Host "[OK] Servidor PostgreSQL instalado"
   } else {
+    Write-Host "PostgreSQL ya esta instalado (servicio $($svc.Name))."
     $sp = Plano (Read-Host "  Clave del administrador de PostgreSQL (la que creaste al instalarlo)" -AsSecureString)
   }
+  if ($svc.Status -ne "Running") { Start-Service $svc.Name; Start-Sleep -Seconds 5 }
+  Set-Service $svc.Name -StartupType Automatic
+  $pgBin = Get-ChildItem "C:\Program Files\PostgreSQL\*\bin\psql.exe" -ErrorAction SilentlyContinue | Sort-Object FullName | Select-Object -Last 1
   $psql = $pgBin.FullName; $data = Join-Path (Split-Path (Split-Path $psql)) "data"
   $env:PGPASSWORD = $sp
+  & $psql -U postgres -h 127.0.0.1 -tAc "SELECT 1" | Out-Null
+  if ($LASTEXITCODE -ne 0) { Write-Host "No pude entrar a PostgreSQL: revisa la clave del administrador y vuelve a correr este paso." -ForegroundColor Red; exit 1 }
   # 2. Base de datos y usuario de AHA HOME
   $claveApp = Clave
   $existe = & $psql -U postgres -h 127.0.0.1 -tAc "SELECT 1 FROM pg_roles WHERE rolname='ahahome'"
   if ($existe -eq "1") { & $psql -U postgres -h 127.0.0.1 -c "ALTER ROLE ahahome WITH LOGIN PASSWORD '$claveApp'" | Out-Null }
   else { & $psql -U postgres -h 127.0.0.1 -c "CREATE ROLE ahahome WITH LOGIN PASSWORD '$claveApp'" | Out-Null }
+  if ($LASTEXITCODE -ne 0) { Write-Host "No se pudo crear el usuario ahahome en PostgreSQL." -ForegroundColor Red; exit 1 }
   $hayBd = & $psql -U postgres -h 127.0.0.1 -tAc "SELECT 1 FROM pg_database WHERE datname='ahahome'"
   if ($hayBd -ne "1") { & $psql -U postgres -h 127.0.0.1 -c "CREATE DATABASE ahahome OWNER ahahome" | Out-Null }
+  if ($LASTEXITCODE -ne 0) { Write-Host "No se pudo crear la base de datos ahahome." -ForegroundColor Red; exit 1 }
   Remove-Item Env:\PGPASSWORD
   Write-Host "[OK] Base de datos ahahome lista"
   # 3. Aceptar conexiones solo desde la red local (y abrir el puerto 5432 solo para la red local)
@@ -67,14 +75,19 @@ if ($Rol -eq "principal") {
   if (-not (Get-NetFirewallRule -DisplayName "AHA HOME PostgreSQL" -ErrorAction SilentlyContinue)) {
     New-NetFirewallRule -DisplayName "AHA HOME PostgreSQL" -Direction Inbound -Protocol TCP -LocalPort 5432 -RemoteAddress LocalSubnet -Action Allow | Out-Null
   }
-  Restart-Service postgresql-16
+  Restart-Service $svc.Name
   Write-Host "[OK] La red local ($red) puede usar la base de datos"
   # 4. Pasar los datos de este servidor (SQLite) a PostgreSQL
   $url = "postgresql+psycopg://ahahome:$claveApp@127.0.0.1:5432/ahahome"
   Stop-ScheduledTask -TaskName "aha home API" -ErrorAction SilentlyContinue
   Push-Location $Backend
   if (Test-Path "ahahome.db") { & $Py migrar_a_postgres.py ahahome.db $url } else { Write-Host "Sin datos anteriores: base nueva." }
+  $okMig = $LASTEXITCODE
   Pop-Location
+  if ($okMig -ne 0 -and (Test-Path (Join-Path $Backend "ahahome.db"))) {
+    Start-ScheduledTask -TaskName "aha home API"
+    Write-Host "No se pudieron pasar los datos a PostgreSQL (mira el mensaje de arriba). AHA HOME sigue con su base anterior." -ForegroundColor Red; exit 1
+  }
   # 5. Este servidor usa PostgreSQL desde ahora
   Set-Content -Encoding ascii $Conf "@echo off`r`nREM Generado por conjunto-windows.ps1 (no va a GitHub)`r`nset `"AHAHOME_DATABASE_URL=$url`"`r`n"
   Reiniciar-API; Start-Sleep -Seconds 12
