@@ -80,6 +80,10 @@ def restart_api() -> None:
 
 
 def backup_db() -> pathlib.Path:
+    sys.path.insert(0, str(ROOT / "ops"))
+    import conjunto
+    if conjunto.url():  # servidores trabajando juntos: respaldo de PostgreSQL
+        return conjunto.respaldar(BACKEND / "respaldos", "-antes-de-publicar")
     dest = BACKEND / "respaldos" / f"ahahome-{dt.datetime.now():%Y%m%d-%H%M}-antes-de-publicar.db"
     dest.parent.mkdir(exist_ok=True)
     s, d = sqlite3.connect(BACKEND / "ahahome.db"), sqlite3.connect(dest)

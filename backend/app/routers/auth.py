@@ -114,9 +114,9 @@ def registro(body: Registro, db: Session = Depends(get_db)):
         raise HTTPException(422, "La foto llegó dañada; tómala de nuevo")
     if len(datos) > config.MAX_IMAGE_BYTES:
         raise HTTPException(413, "La foto pesa demasiado")
-    config.UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     nombre_foto = secrets.token_urlsafe(18) + ".jpg"
-    (config.UPLOADS_DIR / nombre_foto).write_bytes(datos)
+    from .. import almacen
+    almacen.guardar(nombre_foto, datos)
     u = User(nombre=body.nombre.strip(), cedula=cedula, telefono=tel, email=email, password_hash=hash_password(body.password),
              rol="cliente", foto=f"/archivos/{nombre_foto}", email_verificado=False, verificacion_token=secrets.token_urlsafe(32),
              verificacion_vence=ahora() + dt.timedelta(hours=config.VERIFICACION_HORAS))

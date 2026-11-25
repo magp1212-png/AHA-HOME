@@ -15,6 +15,8 @@ JWT_DAYS = int(os.environ.get("AHAHOME_JWT_DAYS", "30"))
 
 # Fotos: facturas, cédula en pecho, rostro del técnico y evidencias de cierre.
 UPLOADS_DIR = pathlib.Path(os.environ.get("AHAHOME_UPLOADS_DIR", BASE_DIR / "uploads"))
+# Varios servidores con la misma base de datos (PostgreSQL): las fotos van dentro de la base de datos
+FOTOS_EN_BD = os.environ.get("AHAHOME_FOTOS_EN_BD", "1" if not DATABASE_URL.startswith("sqlite") else "0") == "1"
 MAX_IMAGE_BYTES = 6 * 1024 * 1024
 
 # Notificaciones push con el servicio gratuito de Expo; las pruebas lo apagan.

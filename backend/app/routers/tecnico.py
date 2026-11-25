@@ -147,10 +147,10 @@ class VerificarRostro(BaseModel):
 
 
 def _archivo(url: str):
-    from .. import config
+    from .. import almacen
     nombre = url.rsplit("/", 1)[-1]
-    ruta = config.UPLOADS_DIR / nombre
-    if not url.startswith("/archivos/") or "/" in nombre or not ruta.exists():
+    ruta = almacen.a_archivo_temporal(nombre) if url.startswith("/archivos/") else None
+    if ruta is None:
         raise HTTPException(422, "Foto no encontrada: vuelve a tomarla")
     return ruta
 

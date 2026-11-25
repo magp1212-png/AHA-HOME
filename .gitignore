@@ -29,3 +29,4 @@ backend/.solo-equipo
 backend/.solo-equipo-decidido
 backend/.ceo-listo
 ops/cloudflared/token.txt
+ops/conjunto.cmd
