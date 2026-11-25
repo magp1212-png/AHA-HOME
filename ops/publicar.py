@@ -38,7 +38,21 @@ def log(msg: str) -> None:
         f.write(line + "\n")
 
 
+def _programa(nombre: str) -> str:
+    """Ruta completa del programa (git, npm…) aunque Windows no lo tenga en su PATH."""
+    if os.name != "nt" or nombre in ("npm", "npx"):
+        return nombre
+    hallado = shutil.which(nombre, path=ENV["PATH"])
+    if hallado:
+        return hallado
+    for c in (rf"C:\Program Files\Git\cmd\{nombre}.exe", rf"C:\Program Files (x86)\Git\cmd\{nombre}.exe"):
+        if os.path.exists(c):
+            return c
+    return nombre
+
+
 def run(cmd: list[str], cwd: pathlib.Path, timeout: int = 900) -> subprocess.CompletedProcess:
+    cmd = [_programa(cmd[0]), *cmd[1:]]
     return subprocess.run(cmd, cwd=cwd, env=ENV, capture_output=True, text=True, encoding="utf-8", errors="replace",
                           timeout=timeout, shell=(os.name == "nt" and cmd[0] in ("npm", "npx")))
 
@@ -154,4 +168,6 @@ if __name__ == "__main__":
     try:
         main(force="--forzar" in sys.argv)
     except Exception as e:  # never leave the task crashing every 5 minutes without a trace
-        log(f"error: {e}")
+        import traceback
+        donde = traceback.extract_tb(e.__traceback__)[-1]
+        log(f"error: {e} (en {pathlib.Path(donde.filename).name}:{donde.lineno})")
