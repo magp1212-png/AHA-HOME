@@ -1218,3 +1218,42 @@ def test_panel_sin_cache_y_con_version(client):
     assert r.status_code == 200 and "no-cache" in r.headers["cache-control"]
     assert "/panel/panel.js?v=" in r.text and "/panel/ios.css?v=" in r.text
     assert client.get("/panel/panel.js").status_code == 200
+
+
+def test_finanzas_contables(client):
+    sa = login(client, "superadmin@ahahome.test")
+    sup = login(client, "supervisor@ahahome.test")
+    cat = client.get("/finanzas/catalogo", headers=sa).json()
+    nombres = [m["nombre"] for m in cat["medios"]]
+    assert "Zelle" in nombres and "Efectivo en dólares (cash)" in nombres and "Transferencia bancaria internacional" in nombres
+    # agregar otro tipo de pago
+    bp = client.post("/finanzas/medios", json={"nombre": "Binance Pay", "categoria": "otro", "moneda": "USD"}, headers=sa).json()
+    assert bp["nombre"] == "Binance Pay" and not bp["del_sistema"]
+    assert client.post("/finanzas/medios", json={"nombre": "Binance Pay"}, headers=sa).status_code == 409
+    # cuentas: banco nacional, internacional y zelle
+    bn = client.post("/finanzas/cuentas", json={"nombre": "Banesco operativa", "categoria": "banco_nacional", "banco": "Banesco", "moneda": "Bs",
+                                               "identificador": "01340000000012345678", "saldo_inicial": 5000}, headers=sa).json()
+    assert bn["identificador"] == "•••• 5678" and bn["saldo"] == "5000.00"
+    zl = client.post("/finanzas/cuentas", json={"nombre": "Zelle Onyxa", "categoria": "zelle", "moneda": "USD", "identificador": "pagos@aha-go.com"}, headers=sa).json()
+    # gasto en Bs a la tasa del día y gasto en USD
+    zid = next(m["id"] for m in cat["medios"] if m["nombre"] == "Zelle")
+    g = client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "pago_tecnicos", "fecha": str(dt.date.today()), "monto": 40, "moneda": "USD",
+                                                   "medio_id": zid, "cuenta_id": zl["id"], "descripcion": "Pago semanal"}, headers=sa).json()
+    assert g["monto_usd"] == "40.00" and g["medio"] == "Zelle"
+    b = client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "comisiones", "fecha": str(dt.date.today()), "monto": 500, "moneda": "Bs",
+                                                   "tasa": 250, "cuenta_id": bn["id"]}, headers=sa).json()
+    assert b["monto_usd"] == "2.00"
+    assert client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "nada", "fecha": str(dt.date.today()), "monto": 1}, headers=sa).status_code == 422
+    # reclamo → reembolso queda como gasto
+    r = client.post("/finanzas/reclamos", json={"cliente": "María González", "orden": "wo-1", "motivo": "Cobro doble en caja", "monto": 15}, headers=sa).json()
+    assert r["codigo"].startswith("RF-") and r["estado"] == "abierto"
+    res = client.get("/finanzas/resumen", headers=sa).json()
+    assert res["gastos_usd"] == "42.00" and res["reclamos_abiertos"] == 1
+    client.put(f"/finanzas/reclamos/{r['id']}", json={"estado": "reembolsado", "resolucion": "Se devolvió por Zelle", "medio_id": zid}, headers=sa)
+    res = client.get("/finanzas/resumen", headers=sa).json()
+    assert res["gastos_usd"] == "57.00" and res["reclamos_abiertos"] == 0 and "Reembolsos a clientes" in res["gastos_por_categoria"]
+    assert any(c["nombre"] == "Banesco operativa" and c["saldo"] == "4500.00" for c in res["cuentas"])
+    # el centro de control ve pero no registra; la caja no entra
+    assert client.get("/finanzas/resumen", headers=sup).status_code == 200
+    assert client.post("/finanzas/reclamos", json={"cliente": "X Y", "motivo": "abc"}, headers=sup).status_code == 403
+    assert client.get("/finanzas/resumen", headers=login(client, "agente@ahahome.test")).status_code == 403

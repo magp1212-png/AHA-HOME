@@ -33,7 +33,7 @@ PERMISOS = [
     ("ver_empresas", "Ver", "Empresas aliadas"),
     ("ver_tecnicos", "Ver", "Técnicos y verificaciones"),
     ("ver_ordenes", "Ver", "Órdenes"),
-    ("ver_finanzas", "Ver", "Transacciones y liquidaciones"),
+    ("ver_finanzas", "Ver", "Finanzas, transacciones y liquidaciones"),
     ("ver_soporte", "Ver", "Mensajería, reportes y reseñas"),
     ("ver_personal", "Ver", "Personal interno"),
     ("tasa", "Editar", "Cargar la tasa BCV"),
@@ -44,6 +44,7 @@ PERMISOS = [
     ("pagar_materiales", "Editar", "Pagar materiales a los técnicos"),
     ("altas_tecnicos", "Editar", "Expedientes y altas de técnicos"),
     ("activar_cuentas", "Editar", "Activar o desactivar cuentas"),
+    ("finanzas", "Editar", "Finanzas: pagos, gastos, reclamos, bancos y tipos de pago"),
 ]
 CLAVES_PERMISO = [p[0] for p in PERMISOS]
 TEXTO_PERMISO = {p[0]: p[2] for p in PERMISOS}

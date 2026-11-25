@@ -30,6 +30,8 @@
     { g: "Órdenes", i: "🛒", hijos: [["ordenes", "Lista"], ["transacciones", "Transacciones"], ["liquidaciones", "Liquidaciones"]] },
     { g: "Centro de soporte", i: "◎", hijos: [["mensajeria", "Mensajería"], ["reportes", "Reportes", "rep"], ["resenas", "Reseñas"]] },
     { k: "anuncios", t: "Banners y aliados", i: "▤" },
+    { sec: "FINANZAS" },
+    { k: "finanzas", t: "Finanzas y contabilidad", i: "💼" },
     { sec: "NEGOCIO" },
     { k: "tasa", t: "Tasa BCV", i: "💱" },
     { k: "precios", t: "Tabulación de precios", i: "🏷" },
@@ -41,12 +43,12 @@
     equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Órdenes", "Lista"], transacciones: ["Órdenes", "Transacciones"],
     mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Órdenes", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
     resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"], usuarios: ["Centro de mando", "Usuarios y permisos"], correos: ["Centro de mando", "Correos corporativos"],
-    tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
+    finanzas: ["Finanzas", "Finanzas y contabilidad"], tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
 
   // Permiso que necesita cada pantalla (el CEO lo asigna a cada usuario)
   const PERM_RUTA = { inicio: "ver_tablero", clientes: "ver_clientes", empresas: "ver_empresas", tecnicos: "ver_tecnicos", verificaciones: "ver_tecnicos",
     ordenes: "ver_ordenes", transacciones: "ver_finanzas", liquidaciones: "ver_finanzas", mensajeria: "ver_soporte", reportes: "ver_soporte", resenas: "ver_soporte",
-    anuncios: "banners", tasa: "ver_tablero", precios: "ver_tablero", qrs: "qr_tiendas", administradores: "ver_personal", control: "ver_personal", caja: "ver_personal" };
+    anuncios: "banners", finanzas: "ver_finanzas", tasa: "ver_tablero", precios: "ver_tablero", qrs: "qr_tiendas", administradores: "ver_personal", control: "ver_personal", caja: "ver_personal" };
   const puede = (k) => S.yo?.es_ceo || !PERM_RUTA[k] || (S.yo?.permisos || []).includes(PERM_RUTA[k]);
   const puedeHacer = (p) => S.yo?.es_ceo || (S.yo?.permisos || []).includes(p);
 
@@ -319,6 +321,201 @@
   }
 
   // ---------- Centro de mando: usuarios del personal, claves y limitaciones ----------
+  // ---------- Finanzas y contabilidad ----------
+  const FIN_TABS = [["resumen", "Resumen"], ["pagos", "Pagos recibidos"], ["gastos", "Gastos"], ["reclamos", "Reclamos"], ["cuentas", "Bancos y cuentas"], ["medios", "Tipos de pago"]];
+  const GRAD = { "Zelle": "g-zelle", "Efectivo (cash)": "g-cash", "Banco nacional": "g-nac", "Banco internacional": "g-int", "Otro": "g-otro" };
+  const ICONO_MEDIO = { zelle: "Z", efectivo: "$", banco_nacional: "🏦", banco_internacional: "🌎", otro: "＋" };
+  const m2 = (x) => Number(x || 0).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function lineas(a, b, alto = 150) {
+    const n = Math.max(a.length, 2), max = Math.max(1, ...a, ...b), w = 600;
+    const ruta = (serie) => serie.map((v, i) => `${i ? "L" : "M"}${((i * w) / (n - 1)).toFixed(1)} ${(alto - 10 - (v / max) * (alto - 30)).toFixed(1)}`).join(" ");
+    return `<svg class="fin-lineas" viewBox="0 0 ${w} ${alto}" preserveAspectRatio="none">
+      <defs><linearGradient id="gi" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+      <path d="${ruta(a)} L${w} ${alto} L0 ${alto} Z" fill="url(#gi)"/><path d="${ruta(a)}" fill="none" stroke="#fff" stroke-width="2.6" vector-effect="non-scaling-stroke"/>
+      <path d="${ruta(b)}" fill="none" stroke="#FFC9A8" stroke-width="2" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+  function anillo(pc, color = "#fff") {
+    const r = 26, c = 2 * Math.PI * r, v = Math.max(0, Math.min(100, pc || 0));
+    return `<svg width="70" height="70" viewBox="0 0 70 70"><circle cx="35" cy="35" r="${r}" stroke="rgba(255,255,255,.22)" stroke-width="7" fill="none"/>
+      <circle cx="35" cy="35" r="${r}" stroke="${color}" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="${(c * v) / 100} ${c}" transform="rotate(-90 35 35)"/>
+      <text x="35" y="40" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">${Math.round(v)}%</text></svg>`;
+  }
+  function barritas(vals) {
+    const max = Math.max(1, ...vals);
+    return `<div class="barritas">${vals.map((v) => `<i style="height:${Math.max(6, (v / max) * 100)}%"></i>`).join("")}</div>`;
+  }
+  async function finanzas(main) {
+    S.finTab = S.finTab || "resumen"; S.finDias = S.finDias || 30;
+    const cat = await api("/finanzas/catalogo");
+    const edita = cat.puede_editar;
+    main.innerHTML += `<div class="fin-barra"><div class="tabs">${FIN_TABS.map(([k, t]) => `<button class="${S.finTab === k ? "on" : ""}" data-ft="${k}">${t}</button>`).join("")}</div>
+      <div class="fin-acc">${edita ? `<button class="btn sec" data-nuevo="ingreso">＋ Ingreso</button><button class="btn sec" data-nuevo="reclamo">＋ Reclamo</button><button class="btn pri" data-nuevo="gasto">＋ Registrar gasto</button>` : ""}</div></div><div id="fin"></div>`;
+    main.querySelectorAll("[data-ft]").forEach((b) => (b.onclick = () => { S.finTab = b.dataset.ft; pintar(true); }));
+    main.querySelectorAll("[data-nuevo]").forEach((b) => (b.onclick = () => (b.dataset.nuevo === "reclamo" ? fichaReclamo(cat, null) : fichaMovimiento(cat, b.dataset.nuevo))));
+    const fin = $("#fin");
+    if (S.finTab === "resumen") return finResumen(fin, cat);
+    if (S.finTab === "pagos") return finPagos(fin);
+    if (S.finTab === "gastos") return finGastos(fin, cat);
+    if (S.finTab === "reclamos") return finReclamos(fin, cat);
+    if (S.finTab === "cuentas") return finCuentas(fin, cat);
+    return finMedios(fin, cat);
+  }
+  async function finResumen(fin, cat) {
+    const r = await api(`/finanzas/resumen?dias=${S.finDias}`), recl = await api("/finanzas/reclamos");
+    const abiertos = recl.filter((x) => ["abierto", "en_revision"].includes(x.estado)).slice(0, 3);
+    const ing = Number(r.ingresos_usd), gas = Number(r.gastos_usd), res = Number(r.resultado_usd);
+    const totMedio = Object.values(r.por_medio).reduce((a, b) => a + b, 0);
+    const tile = (ic, t, v, nota, serie) => `<div class="fin-kpi"><div class="fk-t"><span class="fk-ic">${ic}</span>${t}</div><div class="fk-v">${v}</div><div class="fk-n">${nota}</div>${serie ? spark(serie, 34) : ""}</div>`;
+    fin.innerHTML = `<div class="fin-kpis">
+        ${tile("↗", "Ingresos", "$" + m2(ing), `Últimos ${r.dias} días`, r.serie_ingresos)}
+        ${tile("↘", "Gastos", "$" + m2(gas), "Pagos, nómina y más", r.serie_gastos)}
+        ${tile("≈", "Resultado", (res < 0 ? "−$" : "$") + m2(Math.abs(res)), res < 0 ? "Pérdida del período" : "Ganancia del período")}
+        ${tile("%", "Margen", r.margen === null ? "—" : r.margen + "%", "Resultado sobre ingresos")}
+        ${tile("!", "Reclamos abiertos", r.reclamos_abiertos, "$" + m2(r.reclamos_monto_usd) + " en disputa")}
+        ${tile("Bs", "Tasa BCV", r.tasa ? m2(r.tasa) : "—", r.tasa ? "Bs por USD" : "Sin cargar")}</div>
+      <div class="fin-medio">
+        <div class="fin-lado"><div class="fin-lado-t">⚑ Reclamos por atender <a href="#" data-ir="reclamos">Ver todos</a></div>
+          ${abiertos.length ? abiertos.map((x, i) => `<div class="mini-grad mg${i}" data-rec="${x.id}"><span class="chip-est">${esc(x.estado_texto)}</span><b>$${m2(x.monto_usd)}</b>
+            <div class="mg-t">${esc(x.cliente)}</div><div class="mg-s">${esc(x.motivo)}${x.orden ? " · " + esc(x.orden) : ""}</div><span class="mg-ir">›</span></div>`).join("")
+            : `<div class="fin-vacio">Sin reclamos abiertos. 🎉</div>`}
+          <div class="fin-lado-t" style="margin-top:12px">⇄ Bancos y cuentas</div>
+          ${r.cuentas.length ? r.cuentas.slice(0, 3).map((c) => `<div class="cta-mini"><span class="fk-ic">${ICONO_MEDIO[c.categoria] || "🏦"}</span><div><b>${esc(c.nombre)}</b><small>${esc(c.categoria_texto)} · ${esc(c.identificador || "")}</small></div><span>${c.moneda === "Bs" ? "Bs" : "$"} ${m2(c.saldo)}</span></div>`).join("")
+            : `<div class="fin-vacio">Agrega tus bancos en «Bancos y cuentas».</div>`}
+        </div>
+        <div class="fin-hero"><div class="fh-top"><span class="chip-est">💼 Estado del negocio</span>
+            <select class="sel" id="fdias">${[7, 30, 90, 365].map((d) => `<option value="${d}" ${d === S.finDias ? "selected" : ""}>${d === 365 ? "1 año" : d + " días"}</option>`).join("")}</select></div>
+          <div class="fh-tit">${res < 0 ? "Pérdida" : "Ganancia"} del período</div><div class="fh-num">${res < 0 ? "−" : ""}$${m2(Math.abs(res))}</div>
+          <div class="fh-sub">Entraron <b>$${m2(ing)}</b> y salieron <b>$${m2(gas)}</b> · <span class="ley"><i></i>Ingresos</span> <span class="ley l2"><i></i>Gastos</span></div>
+          ${lineas(r.serie_ingresos, r.serie_gastos)}
+          <div class="fh-acc"><button class="btn blanco" data-ir="pagos">▸ Ver pagos</button><button class="btn vidrio" id="fexp">⇩ Exportar</button></div></div>
+      </div>
+      <div class="fin-sec-t">Ingresos por tipo de pago <small>${totMedio ? "$" + m2(totMedio) + " en el período" : "Aún no hay cobros en el período"}</small></div>
+      <div class="fin-grads">${["Zelle", "Efectivo (cash)", "Banco nacional", "Banco internacional", "Otro"].map((k) => { const v = r.por_medio[k] || 0, pc = totMedio ? (v * 100) / totMedio : 0;
+        return `<div class="grad ${GRAD[k]}"><div class="gr-top"><span class="chip-est">${pc ? "↗ " + Math.round(pc) + "%" : "—"}</span><span class="gr-ic">${{ "Zelle": "Z", "Efectivo (cash)": "$", "Banco nacional": "🏦", "Banco internacional": "🌎", "Otro": "＋" }[k]}</span></div>
+          <div class="gr-c">${anillo(pc)}</div><div class="gr-t">${k}</div><div class="gr-v">$${m2(v)}</div></div>`; }).join("")}</div>
+      <div class="fin-dos">
+        <div class="card"><div class="tit"><span>Gastos por categoría</span><span class="total">$${m2(gas)}</span></div>${Object.keys(r.gastos_por_categoria).length ? `<div class="barras-h">${Object.entries(r.gastos_por_categoria).map(([k, v]) => `<div><span>${esc(k)}</span><i style="width:${(v * 100) / Math.max(...Object.values(r.gastos_por_categoria))}%"></i><b>$${m2(v)}</b></div>`).join("")}</div>` : `<div class="fin-vacio">Sin gastos en el período.</div>`}</div>
+        <div class="card"><div class="tit"><span>Ingresos por concepto</span><span class="total">$${m2(ing)}</span></div>${dona(Object.fromEntries(Object.entries(r.ingresos_por_categoria).map(([k, v]) => [k, Math.round(v)])))}
+          <div class="total" style="margin-top:10px">Por moneda: ${Object.entries(r.por_moneda).map(([k, v]) => `${k} $${m2(v)}`).join(" · ") || "—"}</div></div>
+      </div>`;
+    $("#fdias").onchange = (e) => { S.finDias = Number(e.target.value); pintar(true); };
+    fin.querySelectorAll("[data-ir]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); S.finTab = a.dataset.ir; pintar(true); }));
+    fin.querySelectorAll("[data-rec]").forEach((d) => (d.onclick = () => fichaReclamo(cat, recl.find((x) => x.id === Number(d.dataset.rec)))));
+    $("#fexp").onclick = async () => {
+      const filas = await api("/finanzas/pagos"), gastos = await api("/finanzas/movimientos?tipo=gasto");
+      const csv = [["Tipo", "Fecha", "Concepto", "Detalle", "Tipo de pago", "Moneda", "Monto USD", "Referencia", "Orden", "Estado"]]
+        .concat(filas.map((f) => ["Ingreso", f.fecha, f.categoria_texto, f.descripcion, f.medio, f.moneda, f.monto_usd, f.referencia, f.orden, f.estado]))
+        .concat(gastos.map((g) => ["Gasto", g.fecha, g.categoria_texto, g.descripcion, g.medio || "", g.moneda, g.monto_usd, g.referencia, g.orden, g.estado]))
+        .map((l) => l.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" })); a.download = `aha-home-finanzas-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    };
+  }
+  function tablaFin(cols, filas, acc) {
+    return `<div class="tabla"><table><thead><tr>${cols.map(([, t]) => `<th>${t}</th>`).join("")}${acc ? "<th></th>" : ""}</tr></thead><tbody>
+      ${filas.length ? filas.map((f, i) => `<tr>${cols.map(([k]) => `<td>${f[k] ?? "—"}</td>`).join("")}${acc ? `<td>${acc(f, i)}</td>` : ""}</tr>`).join("") : `<tr><td colspan="${cols.length + 1}" class="total" style="text-align:center;padding:26px">Todavía no hay registros.</td></tr>`}</tbody></table></div>`;
+  }
+  const estFin = (e) => `<span class="est ${{ cobrado: "ok", confirmado: "ok", conciliado: "ok", reembolsado: "ok", registrado: "neutro", abierto: "pend", en_revision: "pend", "por confirmar": "pend", anulado: "mal", rechazado: "mal" }[e] || "neutro"}">${esc(String(e).replace("_", " "))}</span>`;
+  async function finPagos(fin) {
+    const filas = (await api("/finanzas/pagos")).map((f) => ({ ...f, fecha: esc(f.fecha), concepto: `<b>${esc(f.categoria_texto)}</b><br><small class="total">${esc(f.descripcion || "")}</small>`,
+      medio: esc(f.medio || "—"), monto: `<b>$${m2(f.monto_usd)}</b>${f.monto_bs ? `<br><small class="total">Bs ${m2(f.monto_bs)}</small>` : ""}`, ref: esc(f.referencia || "—"), orden: esc(f.orden || "—"),
+      origen: `<span class="est neutro">${f.origen === "manual" ? "Registro manual" : f.origen === "caja" ? "Caja" : f.origen === "presupuesto" ? "Presupuesto" : "Penalidad"}</span>`, est: estFin(f.estado) }));
+    fin.innerHTML = `<p class="total">Todo lo que entró: los cobros de la caja, los presupuestos y las penalidades llegan solos; los demás ingresos se registran con «＋ Ingreso».</p>` +
+      tablaFin([["fecha", "Fecha"], ["concepto", "Concepto"], ["medio", "Tipo de pago"], ["monto", "Monto"], ["ref", "Referencia"], ["orden", "Orden"], ["origen", "Origen"], ["est", "Estado"]], filas);
+  }
+  async function finGastos(fin, cat) {
+    const gs = await api("/finanzas/movimientos?tipo=gasto");
+    const filas = gs.map((g) => ({ fecha: esc(g.fecha), cat: `<b>${esc(g.categoria_texto)}</b><br><small class="total">${esc(g.descripcion || "")}</small>`, medio: esc(g.medio || "—"), cuenta: esc(g.cuenta || "—"),
+      monto: `<b>$${m2(g.monto_usd)}</b>${g.moneda === "Bs" ? `<br><small class="total">Bs ${m2(g.monto)} · tasa ${m2(g.tasa)}</small>` : ""}`, ref: esc(g.referencia || "—"), est: estFin(g.estado), _id: g.id, _e: g.estado }));
+    fin.innerHTML = `<p class="total">Pagos a técnicos, materiales, nómina, servidor, publicidad, comisiones, impuestos y reembolsos. Los montos en bolívares se pasan a dólares con la tasa del día.</p>` +
+      tablaFin([["fecha", "Fecha"], ["cat", "Categoría"], ["medio", "Tipo de pago"], ["cuenta", "Cuenta"], ["monto", "Monto"], ["ref", "Referencia"], ["est", "Estado"]], filas,
+        cat.puede_editar ? (f) => f._e === "anulado" ? "" : `<div class="acc">${f._e !== "conciliado" ? `<button title="Conciliar" data-mov="${f._id}" data-e="conciliado">✓</button>` : ""}<button title="Anular" data-mov="${f._id}" data-e="anulado">✕</button></div>` : null);
+    fin.querySelectorAll("[data-mov]").forEach((b) => (b.onclick = () => api(`/finanzas/movimientos/${b.dataset.mov}`, { method: "PUT", body: { estado: b.dataset.e } }).then(() => pintar(true))));
+  }
+  async function finReclamos(fin, cat) {
+    const rs = await api("/finanzas/reclamos");
+    fin.innerHTML = `<p class="total">Reclamos de dinero de clientes o tiendas. Al marcar uno como «Reembolsado», el reembolso queda registrado como gasto.</p>` +
+      tablaFin([["codigo", "Código"], ["cliente", "Cliente"], ["orden", "Orden"], ["motivo", "Motivo"], ["monto", "Monto"], ["est", "Estado"]],
+        rs.map((x) => ({ codigo: `<b>${x.codigo}</b>`, cliente: esc(x.cliente), orden: esc(x.orden || "—"), motivo: esc(x.motivo), monto: "$" + m2(x.monto_usd), est: estFin(x.estado), _x: x })),
+        cat.puede_editar ? (f) => `<div class="acc"><button title="Atender" data-rc="${f._x.id}">✎</button></div>` : null);
+    fin.querySelectorAll("[data-rc]").forEach((b) => (b.onclick = () => fichaReclamo(cat, rs.find((x) => x.id === Number(b.dataset.rc)))));
+  }
+  async function finCuentas(fin, cat) {
+    const cs = await api("/finanzas/cuentas");
+    fin.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><p class="total">Bancos nacionales e internacionales, Zelle y cajas de efectivo donde entra o sale el dinero.</p>
+      ${cat.puede_editar ? `<button class="btn pri" id="ncta">＋ Agregar banco o cuenta</button>` : ""}</div>
+      <div class="fin-grads">${cs.length ? cs.map((c, i) => `<div class="grad ${({ zelle: "g-zelle", efectivo: "g-cash", banco_nacional: "g-nac", banco_internacional: "g-int" })[c.categoria] || "g-otro"} ${c.activo ? "" : "apagada"}" data-cta="${i}">
+          <div class="gr-top"><span class="chip-est">${esc(c.categoria_texto)}</span><span class="gr-ic">${ICONO_MEDIO[c.categoria] || "🏦"}</span></div>
+          <div class="gr-t" style="margin-top:22px">${esc(c.nombre)}</div><div class="total" style="color:rgba(255,255,255,.8)">${esc(c.banco || "")} ${esc(c.identificador || "")}</div>
+          <div class="gr-v">${c.moneda === "Bs" ? "Bs" : "$"} ${m2(c.saldo ?? c.saldo_inicial)}</div><div class="total" style="color:rgba(255,255,255,.75)">${c.activo ? "Saldo según registros" : "Pausada"}</div></div>`).join("")
+        : `<div class="fin-vacio">Todavía no hay cuentas. Agrega tu primer banco.</div>`}</div>`;
+    const n = $("#ncta"); if (n) n.onclick = () => fichaCuenta(cat, null);
+    if (cat.puede_editar) fin.querySelectorAll("[data-cta]").forEach((d) => (d.onclick = () => fichaCuenta(cat, cs[d.dataset.cta])));
+  }
+  async function finMedios(fin, cat) {
+    fin.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><p class="total">Tipos de pago que acepta AHA HOME. Los de la caja vienen del sistema; puedes agregar otros (por ejemplo Binance, PayPal o cheque).</p>
+      ${cat.puede_editar ? `<button class="btn pri" id="nmed">＋ Agregar tipo de pago</button>` : ""}</div>` +
+      tablaFin([["nombre", "Tipo de pago"], ["cat", "Categoría"], ["moneda", "Moneda"], ["origen", "Origen"], ["est", "Estado"]],
+        cat.medios.map((m) => ({ nombre: `<span class="fk-ic">${ICONO_MEDIO[m.categoria] || "＋"}</span> <b>${esc(m.nombre)}</b>`, cat: esc(m.categoria_texto), moneda: m.moneda,
+          origen: m.del_sistema ? '<span class="est neutro">Caja</span>' : '<span class="est pend">Agregado</span>', est: m.activo ? '<span class="est ok">Activo</span>' : '<span class="est mal">Pausado</span>', _m: m })),
+        cat.puede_editar ? (f) => `<div class="acc"><button title="Editar" data-med="${f._m.id}">✎</button></div>` : null);
+    const n = $("#nmed"); if (n) n.onclick = () => fichaMedio(cat, null);
+    fin.querySelectorAll("[data-med]").forEach((b) => (b.onclick = () => fichaMedio(cat, cat.medios.find((m) => m.id === Number(b.dataset.med)))));
+  }
+  function cajonFin(titulo, cuerpo, alGuardar) {
+    document.querySelector(".cajon")?.remove();
+    const c = document.createElement("div"); c.className = "cajon";
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="total">Finanzas</span><button class="btn sec" id="cer">✕</button></div>
+      <h2 style="margin-top:8px">${titulo}</h2>${cuerpo}<div style="margin-top:18px"><button class="btn pri" id="fg">Guardar</button></div><p class="error" id="ferr"></p>`;
+    document.body.appendChild(c); $("#cer").onclick = () => c.remove();
+    $("#fg").onclick = async () => { try { await alGuardar(); c.remove(); pintar(true); } catch (e) { $("#ferr").textContent = e.message; } };
+    return c;
+  }
+  const finCampo = (id, l, v = "", t = "text", extra = "") => `<label class="flab">${l}</label><input id="${id}" type="${t}" value="${esc(v)}" class="finp" ${extra}>`;
+  const finSel = (id, l, ops, v) => `<label class="flab">${l}</label><select id="${id}" class="finp">${ops.map(([k, t]) => `<option value="${k}" ${String(k) === String(v) ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
+  function fichaMovimiento(cat, tipo) {
+    const cats = Object.entries(tipo === "gasto" ? cat.gastos : cat.ingresos);
+    cajonFin(tipo === "gasto" ? "Registrar gasto" : "Registrar ingreso",
+      finSel("mc", "Categoría", cats, cats[0][0]) + finCampo("md", "Descripción", "", "text", 'placeholder="Ej. pago semanal grupo A"') + finCampo("mf", "Fecha", new Date().toISOString().slice(0, 10), "date") +
+      `<div class="fila2"><div>${finCampo("mm", "Monto", "", "number", 'step="0.01" min="0"')}</div><div>${finSel("mo", "Moneda", [["USD", "Dólares"], ["Bs", "Bolívares"]], "USD")}</div></div>
+       <div class="total" id="mconv"></div>` +
+      finSel("mp", "Tipo de pago", [["", "—"]].concat(cat.medios.filter((m) => m.activo).map((m) => [m.id, m.nombre])), "") +
+      finSel("mk", "Cuenta", [["", "—"]].concat(cat.cuentas.filter((c) => c.activo).map((c) => [c.id, c.nombre])), "") +
+      finCampo("mr", "Referencia", "") + finCampo("mn", "Orden (opcional)", "", "text", 'placeholder="WO-1234"'),
+      () => api("/finanzas/movimientos", { body: { tipo, categoria: $("#mc").value, descripcion: $("#md").value, fecha: $("#mf").value, monto: Number($("#mm").value), moneda: $("#mo").value,
+        medio_id: $("#mp").value ? Number($("#mp").value) : null, cuenta_id: $("#mk").value ? Number($("#mk").value) : null, referencia: $("#mr").value, orden: $("#mn").value } }));
+    const conv = () => { const v = Number($("#mm").value || 0); $("#mconv").textContent = $("#mo").value === "Bs" && cat.tasa ? `≈ $${m2(v / cat.tasa)} a la tasa BCV de Bs ${m2(cat.tasa)}` : ""; };
+    $("#mm").oninput = conv; $("#mo").onchange = conv;
+  }
+  function fichaReclamo(cat, x) {
+    if (!x) return cajonFin("Nuevo reclamo", finCampo("rcl", "Cliente o tienda") + finCampo("ror", "Orden (opcional)", "", "text", 'placeholder="WO-1234"') +
+      `<label class="flab">Motivo</label><textarea id="rmo" class="finp" rows="3" placeholder="Ej. cobro doble en caja"></textarea>` + finCampo("rmn", "Monto en disputa (USD)", "", "number", 'step="0.01" min="0"'),
+      () => api("/finanzas/reclamos", { body: { cliente: $("#rcl").value, orden: $("#ror").value, motivo: $("#rmo").value, monto: Number($("#rmn").value || 0) } }));
+    cajonFin(`Reclamo ${x.codigo}`, `<div class="card" style="min-height:0;margin-top:10px"><b>${esc(x.cliente)}</b>${x.orden ? " · " + esc(x.orden) : ""}<div class="total">${esc(x.motivo)}</div><div class="grande">$${m2(x.monto_usd)}</div></div>` +
+      finSel("res", "Estado", Object.entries(cat.estados_reclamo), x.estado) + `<label class="flab">Resolución</label><textarea id="rrs" class="finp" rows="3">${esc(x.resolucion || "")}</textarea>` +
+      finSel("rmp", "Se devolvió por", [["", "—"]].concat(cat.medios.filter((m) => m.activo).map((m) => [m.id, m.nombre])), "") +
+      finSel("rct", "Desde la cuenta", [["", "—"]].concat(cat.cuentas.filter((c) => c.activo).map((c) => [c.id, c.nombre])), "") +
+      `<div class="total" style="margin-top:8px">Si lo marcas «Reembolsado», el monto queda registrado como gasto (Reembolsos a clientes).</div>`,
+      () => api(`/finanzas/reclamos/${x.id}`, { method: "PUT", body: { estado: $("#res").value, resolucion: $("#rrs").value, medio_id: $("#rmp").value ? Number($("#rmp").value) : null, cuenta_id: $("#rct").value ? Number($("#rct").value) : null } }));
+  }
+  function fichaCuenta(cat, c) {
+    cajonFin(c ? esc(c.nombre) : "Agregar banco o cuenta",
+      finCampo("cn", "Nombre", c?.nombre, "text", 'placeholder="Ej. Banesco operativa"') + finSel("cc", "Tipo", Object.entries(cat.categorias_medio), c?.categoria || "banco_nacional") +
+      finCampo("cb", "Banco", c?.banco, "text", 'placeholder="Ej. Banesco, Mercantil, Bank of America"') + finSel("cm", "Moneda", [["Bs", "Bolívares"], ["USD", "Dólares"]], c?.moneda || "Bs") +
+      finCampo("ct", "Titular", c?.titular, "text", 'placeholder="Onyxa LLC"') + finCampo("ci", "Número de cuenta, teléfono o correo Zelle", c?.identificador) +
+      finCampo("cs", "Saldo inicial", c?.saldo_inicial ?? "0", "number", 'step="0.01"') + (c ? `<label class="flab"><input type="checkbox" id="ca" ${c.activo ? "checked" : ""}> Activa</label>` : ""),
+      () => api(c ? `/finanzas/cuentas/${c.id}` : "/finanzas/cuentas", { method: c ? "PUT" : "POST", body: { nombre: $("#cn").value, categoria: $("#cc").value, banco: $("#cb").value, moneda: $("#cm").value,
+        titular: $("#ct").value, identificador: $("#ci").value, saldo_inicial: Number($("#cs").value || 0), activo: c ? $("#ca").checked : true } }));
+  }
+  function fichaMedio(cat, m) {
+    cajonFin(m ? esc(m.nombre) : "Agregar tipo de pago",
+      finCampo("pn", "Nombre", m?.nombre, "text", 'placeholder="Ej. Binance Pay, PayPal, cheque"') +
+      (m?.del_sistema ? `<div class="total" style="margin-top:8px">Este tipo de pago lo usa la caja: solo puedes cambiarle el nombre o pausarlo.</div>` :
+        finSel("pc", "Categoría", Object.entries(cat.categorias_medio), m?.categoria || "otro") + finSel("pm", "Moneda", [["USD", "Dólares"], ["Bs", "Bolívares"]], m?.moneda || "USD")) +
+      (m ? `<label class="flab"><input type="checkbox" id="pa" ${m.activo ? "checked" : ""}> Activo</label>` : ""),
+      () => api(m ? `/finanzas/medios/${m.id}` : "/finanzas/medios", { method: m ? "PUT" : "POST", body: { nombre: $("#pn").value, categoria: $("#pc") ? $("#pc").value : m.categoria,
+        moneda: $("#pm") ? $("#pm").value : m.moneda, activo: m ? $("#pa").checked : true } }));
+  }
+
   async function usuarios(main) {
     const [cat, us, ts, cc] = await Promise.all([api("/ceo/permisos"), api("/ceo/usuarios"), api("/admin/tiendas"), api("/ceo/correos")]);
     S.dominio = cc.dominio;
@@ -481,6 +678,7 @@
       if (S.ruta === "sinpermisos") main.innerHTML += `<p class="total">Tu cuenta todavía no tiene permisos. Pídeselos al CEO.</p>`;
       else if (S.ruta === "usuarios") await usuarios(main);
       else if (S.ruta === "correos") await correos(main);
+      else if (S.ruta === "finanzas") await finanzas(main);
       else if (S.ruta === "inicio") await inicio(main);
       else if (S.ruta === "anuncios") await anuncios(main);
       else if (S.ruta === "auditoria") await auditoria(main);
