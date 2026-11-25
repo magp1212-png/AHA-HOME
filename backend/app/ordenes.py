@@ -21,6 +21,8 @@ def nuevo_codigo(db: Session) -> str:
 def registrar(db: Session, orden: Orden, estado: str, actor: User | None, nota: str = "") -> None:
     orden.estado = estado
     db.add(Evento(orden_id=orden.id, estado=estado, nota=nota, actor_id=actor.id if actor else None))
+    from .ventas_avisos import avisar
+    avisar(db, orden, estado, nota)  # campana del departamento de ventas
 
 
 def nombre_articulo(a: Articulo) -> str:

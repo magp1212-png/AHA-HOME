@@ -5,34 +5,41 @@ import React from "react";
 import { Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { segunPanel, useInterfaz } from "./interfaz";
 import { useNav } from "./nav";
 import { useSession } from "./session";
-import { C, MenuHamburguesa, MenuInferior, useAvisos } from "./ui";
+import { C, type Icono, MenuHamburguesa, MenuInferior, useAvisos } from "./ui";
+
+type ItemInferior = { id: string; icono: Icono; texto: string; activo?: boolean; onPress: () => void; aviso?: number };
 
 export function MenuCliente({ activo }: { activo: "inicio" | "pedidos" | "avisos" | "cuenta" }) {
   const nav = useNav();
   const avisos = useAvisos();
+  const ui = useInterfaz();
   return (
-    <MenuInferior items={[
-      { icono: activo === "inicio" ? "home" : "home-outline", texto: "Inicio", activo: activo === "inicio", onPress: () => nav.reset("cliente") },
-      { icono: "receipt-outline", texto: "Mis pedidos", activo: activo === "pedidos", onPress: () => activo !== "pedidos" && nav.push("misPedidos") },
-      { icono: "chatbubbles-outline", texto: "Mensajes", activo: activo === "avisos", onPress: () => activo !== "avisos" && nav.push("mensajes") },
-      { icono: "person-outline", texto: "Mi cuenta", activo: activo === "cuenta", onPress: () => activo !== "cuenta" && nav.push("miCuenta") },
-    ]} />
+    <MenuInferior items={segunPanel<ItemInferior>("cliente", [
+      { id: "inicio", icono: activo === "inicio" ? "home" : "home-outline", texto: "Inicio", activo: activo === "inicio", onPress: () => nav.reset("cliente") },
+      { id: "pedidos", icono: "receipt-outline", texto: "Mis pedidos", activo: activo === "pedidos", onPress: () => activo !== "pedidos" && nav.push("misPedidos") },
+      { id: "mensajes", icono: "chatbubbles-outline", texto: "Mensajes", activo: activo === "avisos", onPress: () => activo !== "avisos" && nav.push("mensajes") },
+      { id: "cuenta", icono: "person-outline", texto: "Mi cuenta", activo: activo === "cuenta", onPress: () => activo !== "cuenta" && nav.push("miCuenta") },
+    ], ui)} />
   );
 }
 
 export function HamburguesaCliente() {
   const nav = useNav();
   const { salir } = useSession();
+  const ui = useInterfaz();
   return (
     <MenuHamburguesa opciones={[
-      { icono: "home-outline", texto: "Inicio", onPress: () => nav.reset("cliente") },
-      { icono: "receipt-outline", texto: "Mis pedidos", onPress: () => nav.push("misPedidos") },
-      { icono: "chatbubbles-outline", texto: "Mensajes", onPress: () => nav.push("mensajes") },
-      { icono: "notifications-outline", texto: "Avisos", onPress: () => nav.push("notificaciones") },
-      { icono: "headset-outline", texto: "Soporte AHA HOME", onPress: () => nav.push("soporte") },
-      { icono: "person-outline", texto: "Mi cuenta", onPress: () => nav.push("miCuenta") },
+      ...segunPanel("cliente_lateral", [
+        { id: "inicio", icono: "home-outline" as const, texto: "Inicio", onPress: () => nav.reset("cliente") },
+        { id: "pedidos", icono: "receipt-outline" as const, texto: "Mis pedidos", onPress: () => nav.push("misPedidos") },
+        { id: "mensajes", icono: "chatbubbles-outline" as const, texto: "Mensajes", onPress: () => nav.push("mensajes") },
+        { id: "avisos", icono: "notifications-outline" as const, texto: "Avisos", onPress: () => nav.push("notificaciones") },
+        { id: "soporte", icono: "headset-outline" as const, texto: "Soporte AHA HOME", onPress: () => nav.push("soporte") },
+        { id: "cuenta", icono: "person-outline" as const, texto: "Mi cuenta", onPress: () => nav.push("miCuenta") },
+      ], ui),
       { icono: "log-out-outline", texto: "Cerrar sesión", onPress: salir, peligro: true },
     ]} />
   );
@@ -40,13 +47,14 @@ export function HamburguesaCliente() {
 
 export function MenuTecnico({ activo }: { activo: "inicio" | "ordenes" | "mapa" | "perfil" }) {
   const nav = useNav();
+  const ui = useInterfaz();
   return (
-    <MenuInferior items={[
-      { icono: activo === "inicio" ? "home" : "home-outline", texto: "Inicio", activo: activo === "inicio", onPress: () => nav.reset("tecnico") },
-      { icono: "document-text-outline", texto: "Órdenes", activo: activo === "ordenes", onPress: () => activo !== "ordenes" && nav.push("ordenesTecnico") },
-      { icono: "location-outline", texto: "Mapa", activo: activo === "mapa", onPress: () => activo !== "mapa" && nav.push("mapaTecnico") },
-      { icono: "person-outline", texto: "Perfil", activo: activo === "perfil", onPress: () => activo !== "perfil" && nav.push("perfilTecnico") },
-    ]} />
+    <MenuInferior items={segunPanel<ItemInferior>("tecnico", [
+      { id: "inicio", icono: activo === "inicio" ? "home" : "home-outline", texto: "Inicio", activo: activo === "inicio", onPress: () => nav.reset("tecnico") },
+      { id: "ordenes", icono: "document-text-outline", texto: "Órdenes", activo: activo === "ordenes", onPress: () => activo !== "ordenes" && nav.push("ordenesTecnico") },
+      { id: "mapa", icono: "location-outline", texto: "Mapa", activo: activo === "mapa", onPress: () => activo !== "mapa" && nav.push("mapaTecnico") },
+      { id: "perfil", icono: "person-outline", texto: "Perfil", activo: activo === "perfil", onPress: () => activo !== "perfil" && nav.push("perfilTecnico") },
+    ], ui)} />
   );
 }
 
@@ -75,12 +83,14 @@ export function MenuFlotanteCliente({ activo, onCentro }: { activo: "inicio" | "
   const nav = useNav();
   const insets = useSafeAreaInsets();
   const avisos = useAvisos();
-  const items: { k: typeof activo; icono: React.ComponentProps<typeof Ionicons>["name"]; texto: string; ir: () => void; n?: number }[] = [
-    { k: "inicio", icono: "home-outline", texto: "Inicio", ir: () => nav.reset("cliente") },
-    { k: "pedidos", icono: "receipt-outline", texto: "Pedidos", ir: () => nav.push("misPedidos") },
-    { k: "avisos", icono: "chatbubbles-outline", texto: "Mensajes", ir: () => nav.push("mensajes") },
-    { k: "cuenta", icono: "person-outline", texto: "Cuenta", ir: () => nav.push("miCuenta") },
-  ];
+  const ui = useInterfaz();
+  const items = segunPanel<{ id: string; k: typeof activo; icono: React.ComponentProps<typeof Ionicons>["name"]; texto: string; ir: () => void; n?: number }>("cliente", [
+    { id: "inicio", k: "inicio", icono: "home-outline", texto: "Inicio", ir: () => nav.reset("cliente") },
+    { id: "pedidos", k: "pedidos", icono: "receipt-outline", texto: "Pedidos", ir: () => nav.push("misPedidos") },
+    { id: "mensajes", k: "avisos", icono: "chatbubbles-outline", texto: "Mensajes", ir: () => nav.push("mensajes") },
+    { id: "cuenta", k: "cuenta", icono: "person-outline", texto: "Cuenta", ir: () => nav.push("miCuenta") },
+  ], ui);
+  const mitad = Math.ceil(items.length / 2);
   const Item = ({ it }: { it: (typeof items)[number] }) => {
     const on = it.k === activo;
     return (
@@ -97,7 +107,7 @@ export function MenuFlotanteCliente({ activo, onCentro }: { activo: "inicio" | "
   };
   const contenido = (
     <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 6, height: 70 }}>
-      <Item it={items[0]} /><Item it={items[1]} /><View style={{ flex: 1 }} /><Item it={items[2]} /><Item it={items[3]} />
+      {items.slice(0, mitad).map((it) => <Item key={it.id} it={it} />)}<View style={{ flex: 1 }} />{items.slice(mitad).map((it) => <Item key={it.id} it={it} />)}
     </View>
   );
   return (

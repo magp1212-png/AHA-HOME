@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 
 from .models import Auditoria, User, ahora
 
-EQUIPO = ("agente", "tecnico_supervisor", "supervisor", "superadmin")
-ROL_TEXTO = {"agente": "Caja", "tecnico_supervisor": "Técnico supervisor", "supervisor": "Centro de control", "superadmin": "Superadmin"}
+EQUIPO = ("agente", "tecnico_supervisor", "supervisor", "superadmin", "ventas")
+ROL_TEXTO = {"agente": "Caja", "tecnico_supervisor": "Técnico supervisor", "supervisor": "Centro de control", "superadmin": "Superadmin", "ventas": "Ventas"}
 
 # (método, patrón de ruta) → descripción en español
 ACCIONES = [

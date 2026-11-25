@@ -571,3 +571,88 @@ class Banner(Base):
     hasta: Mapped[str] = mapped_column(String(10), default="")
     clics: Mapped[int] = mapped_column(Integer, default=0)
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
+
+
+# ---------- Finanzas (contabilidad del superadmin) ----------
+CATEGORIAS_MEDIO = {"banco_nacional": "Banco nacional", "banco_internacional": "Banco internacional", "zelle": "Zelle",
+                    "efectivo": "Efectivo (cash)", "otro": "Otro"}
+CATEGORIAS_INGRESO = {"servicio": "Traslado e instalación", "inspeccion": "Inspección", "presupuesto": "Presupuestos",
+                      "penalidad": "Penalidades", "publicidad": "Publicidad de aliados", "otro_ingreso": "Otro ingreso"}
+CATEGORIAS_GASTO = {"pago_tecnicos": "Pago a técnicos", "materiales": "Materiales", "nomina": "Nómina del personal",
+                    "plataformas": "Servidor y plataformas", "marketing": "Publicidad y marketing", "transporte": "Transporte y combustible",
+                    "comisiones": "Comisiones bancarias", "impuestos": "Impuestos", "reembolsos": "Reembolsos a clientes", "otro_gasto": "Otro gasto"}
+ESTADOS_RECLAMO = {"abierto": "Abierto", "en_revision": "En revisión", "reembolsado": "Reembolsado", "rechazado": "Rechazado"}
+
+
+class MedioPago(Base):
+    """Tipos de pago que acepta y usa AHA HOME (Zelle, cash, bancos…). El superadmin puede agregar otros."""
+    __tablename__ = "medios_pago"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    categoria: Mapped[str] = mapped_column(String(24), default="otro")
+    moneda: Mapped[str] = mapped_column(String(3), default="USD")
+    clave_caja: Mapped[str | None] = mapped_column(String(24), nullable=True)  # método de la caja al que corresponde (pago_movil, zelle…)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class CuentaFinanciera(Base):
+    """Bancos y cuentas donde entra o sale el dinero: banco nacional, internacional, Zelle o caja de efectivo."""
+    __tablename__ = "cuentas_financieras"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    categoria: Mapped[str] = mapped_column(String(24), default="banco_nacional")
+    banco: Mapped[str] = mapped_column(String(80), default="")
+    moneda: Mapped[str] = mapped_column(String(3), default="Bs")
+    titular: Mapped[str] = mapped_column(String(120), default="")
+    identificador: Mapped[str] = mapped_column(String(80), default="")  # número de cuenta, teléfono o correo Zelle
+    saldo_inicial_centavos: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+
+
+class MovimientoFinanciero(Base):
+    """Asiento manual: un ingreso o un gasto, en Bs o USD (siempre con su equivalente en USD a la tasa del día)."""
+    __tablename__ = "movimientos_financieros"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fecha: Mapped[str] = mapped_column(String(10))
+    tipo: Mapped[str] = mapped_column(String(8))  # ingreso | gasto
+    categoria: Mapped[str] = mapped_column(String(24))
+    descripcion: Mapped[str] = mapped_column(String(200), default="")
+    monto_centavos: Mapped[int] = mapped_column(Integer)
+    moneda: Mapped[str] = mapped_column(String(3), default="USD")
+    tasa: Mapped[float | None] = mapped_column(Float, nullable=True)
+    monto_usd_centavos: Mapped[int] = mapped_column(Integer)
+    medio_id: Mapped[int | None] = mapped_column(ForeignKey("medios_pago.id"), nullable=True)
+    cuenta_id: Mapped[int | None] = mapped_column(ForeignKey("cuentas_financieras.id"), nullable=True)
+    referencia: Mapped[str] = mapped_column(String(80), default="")
+    orden_codigo: Mapped[str] = mapped_column(String(20), default="")
+    estado: Mapped[str] = mapped_column(String(12), default="registrado")  # registrado | conciliado | anulado
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+
+
+class ReclamoFinanciero(Base):
+    """Reclamo de dinero de un cliente o de una tienda (cobro doble, servicio no prestado…) y su resolución."""
+    __tablename__ = "reclamos_financieros"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cliente: Mapped[str] = mapped_column(String(120))
+    orden_codigo: Mapped[str] = mapped_column(String(20), default="")
+    motivo: Mapped[str] = mapped_column(String(300))
+    monto_centavos: Mapped[int] = mapped_column(Integer, default=0)  # USD
+    estado: Mapped[str] = mapped_column(String(12), default="abierto")
+    resolucion: Mapped[str] = mapped_column(String(300), default="")
+    medio_id: Mapped[int | None] = mapped_column(ForeignKey("medios_pago.id"), nullable=True)
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+    resuelto_en: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class InterfazVersion(Base):
+    """Diseño de la app (colores, textos y menús) que controla el panel: un borrador, la publicada y el historial."""
+    __tablename__ = "interfaz_versiones"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    estado: Mapped[str] = mapped_column(String(12), default="borrador")  # borrador | publicada | archivada
+    datos: Mapped[dict] = mapped_column(JSON, default=dict)
+    nota: Mapped[str] = mapped_column(String(120), default="")
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())

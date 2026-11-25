@@ -11,6 +11,7 @@ import { useNav } from "../../nav";
 import { useSession } from "../../session";
 import type { Orden, Persona } from "../../types";
 import { Aviso, Boton, C, Campana, Cargando, Etiqueta, MenuHamburguesa, Pantalla, Tarjeta, Texto, Titulo } from "../../ui";
+import { AvisoPanel } from "../../AvisoPanel";
 
 export type Hoy = {
   fecha: string; rol: "tecnico" | "ayudante"; grupo: string | null; grupo_de_guardia_hoy: string; de_guardia: boolean; verificado: boolean;
@@ -78,6 +79,7 @@ export default function InicioTecnico() {
   return (
     <Pantalla titulo="AHA HOME Técnico" subtitulo={hoy?.tienda} volver={false} onRefresh={cargar}
       izquierda={<HamburguesaTecnico />} derecha={<Campana />} abajo={<MenuTecnico activo="inicio" />}>
+      <AvisoPanel />
       {!hoy ? (error ? <Aviso texto={error} /> : <Cargando />) : (
         <>
           <View>

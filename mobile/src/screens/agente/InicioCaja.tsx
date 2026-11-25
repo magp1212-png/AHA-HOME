@@ -8,6 +8,7 @@ import { useSession } from "../../session";
 import type { Orden } from "../../types";
 import { PreciosCaja, VisitasPendientes } from "../../components";
 import { BotonCuenta, Campana, Aviso, Boton, C, Cargando, Etiqueta, Pantalla, Texto, tonoEstado } from "../../ui";
+import { AvisoPanel } from "../../AvisoPanel";
 
 export default function InicioCaja() {
   const nav = useNav();
@@ -23,6 +24,7 @@ export default function InicioCaja() {
   return (
     <Pantalla titulo="AHA HOME · Caja" subtitulo={perfil?.nombre} volver={false} onRefresh={cargar}
       derecha={<><Campana /><BotonCuenta /></>}>
+      <AvisoPanel />
       <VisitasPendientes onCambio={cargar} />
       <Boton titulo="Nueva orden de servicio" icono="add-circle" tipo="lima" onPress={() => nav.push("nuevaOrden")} />
       <PreciosCaja />
