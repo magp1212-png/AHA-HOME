@@ -36,6 +36,7 @@ PERMISOS = [
     ("ver_finanzas", "Ver", "Finanzas, transacciones y liquidaciones"),
     ("ver_soporte", "Ver", "Mensajería, reportes y reseñas"),
     ("ver_personal", "Ver", "Personal interno"),
+    ("ver_ventas", "Ver", "Ventas: servicios nuevos, cancelados y reprogramados"),
     ("tasa", "Editar", "Cargar la tasa BCV"),
     ("precios", "Editar", "Tabulación de precios e inspección"),
     ("qr_tiendas", "Editar", "Generar el QR de las tiendas"),
@@ -55,6 +56,7 @@ PERMISOS_POR_ROL = {
     "supervisor": _VER + ["altas_tecnicos"],
     "tecnico_supervisor": ["ver_tecnicos", "ver_ordenes", "altas_tecnicos"],
     "agente": [],
+    "ventas": ["ver_ventas"],
 }
 
 

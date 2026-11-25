@@ -1289,3 +1289,28 @@ def test_diseno_de_la_app_desde_el_panel(client):
     assert client.get("/interfaz").json()["portada"]["titulo"] == "Hacemos todo por ti"
     r = client.post(f"/admin/interfaz/restaurar/{hist[0]['id']}", headers=sa).json()
     assert r["borrador"]["portada"]["titulo"] == "Tu compra, instalada hoy" and r["hay_cambios"]
+
+
+def test_departamento_de_ventas(client):
+    ceo = login(client, "ceo@ahahome.test")
+    v = client.post("/ceo/usuarios", json={"nombre": "Laura Ventas", "email": "ventas@aha-go.com", "rol": "ventas"}, headers=ceo).json()
+    assert v["permisos"] == ["ver_ventas"]
+    ven = {"Authorization": "Bearer " + client.post("/auth/login", json={"usuario": "ventas@aha-go.com", "password": v["clave"]}).json()["token"]}
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente)
+    notis = client.get("/notificaciones", headers=ven).json()
+    assert notis and notis[0]["titulo"].startswith("Nuevo servicio · ") and o["codigo"] in notis[0]["titulo"]
+    client.post(f"/ordenes/{o['id']}/cancelar", json={"motivo": "El cliente se arrepintió"}, headers=agente)
+    notis = client.get("/notificaciones", headers=ven).json()
+    assert notis[0]["titulo"].startswith("Servicio cancelado") and "arrepintió" in notis[0]["texto"]
+    o2 = nueva(client, agente)
+    d = (dt.date.today() + dt.timedelta(days=3)).isoformat()
+    client.post(f"/ordenes/{o2['id']}/reprogramar", json={"fecha": d, "franja": "13:00-15:00"}, headers=agente)
+    assert client.get("/notificaciones", headers=ven).json()[0]["titulo"].startswith("Servicio reprogramado")
+    r = client.get("/ventas/resumen", headers=ven).json()
+    assert r["nuevos"] >= 2 and r["cancelados"] >= 1 and r["reprogramados"] >= 1
+    assert all(m["tipo"] == "cancelado" for m in client.get("/ventas/movimientos?tipo=cancelado", headers=ven).json())
+    # la caja no ve ventas; el centro de control sí; ventas no ve finanzas
+    assert client.get("/ventas/resumen", headers=agente).status_code == 403
+    assert client.get("/ventas/resumen", headers=login(client, "supervisor@ahahome.test")).status_code == 200
+    assert client.get("/finanzas/resumen", headers=ven).status_code == 403

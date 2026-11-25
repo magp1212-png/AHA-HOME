@@ -30,6 +30,8 @@
     { g: "Órdenes", i: "🛒", hijos: [["ordenes", "Lista"], ["transacciones", "Transacciones"], ["liquidaciones", "Liquidaciones"]] },
     { g: "Centro de soporte", i: "◎", hijos: [["mensajeria", "Mensajería"], ["reportes", "Reportes", "rep"], ["resenas", "Reseñas"]] },
     { k: "anuncios", t: "Banners y aliados", i: "▤" },
+    { sec: "VENTAS" },
+    { k: "ventas", t: "Departamento de ventas", i: "📈" },
     { sec: "DISEÑO" },
     { k: "diseno", t: "Diseño de la app", i: "🎨" },
     { sec: "FINANZAS" },
@@ -45,12 +47,12 @@
     equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Órdenes", "Lista"], transacciones: ["Órdenes", "Transacciones"],
     mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Órdenes", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
     resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"], usuarios: ["Centro de mando", "Usuarios y permisos"], correos: ["Centro de mando", "Correos corporativos"],
-    finanzas: ["Finanzas", "Finanzas y contabilidad"], diseno: ["Diseño", "Diseño de la app"], tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
+    finanzas: ["Finanzas", "Finanzas y contabilidad"], diseno: ["Diseño", "Diseño de la app"], ventas: ["Ventas", "Departamento de ventas"], tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
 
   // Permiso que necesita cada pantalla (el CEO lo asigna a cada usuario)
   const PERM_RUTA = { inicio: "ver_tablero", clientes: "ver_clientes", empresas: "ver_empresas", tecnicos: "ver_tecnicos", verificaciones: "ver_tecnicos",
     ordenes: "ver_ordenes", transacciones: "ver_finanzas", liquidaciones: "ver_finanzas", mensajeria: "ver_soporte", reportes: "ver_soporte", resenas: "ver_soporte",
-    anuncios: "banners", finanzas: "ver_finanzas", diseno: "diseno", tasa: "ver_tablero", precios: "ver_tablero", qrs: "qr_tiendas", administradores: "ver_personal", control: "ver_personal", caja: "ver_personal" };
+    anuncios: "banners", finanzas: "ver_finanzas", diseno: "diseno", ventas: "ver_ventas", tasa: "ver_tablero", precios: "ver_tablero", qrs: "qr_tiendas", administradores: "ver_personal", control: "ver_personal", caja: "ver_personal" };
   const puede = (k) => S.yo?.es_ceo || !PERM_RUTA[k] || (S.yo?.permisos || []).includes(PERM_RUTA[k]);
   const puedeHacer = (p) => S.yo?.es_ceo || (S.yo?.permisos || []).includes(p);
 
@@ -630,6 +632,88 @@
     }
   }
 
+  // ---------- Campana: avisos al momento (cada servicio nuevo de la caja, cancelaciones, reprogramaciones…) ----------
+  const ICO_VENTA = { "Nuevo servicio": "🛒", "Servicio cancelado": "✕", "Servicio reprogramado": "↻", "Entrega fallida": "⚠", "Servicio completado": "✓" };
+  const CLASE_VENTA = { nuevo: "v-nuevo", cancelado: "v-cancel", reprogramado: "v-reprog", fallido: "v-fallido", completado: "v-comp" };
+  const icoNoti = (t) => ICO_VENTA[Object.keys(ICO_VENTA).find((k) => t.startsWith(k))] || "🔔";
+  const claseNoti = (t) => t.startsWith("Nuevo") ? "v-nuevo" : t.startsWith("Servicio cancelado") ? "v-cancel" : t.startsWith("Servicio reprogramado") ? "v-reprog" : t.startsWith("Entrega fallida") ? "v-fallido" : t.startsWith("Servicio completado") ? "v-comp" : "";
+  async function revisarCampana(inicio) {
+    if (!S.token || !$("#camn")) return;
+    try {
+      const ns = await api("/notificaciones"); S.notis = ns;
+      const sin = ns.filter((n) => !n.leida), b = $("#camn");
+      b.hidden = !sin.length; b.textContent = sin.length > 9 ? "9+" : sin.length;
+      const vistos = S.notiVistas || new Set(ns.map((n) => n.id));
+      const llegaron = inicio ? [] : sin.filter((n) => !vistos.has(n.id));
+      llegaron.slice(0, 3).reverse().forEach(brindis);
+      if (llegaron.length && S.ruta === "ventas" && !document.querySelector(".cajon")) pintar(true);  // Ventas se actualiza sola
+      S.notiVistas = new Set(ns.map((n) => n.id));
+      if (!$("#camm").hidden) pintarCampana();
+    } catch { /* sin conexión */ }
+    clearTimeout(S.camT); S.camT = setTimeout(() => revisarCampana(false), 15000);
+  }
+  function brindis(n) {
+    let pila = document.querySelector(".brindis-pila"); if (!pila) { pila = document.createElement("div"); pila.className = "brindis-pila"; document.body.appendChild(pila); }
+    const d = document.createElement("div"); d.className = "brindis " + claseNoti(n.titulo);
+    d.innerHTML = `<span class="bz-ic">${icoNoti(n.titulo)}</span><div><b>${esc(n.titulo)}</b><small>${esc(n.texto)}</small></div>`;
+    d.onclick = () => { d.remove(); if (puede("ventas")) location.hash = "ventas"; };
+    pila.appendChild(d); setTimeout(() => d.classList.add("fuera"), 9000); setTimeout(() => d.remove(), 9500);
+  }
+  function pintarCampana() {
+    const m = $("#camm"), ns = S.notis || [];
+    m.innerHTML = `<div class="cm-cab"><b>Notificaciones</b>${ns.some((n) => !n.leida) ? `<button class="enlace" id="cmtodas">Marcar todas como leídas</button>` : ""}</div>
+      <div class="cm-lista">${ns.length ? ns.slice(0, 25).map((n) => `<div class="cm-i ${n.leida ? "" : "nueva"} ${claseNoti(n.titulo)}" data-n="${n.id}"><span class="bz-ic">${icoNoti(n.titulo)}</span>
+        <div><b>${esc(n.titulo)}</b><small>${esc(n.texto)}</small><em>${fmt("", n.fecha)}</em></div></div>`).join("") : `<div class="fin-vacio">Sin notificaciones por ahora.</div>`}</div>
+      ${puede("ventas") ? `<a class="cm-pie" href="#ventas">Ver todo en Ventas ›</a>` : ""}`;
+    const t = $("#cmtodas"); if (t) t.onclick = async (e) => { e.stopPropagation(); await api("/notificaciones/leer", { body: {} }); revisarCampana(true); };
+    m.querySelectorAll("[data-n]").forEach((x) => (x.onclick = async () => { await api(`/notificaciones/${x.dataset.n}/leer`, { body: {} }).catch(() => {}); m.hidden = true; if (puede("ventas")) location.hash = "ventas"; revisarCampana(true); }));
+  }
+  document.addEventListener("click", (e) => { const m = document.getElementById("camm"); if (m && !m.hidden && !e.target.closest(".campana")) m.hidden = true; });
+
+  // ---------- Departamento de ventas ----------
+  const VEN_TABS = [["resumen", "Resumen"], ["nuevo", "Nuevos"], ["cancelado", "Cancelados"], ["reprogramado", "Reprogramados"], ["fallido", "Entregas fallidas"], ["completado", "Completados"]];
+  async function ventasPag(main) {
+    S.venTab = S.venTab || "resumen"; S.venDias = S.venDias || 30;
+    main.innerHTML += `<div class="fin-barra"><div class="tabs">${VEN_TABS.map(([k, t]) => `<button class="${S.venTab === k ? "on" : ""}" data-vt="${k}">${t}</button>`).join("")}</div>
+      <select class="sel" id="vdias">${[1, 7, 30, 90].map((d) => `<option value="${d}" ${d === S.venDias ? "selected" : ""}>${d === 1 ? "Hoy" : d + " días"}</option>`).join("")}</select></div><div id="ven"></div>`;
+    main.querySelectorAll("[data-vt]").forEach((b) => (b.onclick = () => { S.venTab = b.dataset.vt; pintar(true); }));
+    $("#vdias").onchange = (e) => { S.venDias = Number(e.target.value); pintar(true); };
+    const v = $("#ven");
+    if (S.venTab !== "resumen") {
+      const ms = await api(`/ventas/movimientos?tipo=${S.venTab}&dias=${S.venDias}`);
+      v.innerHTML = tablaFin([["en", "Cuándo"], ["orden", "Orden"], ["cliente", "Cliente"], ["tienda", "Tienda"], ["cajero", "Caja"], ["servicio", "Servicio"], ["monto", "Monto"], ["nota", "Detalle"]],
+        ms.map((m) => ({ en: fmt("", m.en), orden: `<b>${esc(m.orden)}</b>`, cliente: esc(m.cliente), tienda: esc(m.tienda), cajero: esc(m.cajero), servicio: `${esc(m.servicio)}<br><small class="total">${m.articulos} artículo(s) · cita ${esc(m.cita)}</small>`,
+          monto: `$${m2(m.monto_usd)}<br><small class="total">${esc(m.pago)}</small>`, nota: `<small>${esc(m.nota)}</small><br><small class="total">por ${esc(m.por)}</small>` })));
+      return;
+    }
+    const r = await api(`/ventas/resumen?dias=${S.venDias}`);
+    const tile = (ic, t, val, nota, cls = "") => `<div class="fin-kpi ${cls}"><div class="fk-t"><span class="fk-ic">${ic}</span>${t}</div><div class="fk-v">${val}</div><div class="fk-n">${nota}</div></div>`;
+    const maxT = Math.max(1, ...Object.values(r.por_tienda));
+    v.innerHTML = `<div class="fin-kpis">
+        ${tile("🛒", "Servicios nuevos", r.nuevos, r.dias === 1 ? "Hoy" : `Últimos ${r.dias} días`)}
+        ${tile("✕", "Cancelados", r.cancelados, r.tasa_cancelacion === null ? "—" : `${r.tasa_cancelacion}% de los nuevos`)}
+        ${tile("↻", "Reprogramados", r.reprogramados, "Cambio de fecha")}
+        ${tile("⚠", "Entregas fallidas", r.fallidos, "Con penalidad")}
+        ${tile("✓", "Completados", r.completados, `${r.en_curso} en curso ahora`)}
+        ${tile("$", "Ticket promedio", "$" + m2(r.ticket_usd), "Por servicio nuevo")}</div>
+      <div class="fin-medio">
+        <div class="fin-lado"><div class="fin-lado-t">⚡ Lo último <a href="#" data-vir="nuevo">Ver todo</a></div>
+          ${r.ultimos.length ? r.ultimos.slice(0, 6).map((m) => `<div class="v-item ${CLASE_VENTA[m.tipo]}"><span class="bz-ic">${icoNoti(m.tipo_texto)}</span><div><b>${esc(m.tipo_texto)} · ${esc(m.orden)}</b>
+            <small>${esc(m.cliente)} · ${esc(m.tienda)}</small><em>${fmt("", m.en)}</em></div><span class="v-m">$${m2(m.monto_usd)}</span></div>`).join("") : `<div class="fin-vacio">Todavía no hay movimientos.</div>`}</div>
+        <div class="fin-hero v-hero"><div class="fh-top"><span class="chip-est">📈 Departamento de ventas</span></div>
+          <div class="fh-tit">Vendido en caja en el período</div><div class="fh-num">$${m2(r.vendido_usd)}</div>
+          <div class="fh-sub"><b>${r.nuevos}</b> servicios nuevos · <span class="ley"><i></i>Nuevos</span> <span class="ley l2"><i></i>Cancelados y fallidos</span></div>
+          ${lineas(r.serie_nuevos, r.serie_bajas)}
+          <div class="fh-acc"><button class="btn blanco" data-vir="nuevo">▸ Ver servicios nuevos</button><button class="btn vidrio" data-vir="cancelado">Ver cancelados</button></div></div>
+      </div>
+      <div class="fin-dos">
+        <div class="card"><div class="tit"><span>Servicios nuevos por tienda</span><span class="total">${r.nuevos}</span></div>${Object.keys(r.por_tienda).length ? `<div class="barras-h">${Object.entries(r.por_tienda).map(([k, n]) => `<div><span>${esc(k)}</span><i style="width:${(n * 100) / maxT}%"></i><b>${n}</b></div>`).join("")}</div>` : `<div class="fin-vacio">Sin servicios en el período.</div>`}
+          <div class="tit" style="margin-top:18px"><span>Ranking de cajas</span></div>${r.por_cajero.length ? r.por_cajero.slice(0, 5).map((c, i) => `<div class="cta-mini"><span class="fk-ic">${i + 1}</span><div><b>${esc(c.cajero)}</b><small>${c.servicios} servicio(s)</small></div><span>$${m2(c.monto_usd)}</span></div>`).join("") : ""}</div>
+        <div class="card"><div class="tit"><span>Por tipo de servicio</span><span class="total">${r.nuevos}</span></div>${dona(r.por_servicio)}</div>
+      </div>`;
+    v.querySelectorAll("[data-vir]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); S.venTab = a.dataset.vir; pintar(true); }));
+  }
+
   async function usuarios(main) {
     const [cat, us, ts, cc] = await Promise.all([api("/ceo/permisos"), api("/ceo/usuarios"), api("/admin/tiendas"), api("/ceo/correos")]);
     S.dominio = cc.dominio;
@@ -755,7 +839,7 @@
     if (!S.token) return login(app);
     if (!S.yo) {
       try { S.yo = await api("/yo"); } catch { return; }
-      if (!["supervisor", "superadmin"].includes(S.yo.rol)) { salir(); alert("El panel es solo para el superadmin y el centro de control. La caja usa la app."); return; }
+      if (!["supervisor", "superadmin", "ventas"].includes(S.yo.rol)) { salir(); alert("El panel es solo para el equipo de oficina (superadmin, centro de control y ventas). La caja usa la app."); return; }
     }
     if (S.yo.clave_temporal) return cambioObligatorio(app);
     if (!puede(S.ruta) && !(S.ruta === "usuarios" && S.yo.es_ceo) && !(S.ruta === "auditoria" && S.yo.es_ceo) && !(S.ruta === "correos" && S.yo.es_ceo)) {
@@ -767,11 +851,13 @@
       app.innerHTML = `<div class="top"><button class="hamb" id="hamb">☰</button><div class="marca"><svg><use href="#logo"/></svg>AHA HOME</div>
         <div class="buscar"><input id="bg" placeholder="Presiona / para buscar"><div class="resultados" id="rg" style="display:none"></div></div><div class="esp"></div>
         <button class="ico-btn" id="tema" title="Tema claro u oscuro">${document.documentElement.dataset.tema === "oscuro" ? "☀" : "☾"}</button>
-        <a class="ico-btn" href="#verificaciones" title="Pendientes">🔔${S.notif ? `<span class="badge">${S.notif}</span>` : ""}</a>
-        <div class="usuario"><button class="ico-btn" style="width:auto;padding:0 12px;border-radius:19px" id="um">${esc(S.yo.nombre)} ⌄</button><div class="menu" id="umm" style="display:none"><button disabled>${S.yo.es_ceo ? "CEO" : S.yo.rol === "superadmin" ? "Superadministrador" : "Centro de control"}</button><button id="mic">🔑 Cambiar mi clave</button><button id="sal">Cerrar sesión</button></div></div></div>
+        <div class="campana"><button class="ico-btn" id="cam" title="Notificaciones">🔔<span class="badge" id="camn" hidden></span></button><div class="cam-menu" id="camm" hidden></div></div>
+        <div class="usuario"><button class="ico-btn" style="width:auto;padding:0 12px;border-radius:19px" id="um">${esc(S.yo.nombre)} ⌄</button><div class="menu" id="umm" style="display:none"><button disabled>${S.yo.es_ceo ? "CEO" : S.yo.rol === "superadmin" ? "Superadministrador" : S.yo.rol === "ventas" ? "Departamento de ventas" : "Centro de control"}</button><button id="mic">🔑 Cambiar mi clave</button><button id="sal">Cerrar sesión</button></div></div></div>
         <div class="cuerpo"><nav class="lat ${S.latOculta ? "oculto" : ""}">${menuHTML()}</nav><main class="main"></main></div>`;
       $("#hamb").onclick = () => { S.latOculta = !S.latOculta; $(".lat").classList.toggle("oculto"); };
       $("#tema").onclick = () => { const n = document.documentElement.dataset.tema === "oscuro" ? "claro" : "oscuro"; document.documentElement.dataset.tema = n; localStorage.setItem("ahahome.panel.tema", n); pintar(); };
+      $("#cam").onclick = (e) => { e.stopPropagation(); const m = $("#camm"); m.hidden = !m.hidden; if (!m.hidden) pintarCampana(); };
+      revisarCampana(true);
       $("#um").onclick = () => { const m = $("#umm"); m.style.display = m.style.display === "none" ? "block" : "none"; };
       $("#sal").onclick = salir;
       $("#mic").onclick = () => { $("#umm").style.display = "none"; miClave(); };
@@ -794,6 +880,7 @@
       else if (S.ruta === "correos") await correos(main);
       else if (S.ruta === "finanzas") await finanzas(main);
       else if (S.ruta === "diseno") await diseno(main);
+      else if (S.ruta === "ventas") await ventasPag(main);
       else if (S.ruta === "inicio") await inicio(main);
       else if (S.ruta === "anuncios") await anuncios(main);
       else if (S.ruta === "auditoria") await auditoria(main);

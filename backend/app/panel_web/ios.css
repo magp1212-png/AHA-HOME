@@ -222,3 +222,27 @@ tr:hover td{background:rgba(255,255,255,.05)}
 .telefono{width:300px;height:min(620px,calc(100vh - 230px));min-height:520px;border-radius:46px;padding:10px}.tel-pantalla{border-radius:37px}
 .tp{overflow:hidden;gap:7px}.tp-portada{padding-top:54px;gap:4px}.tp-portada svg{width:60px;height:60px}.tp-nom{font-size:21px}.tp-tit{font-size:15px}
 .tp-paso{padding:5px 8px}.tp-paso span{width:26px;height:26px}.tp-btn{padding:9px}
+
+/* ===== Campana y departamento de ventas ===== */
+.campana{position:relative}.campana .badge[hidden]{display:none}
+.cam-menu{position:absolute;right:0;top:48px;width:380px;max-height:520px;display:flex;flex-direction:column;border-radius:22px;z-index:40;overflow:hidden;
+  background:var(--vidrio);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);border:1px solid var(--filo);box-shadow:0 30px 60px rgba(0,0,0,.45),inset 0 1px 0 var(--brillo)}
+.cam-menu[hidden]{display:none}
+.cm-cab{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--borde)}
+.cm-lista{overflow:auto;padding:6px}
+.cm-i{display:grid;grid-template-columns:34px 1fr;gap:10px;padding:10px;border-radius:14px;cursor:pointer;position:relative}.cm-i:hover{background:var(--vidrio2)}
+.cm-i b{display:block;font-size:13.5px}.cm-i small{display:block;color:var(--suave);font-size:12.5px}.cm-i em{font-style:normal;font-size:11px;color:var(--suave)}
+.cm-i.nueva:after{content:"";position:absolute;right:12px;top:14px;width:8px;height:8px;border-radius:4px;background:var(--acento)}
+.cm-pie{display:block;text-align:center;padding:12px;border-top:1px solid var(--borde);color:var(--acento);font-weight:800}
+.bz-ic{width:34px;height:34px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:900;background:var(--vidrio2);flex:none}
+.v-nuevo .bz-ic{background:linear-gradient(150deg,#E4EC5C,#CFD72A);color:#21244D}.v-cancel .bz-ic{background:linear-gradient(150deg,#FF8A8E,#E0434B);color:#fff}
+.v-reprog .bz-ic{background:linear-gradient(150deg,#8FC4FF,#3D7EE0);color:#fff}.v-fallido .bz-ic{background:linear-gradient(150deg,#FFD98A,#F5A623);color:#5A3A00}.v-comp .bz-ic{background:linear-gradient(150deg,#7EE3A6,#2EAF62);color:#fff}
+.brindis-pila{position:fixed;top:86px;right:max(20px,env(safe-area-inset-right,0px));z-index:60;display:flex;flex-direction:column;gap:10px}
+.brindis{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:center;width:340px;padding:12px 14px;border-radius:18px;cursor:pointer;
+  background:var(--vidrio);-webkit-backdrop-filter:blur(30px);backdrop-filter:blur(30px);border:1px solid var(--filo);box-shadow:0 20px 44px rgba(0,0,0,.45);animation:entra .45s cubic-bezier(.2,.9,.3,1.2)}
+.brindis b{display:block;font-size:13.5px}.brindis small{color:var(--suave);font-size:12.5px}.brindis.fuera{opacity:0;transform:translateX(40px);transition:.4s}
+@keyframes entra{from{opacity:0;transform:translateX(60px) scale(.95)}to{opacity:1;transform:none}}
+.v-item{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:9px 6px;border-top:1px solid var(--borde)}
+.v-item b{display:block;font-size:13px}.v-item small{display:block;color:var(--suave);font-size:12px}.v-item em{font-style:normal;font-size:11px;color:var(--suave)}.v-m{font-weight:800;font-size:13px}
+.fin-hero.v-hero{background:radial-gradient(120% 90% at 85% 20%,#5C8DFF 0,#2F4FC9 35%,#1E2A7A 65%,#121845 100%);box-shadow:0 30px 70px rgba(30,42,122,.5),inset 0 1px 0 rgba(255,255,255,.3)}
+.v-hero .ley.l2 i{background:#FF9AA0}
