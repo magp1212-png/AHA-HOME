@@ -7,6 +7,17 @@ en esta pantalla y obliga a cambiarla al primer ingreso. La clave nunca se escri
 import getpass
 import re
 import sys
+import os
+import pathlib
+
+# Servidores en conjunto: usar la base compartida (ops/conjunto.cmd), no el SQLite propio de esta estación
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "ops"))
+try:
+    import conjunto
+    if conjunto.url():
+        os.environ["AHAHOME_DATABASE_URL"] = conjunto.url()
+except ImportError:
+    pass
 
 from sqlalchemy import select
 
@@ -49,6 +60,7 @@ def main() -> None:
             db.commit()
             print(f"Tienda creada: {nombre}")
     print(f"Listo: {email} es la cuenta CEO.")
+    print("Base de datos usada: " + ("PostgreSQL compartida" if engine.dialect.name == "postgresql" else "la propia de esta estacion (SQLite)"))
     if temporal:
         print(f"\n  Clave temporal: {clave}\n  Anótala ahora: no se vuelve a mostrar. Al entrar por primera vez, el sistema te pedirá cambiarla.\n")
 
