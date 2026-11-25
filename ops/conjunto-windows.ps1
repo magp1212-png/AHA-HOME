@@ -6,7 +6,8 @@
 #  En el SEGUNDO servidor (usa la base del principal):
 #    powershell -ExecutionPolicy Bypass -File ops\conjunto-windows.ps1 -Rol segundo -Principal 192.168.1.50
 #
-#  Los dos sirven la web por el mismo tunel de Cloudflare: si uno se apaga, el otro sigue atendiendo.
+#  La base de datos vive SOLO en el principal: si el principal se apaga, NINGUNO puede trabajar.
+#  El segundo solo aporta una segunda salida a internet (tunel) y una segunda API.
 #  Las claves se escriben solo en estas pantallas: nunca en el chat ni en GitHub (quedan en ops\conjunto.cmd).
 # ============================================================================
 param([Parameter(Mandatory = $true)][ValidateSet("principal", "segundo")][string]$Rol, [string]$Principal = "")
@@ -22,6 +23,15 @@ function Clave() { -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 28
 function Probar($url) {
   $code = "import sys,sqlalchemy as s; e=s.create_engine(sys.argv[1]); c=e.connect(); print(c.execute(s.text('select 1')).scalar())"
   & $Py -c $code $url 2>&1
+}
+function Verificar-Conjunto($ok) {
+  # [OK] solo si existe conjunto.cmd y la API responde usando PostgreSQL
+  if (-not (Test-Path $Conf) -or -not (Select-String -Path $Conf -Pattern "postgresql" -Quiet)) { Write-Host "ERROR: no se creo ops\conjunto.cmd" -ForegroundColor Red; exit 1 }
+  for ($i = 0; $i -lt 20; $i++) {
+    try { $s = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8096/salud).Content | ConvertFrom-Json; if ($s.base -eq "postgresql") { Write-Host $ok -ForegroundColor Green; return } } catch { }
+    Start-Sleep -Seconds 3
+  }
+  Write-Host "ERROR: la API no responde usando PostgreSQL. Revisa backend\logs\api.log" -ForegroundColor Red; exit 1
 }
 function Reiniciar-API {
   Stop-ScheduledTask -TaskName "aha home API" -ErrorAction SilentlyContinue
@@ -69,9 +79,10 @@ if ($Rol -eq "principal") {
   $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" -and $_.PrefixOrigin -ne "WellKnown" } | Select-Object -First 1)
   $base = ($ip.IPAddress -split "\.")[0..2] -join "."
   $red = "$base.0/24"
-  $conf = Join-Path $data "postgresql.conf"; $hba = Join-Path $data "pg_hba.conf"
-  if (-not (Select-String -Path $conf -Pattern "^listen_addresses = '\*'" -Quiet)) { Add-Content $conf "`nlisten_addresses = '*'" }
-  if (-not (Select-String -Path $hba -Pattern "ahahome ahahome" -Quiet)) { Add-Content $hba "`nhost    ahahome    ahahome    $red    scram-sha-256" }
+  # OJO: PowerShell no distingue mayusculas; $Conf (conjunto.cmd) no puede reutilizarse aqui
+  $pgConf = Join-Path $data "postgresql.conf"; $pgHba = Join-Path $data "pg_hba.conf"
+  if (-not (Select-String -Path $pgConf -Pattern "^listen_addresses = '\*'" -Quiet)) { Add-Content $pgConf "`nlisten_addresses = '*'" }
+  if (-not (Select-String -Path $pgHba -Pattern "ahahome ahahome" -Quiet)) { Add-Content $pgHba "`nhost    ahahome    ahahome    $red    scram-sha-256" }
   if (-not (Get-NetFirewallRule -DisplayName "AHA HOME PostgreSQL" -ErrorAction SilentlyContinue)) {
     New-NetFirewallRule -DisplayName "AHA HOME PostgreSQL" -Direction Inbound -Protocol TCP -LocalPort 5432 -RemoteAddress LocalSubnet -Action Allow | Out-Null
   }
@@ -84,15 +95,15 @@ if ($Rol -eq "principal") {
   if (Test-Path "ahahome.db") { & $Py migrar_a_postgres.py ahahome.db $url } else { Write-Host "Sin datos anteriores: base nueva." }
   $okMig = $LASTEXITCODE
   Pop-Location
+  if ($okMig -eq 3) { Write-Host "[OK] PostgreSQL ya tenia los datos de una migracion anterior: no se vuelve a migrar." ; $okMig = 0 }
   if ($okMig -ne 0 -and (Test-Path (Join-Path $Backend "ahahome.db"))) {
     Start-ScheduledTask -TaskName "aha home API"
     Write-Host "No se pudieron pasar los datos a PostgreSQL (mira el mensaje de arriba). AHA HOME sigue con su base anterior." -ForegroundColor Red; exit 1
   }
   # 5. Este servidor usa PostgreSQL desde ahora
   Set-Content -Encoding ascii $Conf "@echo off`r`nREM Generado por conjunto-windows.ps1 (no va a GitHub)`r`nset `"AHAHOME_DATABASE_URL=$url`"`r`n"
-  Reiniciar-API; Start-Sleep -Seconds 12
-  try { (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8096/salud).Content | Out-Null; Write-Host "[OK] AHA HOME funcionando con la base compartida" -ForegroundColor Green }
-  catch { Write-Host "La API todavia no responde: revisa backend\logs\api.log" -ForegroundColor Yellow }
+  Reiniciar-API; Start-Sleep -Seconds 8
+  Verificar-Conjunto "[OK] AHA HOME funcionando con la base compartida (PostgreSQL)"
   Write-Host "`n=== Para el SEGUNDO servidor ===" -ForegroundColor Cyan
   Write-Host "  IP de este servidor:   $($ip.IPAddress)"
   Write-Host "  Clave de conexion:     $claveApp"
@@ -101,6 +112,18 @@ if ($Rol -eq "principal") {
 else {
   if (-not $Principal) { Write-Host "Falta la IP del principal: -Principal 192.168.x.x" -ForegroundColor Red; exit 1 }
   Write-Host "== AHA HOME - SEGUNDO servidor (usa la base del principal $Principal) ==" -ForegroundColor Cyan
+  $red = Test-NetConnection $Principal -Port 5432 -WarningAction SilentlyContinue
+  if (-not $red.TcpTestSucceeded) { Write-Host "No llego a $($Principal):5432. Las dos estaciones deben estar en la MISMA red local y el principal encendido." -ForegroundColor Red; exit 1 }
+  Write-Host "[OK] El principal esta en la red local ($Principal)"
+  $db = Join-Path $Backend "ahahome.db"
+  if (Test-Path $db) {
+    $cuentas = & $Py -c "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); print(c.execute('select count(*) from usuarios').fetchone()[0], c.execute('select count(*) from ordenes').fetchone()[0])" $db
+    $u, $o = "$cuentas" -split " "
+    Write-Host "`nEsta estacion tiene su propia base con $u usuario(s) y $o orden(es)." -ForegroundColor Yellow
+    Write-Host "Al unirla NO se pasan al principal: quedan guardados como respaldo en backend\respaldos."
+    Write-Host "Si alguno es real e importante, detente y pide que se pasen antes."
+    if ((Read-Host "  Escribe UNIR para continuar") -ne "UNIR") { Write-Host "Cancelado: no se cambio nada."; exit 0 }
+  }
   $c = Plano (Read-Host "  Clave de conexion que mostro el principal (no se muestra)" -AsSecureString)
   $url = "postgresql+psycopg://ahahome:$c@$($Principal):5432/ahahome"
   $r = Probar $url
@@ -113,7 +136,6 @@ else {
     Write-Host "[OK] Datos propios de este servidor guardados en $copia"
   }
   Set-Content -Encoding ascii $Conf "@echo off`r`nREM Generado por conjunto-windows.ps1 (no va a GitHub)`r`nset `"AHAHOME_DATABASE_URL=$url`"`r`n"
-  Reiniciar-API; Start-Sleep -Seconds 12
-  try { (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8096/salud).Content | Out-Null; Write-Host "[OK] Este servidor ya trabaja junto con el principal" -ForegroundColor Green }
-  catch { Write-Host "La API todavia no responde: revisa backend\logs\api.log" -ForegroundColor Yellow }
+  Reiniciar-API; Start-Sleep -Seconds 8
+  Verificar-Conjunto "[OK] Este servidor ya trabaja junto con el principal (PostgreSQL)"
 }

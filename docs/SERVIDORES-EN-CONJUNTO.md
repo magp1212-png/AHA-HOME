@@ -8,7 +8,7 @@ Esta es la configuración de AHA HOME con **dos computadoras Windows en la misma
 |---|---|---|
 | Base de datos | **PostgreSQL 16** (la guarda esta) | Usa la del principal por la red local |
 | Web y panel | Sí (puerto 8096) | Sí (puerto 8096) |
-| Túnel de Cloudflare `aha-home` | Sí | Sí (mismo túnel: si una se cae, la otra sigue) |
+| Túnel de Cloudflare `aha-home` | Sí | Sí (mismo túnel, segunda salida a internet) |
 | Fotos | Dentro de la base de datos | Dentro de la base de datos |
 | Respaldo diario (3:15) | `pg_dump` de la base | `pg_dump` de la base |
 | Publicación automática | Rama `produccion`, cada 5 min | Rama `produccion`, cada 5 min |
@@ -16,6 +16,7 @@ Esta es la configuración de AHA HOME con **dos computadoras Windows en la misma
 - **Direcciones:** www.aha-go.com (caja), superad.aha-go.com (panel), api-home.aha-go.com (servidor).
 - **Carpeta en cada estación:** `C:\Users\Administrator\APP AHA HOME`.
 - **La conexión a la base de datos** queda en `ops\conjunto.cmd` de cada estación. Ese archivo **no va a GitHub** porque tiene la clave.
+- **Importante:** la base de datos vive **solo en la estación principal (AHASERVER)**. Si AHASERVER se apaga o pierde la red, **ninguna de las dos puede trabajar** (no hay datos). La otra estación solo aporta una segunda salida a internet y una segunda API: sirve si se cae el internet o el programa de una, no si se apaga AHASERVER. AHASERVER debe estar siempre encendido, idealmente con UPS.
 - **La llave de las sesiones** es la misma en las dos (está guardada en la base de datos): si alguien entra por una y lo atiende la otra, sigue conectado.
 
 ## Lo que hay que tener a mano (nunca en el chat)
@@ -38,7 +39,8 @@ powershell -ExecutionPolicy Bypass -File ops\conjunto-windows.ps1 -Rol principal
 Qué hace:
 - Instala PostgreSQL y crea la base `ahahome`.
 - Deja que solo la red local se conecte.
-- Pasa los datos de esta estación a la base compartida.
+- Pasa los datos de esta estación a la base compartida. Si lo repites, no vuelve a migrar: sigue con lo que ya hay.
+- Solo dice **[OK]** si se creó `ops\conjunto.cmd` y la API responde usando PostgreSQL.
 - Al final muestra **IP** y **clave de conexión**: anótalas en papel.
 
 ## 2. Otra estación, la que ya tiene AHA HOME
@@ -49,7 +51,13 @@ cd "C:\Users\Administrator\APP AHA HOME"; git pull
 powershell -ExecutionPolicy Bypass -File ops\conjunto-windows.ps1 -Rol segundo -Principal 192.168.X.X
 ```
 
-Cambia `192.168.X.X` por la IP del principal. Te pide la clave de conexión. Los datos que tenía esa estación quedan guardados como respaldo en `backend\respaldos`.
+Cambia `192.168.X.X` por la IP del principal.
+
+Qué hace:
+- Comprueba que el principal está en la **misma red local** (puerto 5432). Si no llega, se detiene.
+- Muestra cuántos usuarios y órdenes tiene esta estación en su base propia. **Esos datos no pasan al principal**: quedan como respaldo en `backend\respaldos`. Si alguno es real, detente y pide que se pasen antes. Para seguir escribe `UNIR`.
+- Pide la clave de conexión y une la estación.
+- Solo dice **[OK]** si la API responde usando PostgreSQL.
 
 ## 3. Una estación NUEVA, desde cero (misma configuración)
 
@@ -87,7 +95,7 @@ Get-Content "C:\Users\Administrator\APP AHA HOME\backend\respaldos\respaldo.log"
 ```
 
 - Tareas: «aha home API» y «aha home tunel» deben estar en **Running**.
-- Salud: debe responder `{"ok":true,...}`.
+- Salud: debe responder `{"ok":true,...,"base":"postgresql"}`.
 - Publicación: la última línea debe decir **PUBLICADO**.
 - Respaldo: la última línea debe decir **OK ... PostgreSQL compartido**.
 

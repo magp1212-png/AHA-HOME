@@ -30,7 +30,8 @@ def main() -> None:
     agregar_columnas_nuevas(dst)
     with dst.connect() as c:
         if c.execute(select(func.count()).select_from(Base.metadata.tables["usuarios"])).scalar():
-            sys.exit("PostgreSQL ya tiene usuarios: no se migra para no mezclar datos.")
+            print("PostgreSQL ya tiene datos (migracion anterior): no se vuelve a migrar.")
+            sys.exit(3)  # conjunto-windows.ps1 lo toma como OK y sigue
 
     origen_md = MetaData()
     origen_md.reflect(src)
