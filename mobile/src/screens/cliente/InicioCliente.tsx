@@ -9,6 +9,7 @@ import { HamburguesaCliente, MenuCliente } from "../../menus";
 import type { Orden } from "../../types";
 import { Campana, Aviso, C, Cargando, Etiqueta, Pantalla, Texto, Titulo, tonoEstado } from "../../ui";
 import InicioActivo from "./InicioActivo";
+import { AvisoPanel } from "../../AvisoPanel";
 
 /** Inicio del cliente: si tiene un pedido en curso, muestra directo su rastreo. Con `lista`, es «Mis pedidos». */
 export default function InicioCliente({ lista }: { lista?: boolean }) {
@@ -52,6 +53,7 @@ export default function InicioCliente({ lista }: { lista?: boolean }) {
       izquierda={lista ? undefined : <HamburguesaCliente />}
       onRefresh={() => { setRefrescando(true); cargar(); }} refrescando={refrescando}
       derecha={<Campana />} abajo={<MenuCliente activo={lista ? "pedidos" : "inicio"} />}>
+      {!lista ? <AvisoPanel /> : null}
       {!lista ? (
         <View>
           <Texto gris>Hola,</Texto>

@@ -30,6 +30,12 @@
     { g: "Órdenes", i: "🛒", hijos: [["ordenes", "Lista"], ["transacciones", "Transacciones"], ["liquidaciones", "Liquidaciones"]] },
     { g: "Centro de soporte", i: "◎", hijos: [["mensajeria", "Mensajería"], ["reportes", "Reportes", "rep"], ["resenas", "Reseñas"]] },
     { k: "anuncios", t: "Banners y aliados", i: "▤" },
+    { sec: "VENTAS" },
+    { k: "ventas", t: "Departamento de ventas", i: "📈" },
+    { sec: "DISEÑO" },
+    { k: "diseno", t: "Diseño de la app", i: "🎨" },
+    { sec: "FINANZAS" },
+    { k: "finanzas", t: "Finanzas y contabilidad", i: "💼" },
     { sec: "NEGOCIO" },
     { k: "tasa", t: "Tasa BCV", i: "💱" },
     { k: "precios", t: "Tabulación de precios", i: "🏷" },
@@ -41,12 +47,12 @@
     equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Órdenes", "Lista"], transacciones: ["Órdenes", "Transacciones"],
     mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Órdenes", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
     resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"], usuarios: ["Centro de mando", "Usuarios y permisos"], correos: ["Centro de mando", "Correos corporativos"],
-    tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
+    finanzas: ["Finanzas", "Finanzas y contabilidad"], diseno: ["Diseño", "Diseño de la app"], ventas: ["Ventas", "Departamento de ventas"], tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
 
   // Permiso que necesita cada pantalla (el CEO lo asigna a cada usuario)
   const PERM_RUTA = { inicio: "ver_tablero", clientes: "ver_clientes", empresas: "ver_empresas", tecnicos: "ver_tecnicos", verificaciones: "ver_tecnicos",
     ordenes: "ver_ordenes", transacciones: "ver_finanzas", liquidaciones: "ver_finanzas", mensajeria: "ver_soporte", reportes: "ver_soporte", resenas: "ver_soporte",
-    anuncios: "banners", tasa: "ver_tablero", precios: "ver_tablero", qrs: "qr_tiendas", administradores: "ver_personal", control: "ver_personal", caja: "ver_personal" };
+    anuncios: "banners", finanzas: "ver_finanzas", diseno: "diseno", ventas: "ver_ventas", tasa: "ver_tablero", precios: "ver_tablero", qrs: "qr_tiendas", administradores: "ver_personal", control: "ver_personal", caja: "ver_personal" };
   const puede = (k) => S.yo?.es_ceo || !PERM_RUTA[k] || (S.yo?.permisos || []).includes(PERM_RUTA[k]);
   const puedeHacer = (p) => S.yo?.es_ceo || (S.yo?.permisos || []).includes(p);
 
@@ -319,6 +325,395 @@
   }
 
   // ---------- Centro de mando: usuarios del personal, claves y limitaciones ----------
+  // ---------- Finanzas y contabilidad ----------
+  const FIN_TABS = [["resumen", "Resumen"], ["pagos", "Pagos recibidos"], ["gastos", "Gastos"], ["reclamos", "Reclamos"], ["cuentas", "Bancos y cuentas"], ["medios", "Tipos de pago"]];
+  const GRAD = { "Zelle": "g-zelle", "Efectivo (cash)": "g-cash", "Banco nacional": "g-nac", "Banco internacional": "g-int", "Otro": "g-otro" };
+  const ICONO_MEDIO = { zelle: "Z", efectivo: "$", banco_nacional: "🏦", banco_internacional: "🌎", otro: "＋" };
+  const m2 = (x) => Number(x || 0).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function lineas(a, b, alto = 150) {
+    const n = Math.max(a.length, 2), max = Math.max(1, ...a, ...b), w = 600;
+    const ruta = (serie) => serie.map((v, i) => `${i ? "L" : "M"}${((i * w) / (n - 1)).toFixed(1)} ${(alto - 10 - (v / max) * (alto - 30)).toFixed(1)}`).join(" ");
+    return `<svg class="fin-lineas" viewBox="0 0 ${w} ${alto}" preserveAspectRatio="none">
+      <defs><linearGradient id="gi" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+      <path d="${ruta(a)} L${w} ${alto} L0 ${alto} Z" fill="url(#gi)"/><path d="${ruta(a)}" fill="none" stroke="#fff" stroke-width="2.6" vector-effect="non-scaling-stroke"/>
+      <path d="${ruta(b)}" fill="none" stroke="#FFC9A8" stroke-width="2" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+  function anillo(pc, color = "#fff") {
+    const r = 26, c = 2 * Math.PI * r, v = Math.max(0, Math.min(100, pc || 0));
+    return `<svg width="70" height="70" viewBox="0 0 70 70"><circle cx="35" cy="35" r="${r}" stroke="rgba(255,255,255,.22)" stroke-width="7" fill="none"/>
+      <circle cx="35" cy="35" r="${r}" stroke="${color}" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="${(c * v) / 100} ${c}" transform="rotate(-90 35 35)"/>
+      <text x="35" y="40" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">${Math.round(v)}%</text></svg>`;
+  }
+  function barritas(vals) {
+    const max = Math.max(1, ...vals);
+    return `<div class="barritas">${vals.map((v) => `<i style="height:${Math.max(6, (v / max) * 100)}%"></i>`).join("")}</div>`;
+  }
+  async function finanzas(main) {
+    S.finTab = S.finTab || "resumen"; S.finDias = S.finDias || 30;
+    const cat = await api("/finanzas/catalogo");
+    const edita = cat.puede_editar;
+    main.innerHTML += `<div class="fin-barra"><div class="tabs">${FIN_TABS.map(([k, t]) => `<button class="${S.finTab === k ? "on" : ""}" data-ft="${k}">${t}</button>`).join("")}</div>
+      <div class="fin-acc">${edita ? `<button class="btn sec" data-nuevo="ingreso">＋ Ingreso</button><button class="btn sec" data-nuevo="reclamo">＋ Reclamo</button><button class="btn pri" data-nuevo="gasto">＋ Registrar gasto</button>` : ""}</div></div><div id="fin"></div>`;
+    main.querySelectorAll("[data-ft]").forEach((b) => (b.onclick = () => { S.finTab = b.dataset.ft; pintar(true); }));
+    main.querySelectorAll("[data-nuevo]").forEach((b) => (b.onclick = () => (b.dataset.nuevo === "reclamo" ? fichaReclamo(cat, null) : fichaMovimiento(cat, b.dataset.nuevo))));
+    const fin = $("#fin");
+    if (S.finTab === "resumen") return finResumen(fin, cat);
+    if (S.finTab === "pagos") return finPagos(fin);
+    if (S.finTab === "gastos") return finGastos(fin, cat);
+    if (S.finTab === "reclamos") return finReclamos(fin, cat);
+    if (S.finTab === "cuentas") return finCuentas(fin, cat);
+    return finMedios(fin, cat);
+  }
+  async function finResumen(fin, cat) {
+    const r = await api(`/finanzas/resumen?dias=${S.finDias}`), recl = await api("/finanzas/reclamos");
+    const abiertos = recl.filter((x) => ["abierto", "en_revision"].includes(x.estado)).slice(0, 3);
+    const ing = Number(r.ingresos_usd), gas = Number(r.gastos_usd), res = Number(r.resultado_usd);
+    const totMedio = Object.values(r.por_medio).reduce((a, b) => a + b, 0);
+    const tile = (ic, t, v, nota, serie) => `<div class="fin-kpi"><div class="fk-t"><span class="fk-ic">${ic}</span>${t}</div><div class="fk-v">${v}</div><div class="fk-n">${nota}</div>${serie ? spark(serie, 34) : ""}</div>`;
+    fin.innerHTML = `<div class="fin-kpis">
+        ${tile("↗", "Ingresos", "$" + m2(ing), `Últimos ${r.dias} días`, r.serie_ingresos)}
+        ${tile("↘", "Gastos", "$" + m2(gas), "Pagos, nómina y más", r.serie_gastos)}
+        ${tile("≈", "Resultado", (res < 0 ? "−$" : "$") + m2(Math.abs(res)), res < 0 ? "Pérdida del período" : "Ganancia del período")}
+        ${tile("%", "Margen", r.margen === null ? "—" : r.margen + "%", "Resultado sobre ingresos")}
+        ${tile("!", "Reclamos abiertos", r.reclamos_abiertos, "$" + m2(r.reclamos_monto_usd) + " en disputa")}
+        ${tile("Bs", "Tasa BCV", r.tasa ? m2(r.tasa) : "—", r.tasa ? "Bs por USD" : "Sin cargar")}</div>
+      <div class="fin-medio">
+        <div class="fin-lado"><div class="fin-lado-t">⚑ Reclamos por atender <a href="#" data-ir="reclamos">Ver todos</a></div>
+          ${abiertos.length ? abiertos.map((x, i) => `<div class="mini-grad mg${i}" data-rec="${x.id}"><span class="chip-est">${esc(x.estado_texto)}</span><b>$${m2(x.monto_usd)}</b>
+            <div class="mg-t">${esc(x.cliente)}</div><div class="mg-s">${esc(x.motivo)}${x.orden ? " · " + esc(x.orden) : ""}</div><span class="mg-ir">›</span></div>`).join("")
+            : `<div class="fin-vacio">Sin reclamos abiertos. 🎉</div>`}
+          <div class="fin-lado-t" style="margin-top:12px">⇄ Bancos y cuentas</div>
+          ${r.cuentas.length ? r.cuentas.slice(0, 3).map((c) => `<div class="cta-mini"><span class="fk-ic">${ICONO_MEDIO[c.categoria] || "🏦"}</span><div><b>${esc(c.nombre)}</b><small>${esc(c.categoria_texto)} · ${esc(c.identificador || "")}</small></div><span>${c.moneda === "Bs" ? "Bs" : "$"} ${m2(c.saldo)}</span></div>`).join("")
+            : `<div class="fin-vacio">Agrega tus bancos en «Bancos y cuentas».</div>`}
+        </div>
+        <div class="fin-hero"><div class="fh-top"><span class="chip-est">💼 Estado del negocio</span>
+            <select class="sel" id="fdias">${[7, 30, 90, 365].map((d) => `<option value="${d}" ${d === S.finDias ? "selected" : ""}>${d === 365 ? "1 año" : d + " días"}</option>`).join("")}</select></div>
+          <div class="fh-tit">${res < 0 ? "Pérdida" : "Ganancia"} del período</div><div class="fh-num">${res < 0 ? "−" : ""}$${m2(Math.abs(res))}</div>
+          <div class="fh-sub">Entraron <b>$${m2(ing)}</b> y salieron <b>$${m2(gas)}</b> · <span class="ley"><i></i>Ingresos</span> <span class="ley l2"><i></i>Gastos</span></div>
+          ${lineas(r.serie_ingresos, r.serie_gastos)}
+          <div class="fh-acc"><button class="btn blanco" data-ir="pagos">▸ Ver pagos</button><button class="btn vidrio" id="fexp">⇩ Exportar</button></div></div>
+      </div>
+      <div class="fin-sec-t">Ingresos por tipo de pago <small>${totMedio ? "$" + m2(totMedio) + " en el período" : "Aún no hay cobros en el período"}</small></div>
+      <div class="fin-grads">${["Zelle", "Efectivo (cash)", "Banco nacional", "Banco internacional", "Otro"].map((k) => { const v = r.por_medio[k] || 0, pc = totMedio ? (v * 100) / totMedio : 0;
+        return `<div class="grad ${GRAD[k]}"><div class="gr-top"><span class="chip-est">${pc ? "↗ " + Math.round(pc) + "%" : "—"}</span><span class="gr-ic">${{ "Zelle": "Z", "Efectivo (cash)": "$", "Banco nacional": "🏦", "Banco internacional": "🌎", "Otro": "＋" }[k]}</span></div>
+          <div class="gr-c">${anillo(pc)}</div><div class="gr-t">${k}</div><div class="gr-v">$${m2(v)}</div></div>`; }).join("")}</div>
+      <div class="fin-dos">
+        <div class="card"><div class="tit"><span>Gastos por categoría</span><span class="total">$${m2(gas)}</span></div>${Object.keys(r.gastos_por_categoria).length ? `<div class="barras-h">${Object.entries(r.gastos_por_categoria).map(([k, v]) => `<div><span>${esc(k)}</span><i style="width:${(v * 100) / Math.max(...Object.values(r.gastos_por_categoria))}%"></i><b>$${m2(v)}</b></div>`).join("")}</div>` : `<div class="fin-vacio">Sin gastos en el período.</div>`}</div>
+        <div class="card"><div class="tit"><span>Ingresos por concepto</span><span class="total">$${m2(ing)}</span></div>${dona(Object.fromEntries(Object.entries(r.ingresos_por_categoria).map(([k, v]) => [k, Math.round(v)])))}
+          <div class="total" style="margin-top:10px">Por moneda: ${Object.entries(r.por_moneda).map(([k, v]) => `${k} $${m2(v)}`).join(" · ") || "—"}</div></div>
+      </div>`;
+    $("#fdias").onchange = (e) => { S.finDias = Number(e.target.value); pintar(true); };
+    fin.querySelectorAll("[data-ir]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); S.finTab = a.dataset.ir; pintar(true); }));
+    fin.querySelectorAll("[data-rec]").forEach((d) => (d.onclick = () => fichaReclamo(cat, recl.find((x) => x.id === Number(d.dataset.rec)))));
+    $("#fexp").onclick = async () => {
+      const filas = await api("/finanzas/pagos"), gastos = await api("/finanzas/movimientos?tipo=gasto");
+      const csv = [["Tipo", "Fecha", "Concepto", "Detalle", "Tipo de pago", "Moneda", "Monto USD", "Referencia", "Orden", "Estado"]]
+        .concat(filas.map((f) => ["Ingreso", f.fecha, f.categoria_texto, f.descripcion, f.medio, f.moneda, f.monto_usd, f.referencia, f.orden, f.estado]))
+        .concat(gastos.map((g) => ["Gasto", g.fecha, g.categoria_texto, g.descripcion, g.medio || "", g.moneda, g.monto_usd, g.referencia, g.orden, g.estado]))
+        .map((l) => l.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" })); a.download = `aha-home-finanzas-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    };
+  }
+  function tablaFin(cols, filas, acc) {
+    return `<div class="tabla"><table><thead><tr>${cols.map(([, t]) => `<th>${t}</th>`).join("")}${acc ? "<th></th>" : ""}</tr></thead><tbody>
+      ${filas.length ? filas.map((f, i) => `<tr>${cols.map(([k]) => `<td>${f[k] ?? "—"}</td>`).join("")}${acc ? `<td>${acc(f, i)}</td>` : ""}</tr>`).join("") : `<tr><td colspan="${cols.length + 1}" class="total" style="text-align:center;padding:26px">Todavía no hay registros.</td></tr>`}</tbody></table></div>`;
+  }
+  const estFin = (e) => `<span class="est ${{ cobrado: "ok", confirmado: "ok", conciliado: "ok", reembolsado: "ok", registrado: "neutro", abierto: "pend", en_revision: "pend", "por confirmar": "pend", anulado: "mal", rechazado: "mal" }[e] || "neutro"}">${esc(String(e).replace("_", " "))}</span>`;
+  async function finPagos(fin) {
+    const filas = (await api("/finanzas/pagos")).map((f) => ({ ...f, fecha: esc(f.fecha), concepto: `<b>${esc(f.categoria_texto)}</b><br><small class="total">${esc(f.descripcion || "")}</small>`,
+      medio: esc(f.medio || "—"), monto: `<b>$${m2(f.monto_usd)}</b>${f.monto_bs ? `<br><small class="total">Bs ${m2(f.monto_bs)}</small>` : ""}`, ref: esc(f.referencia || "—"), orden: esc(f.orden || "—"),
+      origen: `<span class="est neutro">${f.origen === "manual" ? "Registro manual" : f.origen === "caja" ? "Caja" : f.origen === "presupuesto" ? "Presupuesto" : "Penalidad"}</span>`, est: estFin(f.estado) }));
+    fin.innerHTML = `<p class="total">Todo lo que entró: los cobros de la caja, los presupuestos y las penalidades llegan solos; los demás ingresos se registran con «＋ Ingreso».</p>` +
+      tablaFin([["fecha", "Fecha"], ["concepto", "Concepto"], ["medio", "Tipo de pago"], ["monto", "Monto"], ["ref", "Referencia"], ["orden", "Orden"], ["origen", "Origen"], ["est", "Estado"]], filas);
+  }
+  async function finGastos(fin, cat) {
+    const gs = await api("/finanzas/movimientos?tipo=gasto");
+    const filas = gs.map((g) => ({ fecha: esc(g.fecha), cat: `<b>${esc(g.categoria_texto)}</b><br><small class="total">${esc(g.descripcion || "")}</small>`, medio: esc(g.medio || "—"), cuenta: esc(g.cuenta || "—"),
+      monto: `<b>$${m2(g.monto_usd)}</b>${g.moneda === "Bs" ? `<br><small class="total">Bs ${m2(g.monto)} · tasa ${m2(g.tasa)}</small>` : ""}`, ref: esc(g.referencia || "—"), est: estFin(g.estado), _id: g.id, _e: g.estado }));
+    fin.innerHTML = `<p class="total">Pagos a técnicos, materiales, nómina, servidor, publicidad, comisiones, impuestos y reembolsos. Los montos en bolívares se pasan a dólares con la tasa del día.</p>` +
+      tablaFin([["fecha", "Fecha"], ["cat", "Categoría"], ["medio", "Tipo de pago"], ["cuenta", "Cuenta"], ["monto", "Monto"], ["ref", "Referencia"], ["est", "Estado"]], filas,
+        cat.puede_editar ? (f) => f._e === "anulado" ? "" : `<div class="acc">${f._e !== "conciliado" ? `<button title="Conciliar" data-mov="${f._id}" data-e="conciliado">✓</button>` : ""}<button title="Anular" data-mov="${f._id}" data-e="anulado">✕</button></div>` : null);
+    fin.querySelectorAll("[data-mov]").forEach((b) => (b.onclick = () => api(`/finanzas/movimientos/${b.dataset.mov}`, { method: "PUT", body: { estado: b.dataset.e } }).then(() => pintar(true))));
+  }
+  async function finReclamos(fin, cat) {
+    const rs = await api("/finanzas/reclamos");
+    fin.innerHTML = `<p class="total">Reclamos de dinero de clientes o tiendas. Al marcar uno como «Reembolsado», el reembolso queda registrado como gasto.</p>` +
+      tablaFin([["codigo", "Código"], ["cliente", "Cliente"], ["orden", "Orden"], ["motivo", "Motivo"], ["monto", "Monto"], ["est", "Estado"]],
+        rs.map((x) => ({ codigo: `<b>${x.codigo}</b>`, cliente: esc(x.cliente), orden: esc(x.orden || "—"), motivo: esc(x.motivo), monto: "$" + m2(x.monto_usd), est: estFin(x.estado), _x: x })),
+        cat.puede_editar ? (f) => `<div class="acc"><button title="Atender" data-rc="${f._x.id}">✎</button></div>` : null);
+    fin.querySelectorAll("[data-rc]").forEach((b) => (b.onclick = () => fichaReclamo(cat, rs.find((x) => x.id === Number(b.dataset.rc)))));
+  }
+  async function finCuentas(fin, cat) {
+    const cs = await api("/finanzas/cuentas");
+    fin.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><p class="total">Bancos nacionales e internacionales, Zelle y cajas de efectivo donde entra o sale el dinero.</p>
+      ${cat.puede_editar ? `<button class="btn pri" id="ncta">＋ Agregar banco o cuenta</button>` : ""}</div>
+      <div class="fin-grads">${cs.length ? cs.map((c, i) => `<div class="grad ${({ zelle: "g-zelle", efectivo: "g-cash", banco_nacional: "g-nac", banco_internacional: "g-int" })[c.categoria] || "g-otro"} ${c.activo ? "" : "apagada"}" data-cta="${i}">
+          <div class="gr-top"><span class="chip-est">${esc(c.categoria_texto)}</span><span class="gr-ic">${ICONO_MEDIO[c.categoria] || "🏦"}</span></div>
+          <div class="gr-t" style="margin-top:22px">${esc(c.nombre)}</div><div class="total" style="color:rgba(255,255,255,.8)">${esc(c.banco || "")} ${esc(c.identificador || "")}</div>
+          <div class="gr-v">${c.moneda === "Bs" ? "Bs" : "$"} ${m2(c.saldo ?? c.saldo_inicial)}</div><div class="total" style="color:rgba(255,255,255,.75)">${c.activo ? "Saldo según registros" : "Pausada"}</div></div>`).join("")
+        : `<div class="fin-vacio">Todavía no hay cuentas. Agrega tu primer banco.</div>`}</div>`;
+    const n = $("#ncta"); if (n) n.onclick = () => fichaCuenta(cat, null);
+    if (cat.puede_editar) fin.querySelectorAll("[data-cta]").forEach((d) => (d.onclick = () => fichaCuenta(cat, cs[d.dataset.cta])));
+  }
+  async function finMedios(fin, cat) {
+    fin.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><p class="total">Tipos de pago que acepta AHA HOME. Los de la caja vienen del sistema; puedes agregar otros (por ejemplo Binance, PayPal o cheque).</p>
+      ${cat.puede_editar ? `<button class="btn pri" id="nmed">＋ Agregar tipo de pago</button>` : ""}</div>` +
+      tablaFin([["nombre", "Tipo de pago"], ["cat", "Categoría"], ["moneda", "Moneda"], ["origen", "Origen"], ["est", "Estado"]],
+        cat.medios.map((m) => ({ nombre: `<span class="fk-ic">${ICONO_MEDIO[m.categoria] || "＋"}</span> <b>${esc(m.nombre)}</b>`, cat: esc(m.categoria_texto), moneda: m.moneda,
+          origen: m.del_sistema ? '<span class="est neutro">Caja</span>' : '<span class="est pend">Agregado</span>', est: m.activo ? '<span class="est ok">Activo</span>' : '<span class="est mal">Pausado</span>', _m: m })),
+        cat.puede_editar ? (f) => `<div class="acc"><button title="Editar" data-med="${f._m.id}">✎</button></div>` : null);
+    const n = $("#nmed"); if (n) n.onclick = () => fichaMedio(cat, null);
+    fin.querySelectorAll("[data-med]").forEach((b) => (b.onclick = () => fichaMedio(cat, cat.medios.find((m) => m.id === Number(b.dataset.med)))));
+  }
+  function cajonFin(titulo, cuerpo, alGuardar) {
+    document.querySelector(".cajon")?.remove();
+    const c = document.createElement("div"); c.className = "cajon";
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="total">Finanzas</span><button class="btn sec" id="cer">✕</button></div>
+      <h2 style="margin-top:8px">${titulo}</h2>${cuerpo}<div style="margin-top:18px"><button class="btn pri" id="fg">Guardar</button></div><p class="error" id="ferr"></p>`;
+    document.body.appendChild(c); $("#cer").onclick = () => c.remove();
+    $("#fg").onclick = async () => { try { await alGuardar(); c.remove(); pintar(true); } catch (e) { $("#ferr").textContent = e.message; } };
+    return c;
+  }
+  const finCampo = (id, l, v = "", t = "text", extra = "") => `<label class="flab">${l}</label><input id="${id}" type="${t}" value="${esc(v)}" class="finp" ${extra}>`;
+  const finSel = (id, l, ops, v) => `<label class="flab">${l}</label><select id="${id}" class="finp">${ops.map(([k, t]) => `<option value="${k}" ${String(k) === String(v) ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
+  function fichaMovimiento(cat, tipo) {
+    const cats = Object.entries(tipo === "gasto" ? cat.gastos : cat.ingresos);
+    cajonFin(tipo === "gasto" ? "Registrar gasto" : "Registrar ingreso",
+      finSel("mc", "Categoría", cats, cats[0][0]) + finCampo("md", "Descripción", "", "text", 'placeholder="Ej. pago semanal grupo A"') + finCampo("mf", "Fecha", new Date().toISOString().slice(0, 10), "date") +
+      `<div class="fila2"><div>${finCampo("mm", "Monto", "", "number", 'step="0.01" min="0"')}</div><div>${finSel("mo", "Moneda", [["USD", "Dólares"], ["Bs", "Bolívares"]], "USD")}</div></div>
+       <div class="total" id="mconv"></div>` +
+      finSel("mp", "Tipo de pago", [["", "—"]].concat(cat.medios.filter((m) => m.activo).map((m) => [m.id, m.nombre])), "") +
+      finSel("mk", "Cuenta", [["", "—"]].concat(cat.cuentas.filter((c) => c.activo).map((c) => [c.id, c.nombre])), "") +
+      finCampo("mr", "Referencia", "") + finCampo("mn", "Orden (opcional)", "", "text", 'placeholder="WO-1234"'),
+      () => api("/finanzas/movimientos", { body: { tipo, categoria: $("#mc").value, descripcion: $("#md").value, fecha: $("#mf").value, monto: Number($("#mm").value), moneda: $("#mo").value,
+        medio_id: $("#mp").value ? Number($("#mp").value) : null, cuenta_id: $("#mk").value ? Number($("#mk").value) : null, referencia: $("#mr").value, orden: $("#mn").value } }));
+    const conv = () => { const v = Number($("#mm").value || 0); $("#mconv").textContent = $("#mo").value === "Bs" && cat.tasa ? `≈ $${m2(v / cat.tasa)} a la tasa BCV de Bs ${m2(cat.tasa)}` : ""; };
+    $("#mm").oninput = conv; $("#mo").onchange = conv;
+  }
+  function fichaReclamo(cat, x) {
+    if (!x) return cajonFin("Nuevo reclamo", finCampo("rcl", "Cliente o tienda") + finCampo("ror", "Orden (opcional)", "", "text", 'placeholder="WO-1234"') +
+      `<label class="flab">Motivo</label><textarea id="rmo" class="finp" rows="3" placeholder="Ej. cobro doble en caja"></textarea>` + finCampo("rmn", "Monto en disputa (USD)", "", "number", 'step="0.01" min="0"'),
+      () => api("/finanzas/reclamos", { body: { cliente: $("#rcl").value, orden: $("#ror").value, motivo: $("#rmo").value, monto: Number($("#rmn").value || 0) } }));
+    cajonFin(`Reclamo ${x.codigo}`, `<div class="card" style="min-height:0;margin-top:10px"><b>${esc(x.cliente)}</b>${x.orden ? " · " + esc(x.orden) : ""}<div class="total">${esc(x.motivo)}</div><div class="grande">$${m2(x.monto_usd)}</div></div>` +
+      finSel("res", "Estado", Object.entries(cat.estados_reclamo), x.estado) + `<label class="flab">Resolución</label><textarea id="rrs" class="finp" rows="3">${esc(x.resolucion || "")}</textarea>` +
+      finSel("rmp", "Se devolvió por", [["", "—"]].concat(cat.medios.filter((m) => m.activo).map((m) => [m.id, m.nombre])), "") +
+      finSel("rct", "Desde la cuenta", [["", "—"]].concat(cat.cuentas.filter((c) => c.activo).map((c) => [c.id, c.nombre])), "") +
+      `<div class="total" style="margin-top:8px">Si lo marcas «Reembolsado», el monto queda registrado como gasto (Reembolsos a clientes).</div>`,
+      () => api(`/finanzas/reclamos/${x.id}`, { method: "PUT", body: { estado: $("#res").value, resolucion: $("#rrs").value, medio_id: $("#rmp").value ? Number($("#rmp").value) : null, cuenta_id: $("#rct").value ? Number($("#rct").value) : null } }));
+  }
+  function fichaCuenta(cat, c) {
+    cajonFin(c ? esc(c.nombre) : "Agregar banco o cuenta",
+      finCampo("cn", "Nombre", c?.nombre, "text", 'placeholder="Ej. Banesco operativa"') + finSel("cc", "Tipo", Object.entries(cat.categorias_medio), c?.categoria || "banco_nacional") +
+      finCampo("cb", "Banco", c?.banco, "text", 'placeholder="Ej. Banesco, Mercantil, Bank of America"') + finSel("cm", "Moneda", [["Bs", "Bolívares"], ["USD", "Dólares"]], c?.moneda || "Bs") +
+      finCampo("ct", "Titular", c?.titular, "text", 'placeholder="Onyxa LLC"') + finCampo("ci", "Número de cuenta, teléfono o correo Zelle", c?.identificador) +
+      finCampo("cs", "Saldo inicial", c?.saldo_inicial ?? "0", "number", 'step="0.01"') + (c ? `<label class="flab"><input type="checkbox" id="ca" ${c.activo ? "checked" : ""}> Activa</label>` : ""),
+      () => api(c ? `/finanzas/cuentas/${c.id}` : "/finanzas/cuentas", { method: c ? "PUT" : "POST", body: { nombre: $("#cn").value, categoria: $("#cc").value, banco: $("#cb").value, moneda: $("#cm").value,
+        titular: $("#ct").value, identificador: $("#ci").value, saldo_inicial: Number($("#cs").value || 0), activo: c ? $("#ca").checked : true } }));
+  }
+  function fichaMedio(cat, m) {
+    cajonFin(m ? esc(m.nombre) : "Agregar tipo de pago",
+      finCampo("pn", "Nombre", m?.nombre, "text", 'placeholder="Ej. Binance Pay, PayPal, cheque"') +
+      (m?.del_sistema ? `<div class="total" style="margin-top:8px">Este tipo de pago lo usa la caja: solo puedes cambiarle el nombre o pausarlo.</div>` :
+        finSel("pc", "Categoría", Object.entries(cat.categorias_medio), m?.categoria || "otro") + finSel("pm", "Moneda", [["USD", "Dólares"], ["Bs", "Bolívares"]], m?.moneda || "USD")) +
+      (m ? `<label class="flab"><input type="checkbox" id="pa" ${m.activo ? "checked" : ""}> Activo</label>` : ""),
+      () => api(m ? `/finanzas/medios/${m.id}` : "/finanzas/medios", { method: m ? "PUT" : "POST", body: { nombre: $("#pn").value, categoria: $("#pc") ? $("#pc").value : m.categoria,
+        moneda: $("#pm") ? $("#pm").value : m.moneda, activo: m ? $("#pa").checked : true } }));
+  }
+
+  // ---------- Diseño de la app: el panel controla colores, textos, menús y avisos ----------
+  const ICO_MENU = { inicio: "🏠", pedidos: "🧾", mensajes: "💬", cuenta: "👤", avisos: "🔔", soporte: "🎧", ordenes: "📄", mapa: "📍", perfil: "👤" };
+  const MENUS_NOMBRE = { cliente: "Cliente · menú de abajo", cliente_lateral: "Cliente · menú ☰", tecnico: "Técnico · menú de abajo" };
+  const VISTAS = [["portada", "Portada"], ["cliente", "Inicio del cliente"], ["cliente_lateral", "Menú ☰ del cliente"], ["tecnico", "Inicio del técnico"], ["caja", "Inicio de la caja"]];
+  async function diseno(main) {
+    S.dis = S.dis || await api("/admin/interfaz");
+    S.disVista = S.disVista || "portada"; S.disSec = S.disSec || "marca";
+    const D = S.dis.borrador;
+    const sec = (k, t) => `<button class="${S.disSec === k ? "on" : ""}" data-ds="${k}">${t}</button>`;
+    main.innerHTML += `<div class="dis-estado ${S.dis.hay_cambios ? "pend" : ""}">
+        <div><b>${S.dis.hay_cambios ? "● Tienes cambios sin publicar" : "✓ La app muestra la versión publicada"}</b><span class="total"> · ${S.dis.version ? "Versión publicada #" + S.dis.version : "La app usa el diseño de fábrica"}. Los cambios llegan a la app al publicarlos, sin publicar una app nueva.</span></div>
+        <div class="fin-acc"><button class="btn sec" id="dgu">Guardar borrador</button>${S.dis.hay_cambios ? `<button class="btn sec" id="dde">Descartar cambios</button>` : ""}<button class="btn pri" id="dpu" ${S.dis.hay_cambios ? "" : "disabled"}>Publicar en la app</button></div></div>
+      <div class="dis">
+        <div class="dis-edit">
+          <div class="tabs">${sec("marca", "Marca y colores")}${sec("portada", "Portada")}${sec("menus", "Menús")}${sec("aviso", "Aviso")}${sec("historial", "Historial")}</div>
+          <div id="dform"></div>
+        </div>
+        <div class="dis-prev"><div class="tabs chica">${VISTAS.map(([k, t]) => `<button class="${S.disVista === k ? "on" : ""}" data-dv="${k}">${t}</button>`).join("")}</div>
+          <div class="telefono"><div class="tel-isla"></div><div class="tel-pantalla" id="dprev"></div></div>
+          <div class="total" style="text-align:center;margin-top:8px">Vista previa del borrador · se actualiza mientras escribes</div></div>
+      </div>`;
+    main.querySelectorAll("[data-ds]").forEach((b) => (b.onclick = () => { S.disSec = b.dataset.ds; if (b.dataset.ds === "menus" && !["cliente", "cliente_lateral", "tecnico"].includes(S.disVista)) S.disVista = "cliente"; if (b.dataset.ds === "portada") S.disVista = "portada"; pintar(true); }));
+    main.querySelectorAll("[data-dv]").forEach((b) => (b.onclick = () => { S.disVista = b.dataset.dv; vistaPrevia(D); main.querySelectorAll("[data-dv]").forEach((x) => x.classList.toggle("on", x === b)); }));
+    const guardar = async () => { S.dis = await api("/admin/interfaz/borrador", { method: "PUT", body: { datos: D } }); };
+    $("#dgu").onclick = async () => { await guardar(); pintar(true); };
+    const de = $("#dde"); if (de) de.onclick = async () => { S.dis = await api("/admin/interfaz/descartar", { body: {} }); pintar(true); };
+    $("#dpu").onclick = () => publicarDiseno(guardar);
+    formDiseno(D, () => { S.dis.hay_cambios = true; $("#dpu").disabled = false; $(".dis-estado").classList.add("pend"); $(".dis-estado b").textContent = "● Tienes cambios sin publicar"; vistaPrevia(D); });
+    vistaPrevia(D);
+  }
+  function publicarDiseno(guardar) {
+    document.querySelector(".cajon")?.remove();
+    const c = document.createElement("div"); c.className = "cajon";
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="total">Diseño de la app</span><button class="btn sec" id="cer">✕</button></div>
+      <h2 style="margin-top:8px">Publicar en la app</h2><div class="total">La próxima vez que cada persona abra la app verá el diseño nuevo. Queda en el historial y puedes volver atrás cuando quieras.</div>
+      <label class="flab">¿Qué cambiaste? (para el historial)</label><input id="dnota" class="finp" placeholder="Ej. Aviso de feriado y menú más corto">
+      <div style="margin-top:18px;display:flex;gap:8px"><button class="btn pri" id="dok">Publicar ahora</button><button class="btn sec" id="dno">Cancelar</button></div><p class="error" id="derr"></p>`;
+    document.body.appendChild(c);
+    $("#cer").onclick = $("#dno").onclick = () => c.remove();
+    $("#dok").onclick = async () => { try { await guardar(); S.dis = await api("/admin/interfaz/publicar", { body: { nota: $("#dnota").value } }); c.remove(); pintar(true); } catch (e) { $("#derr").textContent = e.message; } };
+  }
+  function formDiseno(D, cambio) {
+    const f = $("#dform");
+    const inp = (ruta, l, v, extra = "") => `<label class="flab">${l}</label><input class="finp" data-r="${ruta}" value="${esc(v)}" ${extra}>`;
+    if (S.disSec === "marca") {
+      f.innerHTML = inp("marca.nombre", "Nombre de la app", D.marca.nombre, 'maxlength="30"') + inp("marca.eslogan", "Eslogan", D.marca.eslogan, 'maxlength="60"') +
+        `<label class="flab">Colores</label><div class="colores">${[["marino", "Principal (azul marino)"], ["lima", "Acento (lima)"], ["naranja", "Botones de acción (naranja)"], ["fondo", "Fondo de pantallas"]]
+          .map(([k, t]) => `<label class="color"><input type="color" data-c="${k}" value="${D.marca.colores[k]}"><span><b>${t}</b><small>${D.marca.colores[k]}</small></span></label>`).join("")}</div>
+        <button class="enlace" id="dfab" style="align-self:flex-start">Volver a los colores de fábrica</button>`;
+      f.querySelectorAll("[data-c]").forEach((x) => (x.oninput = () => { D.marca.colores[x.dataset.c] = x.value.toUpperCase(); x.nextElementSibling.querySelector("small").textContent = x.value.toUpperCase(); cambio(); }));
+      $("#dfab").onclick = () => { D.marca.colores = { ...S.dis.defecto.marca.colores }; formDiseno(D, cambio); cambio(); };
+    } else if (S.disSec === "portada") {
+      f.innerHTML = inp("portada.titulo", "Título", D.portada.titulo, 'maxlength="60"') + `<label class="flab">Texto debajo del título</label><textarea class="finp" rows="3" data-r="portada.subtitulo" maxlength="180">${esc(D.portada.subtitulo)}</textarea>` +
+        `<label class="flab">Los 4 pasos</label>` + D.portada.pasos.map((p, i) => `<div class="fila2">${`<input class="finp" data-r="portada.pasos.${i}.titulo" value="${esc(p.titulo)}" maxlength="40">`}${`<input class="finp" data-r="portada.pasos.${i}.detalle" value="${esc(p.detalle)}" maxlength="50">`}</div>`).join("") +
+        inp("portada.boton_crear", "Botón naranja", D.portada.boton_crear, 'maxlength="30"') + inp("portada.boton_entrar", "Botón azul", D.portada.boton_entrar, 'maxlength="34"');
+    } else if (S.disSec === "menus") {
+      f.innerHTML = Object.keys(MENUS_NOMBRE).map((m) => `<div class="dis-menu"><div class="dm-t">${MENUS_NOMBRE[m]}</div>${D.menus[m].map((it, i) => `<div class="dm-fila">
+          <span class="dm-ic">${ICO_MENU[it.id] || "•"}</span><input class="finp" data-m="${m}" data-i="${i}" value="${esc(it.texto)}" maxlength="22">
+          <label class="sw" title="${it.id === "inicio" ? "Inicio siempre se muestra" : "Mostrar u ocultar"}"><input type="checkbox" data-mv="${m}" data-i="${i}" ${it.visible ? "checked" : ""} ${it.id === "inicio" ? "disabled" : ""}><i></i></label>
+          <button class="dm-b" data-sube="${m}" data-i="${i}" ${i === 0 ? "disabled" : ""}>↑</button><button class="dm-b" data-baja="${m}" data-i="${i}" ${i === D.menus[m].length - 1 ? "disabled" : ""}>↓</button></div>`).join("")}</div>`).join("") +
+        `<div class="total">Cambia el nombre, el orden (↑ ↓) o apaga los botones que no quieras mostrar. «Inicio» siempre queda visible.</div>`;
+      f.querySelectorAll("[data-m]").forEach((x) => (x.oninput = () => { D.menus[x.dataset.m][x.dataset.i].texto = x.value; S.disVista = x.dataset.m; cambio(); }));
+      f.querySelectorAll("[data-mv]").forEach((x) => (x.onchange = () => { D.menus[x.dataset.mv][x.dataset.i].visible = x.checked; S.disVista = x.dataset.mv; cambio(); }));
+      const mover = (m, i, d) => { const a = D.menus[m]; [a[i], a[i + d]] = [a[i + d], a[i]]; S.disVista = m; formDiseno(D, cambio); cambio(); };
+      f.querySelectorAll("[data-sube]").forEach((x) => (x.onclick = () => mover(x.dataset.sube, Number(x.dataset.i), -1)));
+      f.querySelectorAll("[data-baja]").forEach((x) => (x.onclick = () => mover(x.dataset.baja, Number(x.dataset.i), 1)));
+    } else if (S.disSec === "aviso") {
+      const A = D.aviso;
+      f.innerHTML = `<label class="flab" style="display:flex;gap:10px;align-items:center"><span class="sw"><input type="checkbox" id="aact" ${A.activo ? "checked" : ""}><i></i></span> Mostrar un aviso arriba del inicio</label>
+        <label class="flab">Texto del aviso</label><textarea class="finp" rows="3" id="atx" maxlength="160" placeholder="Ej. El 24 de diciembre no hay servicio de instalación.">${esc(A.texto)}</textarea>
+        <label class="flab">Color</label><div class="fin-acc">${[["info", "Informativo"], ["ok", "Buena noticia"], ["alerta", "Importante"]].map(([k, t]) => `<button class="btn ${A.tono === k ? "pri" : "sec"}" data-at="${k}">${t}</button>`).join("")}</div>
+        <label class="flab">¿Quién lo ve?</label><div class="fin-acc">${[["cliente", "Clientes"], ["tecnico", "Técnicos"], ["agente", "Caja"]].map(([k, t]) => `<label class="chipsel"><input type="checkbox" data-ap="${k}" ${A.para.includes(k) ? "checked" : ""}> ${t}</label>`).join("")}</div>`;
+      $("#aact").onchange = (e) => { A.activo = e.target.checked; cambio(); };
+      $("#atx").oninput = (e) => { A.texto = e.target.value; if (A.texto && !A.activo) { A.activo = true; $("#aact").checked = true; } cambio(); };
+      f.querySelectorAll("[data-at]").forEach((x) => (x.onclick = () => { A.tono = x.dataset.at; formDiseno(D, cambio); cambio(); }));
+      f.querySelectorAll("[data-ap]").forEach((x) => (x.onchange = () => { A.para = [...f.querySelectorAll("[data-ap]:checked")].map((y) => y.dataset.ap); cambio(); }));
+      if (!["cliente", "tecnico", "caja"].includes(S.disVista)) S.disVista = "cliente";
+    } else {
+      f.innerHTML = `<div class="dis-hist">${S.dis.historial.length ? S.dis.historial.map((h) => `<div class="dh-f"><div><b>#${h.id} · ${esc(h.nota || "Cambios de diseño")}</b><small>${esc(h.por)} · ${fmt("", h.en)}</small></div>
+          ${h.estado === "publicada" ? '<span class="est ok">En la app</span>' : `<button class="btn sec" data-res="${h.id}">Volver a esta versión</button>`}</div>`).join("") : `<div class="fin-vacio">Todavía no has publicado cambios: la app usa el diseño de fábrica.</div>`}</div>
+        <div class="total" style="margin-top:10px">«Volver a esta versión» la copia al borrador para que la revises y la publiques.</div>`;
+      f.querySelectorAll("[data-res]").forEach((x) => (x.onclick = async () => { S.dis = await api(`/admin/interfaz/restaurar/${x.dataset.res}`, { body: {} }); S.disSec = "marca"; pintar(true); }));
+    }
+    f.querySelectorAll("[data-r]").forEach((x) => (x.oninput = () => { const k = x.dataset.r.split("."); let o = D; while (k.length > 1) o = o[k.shift()]; o[k[0]] = x.value; if (x.dataset.r.startsWith("portada")) S.disVista = "portada"; cambio(); }));
+  }
+  function vistaPrevia(D) {
+    const c = D.marca.colores, v = S.disVista, el = $("#dprev"); if (!el) return;
+    document.querySelectorAll("[data-dv]").forEach((x) => x.classList.toggle("on", x.dataset.dv === v));
+    el.style.setProperty("--m", c.marino); el.style.setProperty("--l", c.lima); el.style.setProperty("--n", c.naranja); el.style.setProperty("--f", c.fondo);
+    const logo = (px) => `<svg width="${px}" height="${px}" viewBox="0 0 100 100"><use href="#logo"/></svg>`;
+    const aviso = (rol) => D.aviso.activo && D.aviso.texto && D.aviso.para.includes(rol) ? `<div class="tp-aviso ${D.aviso.tono}">${esc(D.aviso.texto)}</div>` : "";
+    const cab = (t, s) => `<div class="tp-cab"><span>☰</span><div><b>${esc(t)}</b><small>${esc(s)}</small></div><span>🔔</span></div>`;
+    const tarjetas = `<div class="tp-card"><b>Tu servicio</b><small>Traslado e instalación · Aire 12.000 BTU</small><div class="tp-barra"><i></i></div></div><div class="tp-card"><b>Mis equipos</b><small>Nevera · Lavadora</small></div>`;
+    const vis = (m) => D.menus[m].filter((x) => x.visible);
+    if (v === "portada") {
+      el.innerHTML = `<div class="tp tp-portada">${logo(78)}<div class="tp-nom">${esc(D.marca.nombre)}</div><div class="tp-tit">${esc(D.portada.titulo)}</div><div class="tp-sub">${esc(D.portada.subtitulo)}</div>
+        ${D.portada.pasos.map((p, i) => `<div class="tp-paso"><span>${["🏬", "🚚", "🛠", "♻"][i]}</span><div><b>${esc(p.titulo)}</b><small>${esc(p.detalle)}</small></div></div>`).join("")}
+        <div class="tp-btn n">${esc(D.portada.boton_crear)}</div><div class="tp-btn m">${esc(D.portada.boton_entrar)}</div></div>`;
+    } else if (v === "cliente") {
+      const it = vis("cliente"), mitad = Math.ceil(it.length / 2), b = (x, i) => `<div class="tp-tab ${i === 0 ? "on" : ""}"><span>${ICO_MENU[x.id]}</span>${esc(x.texto)}</div>`;
+      el.innerHTML = `<div class="tp">${cab(D.marca.nombre, "Rastreo de pedido e instalación")}${aviso("cliente")}${tarjetas}
+        <div class="tp-flot">${it.slice(0, mitad).map(b).join("")}<div class="tp-hueco"></div>${it.slice(mitad).map((x) => b(x, 9)).join("")}<div class="tp-centro">🚗</div></div></div>`;
+    } else if (v === "cliente_lateral") {
+      el.innerHTML = `<div class="tp tp-lat"><div class="tp-lat-c">${logo(40)}<b>${esc(D.marca.nombre)}</b></div>${vis("cliente_lateral").map((x) => `<div class="tp-lat-i"><span>${ICO_MENU[x.id]}</span>${esc(x.texto)}</div>`).join("")}<div class="tp-lat-i rojo"><span>↩</span>Cerrar sesión</div></div>`;
+    } else if (v === "tecnico") {
+      el.innerHTML = `<div class="tp">${cab(D.marca.nombre + " Técnico", "Damasco San Martín")}${aviso("tecnico")}<div class="tp-card"><b>Guardia de hoy · Grupo A</b><small>2 órdenes asignadas</small></div><div class="tp-card"><b>WO-4921 · En ruta</b><small>Av. Urdaneta · Instalación</small></div>
+        <div class="tp-bar">${vis("tecnico").map((x, i) => `<div class="tp-tab ${i === 0 ? "on" : ""}"><span>${ICO_MENU[x.id]}</span>${esc(x.texto)}</div>`).join("")}</div></div>`;
+    } else {
+      el.innerHTML = `<div class="tp">${cab(D.marca.nombre + " · Caja", "Damasco San Martín")}${aviso("agente")}<div class="tp-btn l">＋ Nueva orden de servicio</div><div class="tp-card"><b>Precios · Bs o $</b><small>Tasa BCV del día y tabla de precios</small></div><div class="tp-card"><b>Órdenes de la tienda</b><small>Hoy: 3</small></div></div>`;
+    }
+  }
+
+  // ---------- Campana: avisos al momento (cada servicio nuevo de la caja, cancelaciones, reprogramaciones…) ----------
+  const ICO_VENTA = { "Nuevo servicio": "🛒", "Servicio cancelado": "✕", "Servicio reprogramado": "↻", "Entrega fallida": "⚠", "Servicio completado": "✓" };
+  const CLASE_VENTA = { nuevo: "v-nuevo", cancelado: "v-cancel", reprogramado: "v-reprog", fallido: "v-fallido", completado: "v-comp" };
+  const icoNoti = (t) => ICO_VENTA[Object.keys(ICO_VENTA).find((k) => t.startsWith(k))] || "🔔";
+  const claseNoti = (t) => t.startsWith("Nuevo") ? "v-nuevo" : t.startsWith("Servicio cancelado") ? "v-cancel" : t.startsWith("Servicio reprogramado") ? "v-reprog" : t.startsWith("Entrega fallida") ? "v-fallido" : t.startsWith("Servicio completado") ? "v-comp" : "";
+  async function revisarCampana(inicio) {
+    if (!S.token || !$("#camn")) return;
+    try {
+      const ns = await api("/notificaciones"); S.notis = ns;
+      const sin = ns.filter((n) => !n.leida), b = $("#camn");
+      b.hidden = !sin.length; b.textContent = sin.length > 9 ? "9+" : sin.length;
+      const vistos = S.notiVistas || new Set(ns.map((n) => n.id));
+      const llegaron = inicio ? [] : sin.filter((n) => !vistos.has(n.id));
+      llegaron.slice(0, 3).reverse().forEach(brindis);
+      if (llegaron.length && S.ruta === "ventas" && !document.querySelector(".cajon")) pintar(true);  // Ventas se actualiza sola
+      S.notiVistas = new Set(ns.map((n) => n.id));
+      if (!$("#camm").hidden) pintarCampana();
+    } catch { /* sin conexión */ }
+    clearTimeout(S.camT); S.camT = setTimeout(() => revisarCampana(false), 15000);
+  }
+  function brindis(n) {
+    let pila = document.querySelector(".brindis-pila"); if (!pila) { pila = document.createElement("div"); pila.className = "brindis-pila"; document.body.appendChild(pila); }
+    const d = document.createElement("div"); d.className = "brindis " + claseNoti(n.titulo);
+    d.innerHTML = `<span class="bz-ic">${icoNoti(n.titulo)}</span><div><b>${esc(n.titulo)}</b><small>${esc(n.texto)}</small></div>`;
+    d.onclick = () => { d.remove(); if (puede("ventas")) location.hash = "ventas"; };
+    pila.appendChild(d); setTimeout(() => d.classList.add("fuera"), 9000); setTimeout(() => d.remove(), 9500);
+  }
+  function pintarCampana() {
+    const m = $("#camm"), ns = S.notis || [];
+    m.innerHTML = `<div class="cm-cab"><b>Notificaciones</b>${ns.some((n) => !n.leida) ? `<button class="enlace" id="cmtodas">Marcar todas como leídas</button>` : ""}</div>
+      <div class="cm-lista">${ns.length ? ns.slice(0, 25).map((n) => `<div class="cm-i ${n.leida ? "" : "nueva"} ${claseNoti(n.titulo)}" data-n="${n.id}"><span class="bz-ic">${icoNoti(n.titulo)}</span>
+        <div><b>${esc(n.titulo)}</b><small>${esc(n.texto)}</small><em>${fmt("", n.fecha)}</em></div></div>`).join("") : `<div class="fin-vacio">Sin notificaciones por ahora.</div>`}</div>
+      ${puede("ventas") ? `<a class="cm-pie" href="#ventas">Ver todo en Ventas ›</a>` : ""}`;
+    const t = $("#cmtodas"); if (t) t.onclick = async (e) => { e.stopPropagation(); await api("/notificaciones/leer", { body: {} }); revisarCampana(true); };
+    m.querySelectorAll("[data-n]").forEach((x) => (x.onclick = async () => { await api(`/notificaciones/${x.dataset.n}/leer`, { body: {} }).catch(() => {}); m.hidden = true; if (puede("ventas")) location.hash = "ventas"; revisarCampana(true); }));
+  }
+  document.addEventListener("click", (e) => { const m = document.getElementById("camm"); if (m && !m.hidden && !e.target.closest(".campana")) m.hidden = true; });
+
+  // ---------- Departamento de ventas ----------
+  const VEN_TABS = [["resumen", "Resumen"], ["nuevo", "Nuevos"], ["cancelado", "Cancelados"], ["reprogramado", "Reprogramados"], ["fallido", "Entregas fallidas"], ["completado", "Completados"]];
+  async function ventasPag(main) {
+    S.venTab = S.venTab || "resumen"; S.venDias = S.venDias || 30;
+    main.innerHTML += `<div class="fin-barra"><div class="tabs">${VEN_TABS.map(([k, t]) => `<button class="${S.venTab === k ? "on" : ""}" data-vt="${k}">${t}</button>`).join("")}</div>
+      <select class="sel" id="vdias">${[1, 7, 30, 90].map((d) => `<option value="${d}" ${d === S.venDias ? "selected" : ""}>${d === 1 ? "Hoy" : d + " días"}</option>`).join("")}</select></div><div id="ven"></div>`;
+    main.querySelectorAll("[data-vt]").forEach((b) => (b.onclick = () => { S.venTab = b.dataset.vt; pintar(true); }));
+    $("#vdias").onchange = (e) => { S.venDias = Number(e.target.value); pintar(true); };
+    const v = $("#ven");
+    if (S.venTab !== "resumen") {
+      const ms = await api(`/ventas/movimientos?tipo=${S.venTab}&dias=${S.venDias}`);
+      v.innerHTML = tablaFin([["en", "Cuándo"], ["orden", "Orden"], ["cliente", "Cliente"], ["tienda", "Tienda"], ["cajero", "Caja"], ["servicio", "Servicio"], ["monto", "Monto"], ["nota", "Detalle"]],
+        ms.map((m) => ({ en: fmt("", m.en), orden: `<b>${esc(m.orden)}</b>`, cliente: esc(m.cliente), tienda: esc(m.tienda), cajero: esc(m.cajero), servicio: `${esc(m.servicio)}<br><small class="total">${m.articulos} artículo(s) · cita ${esc(m.cita)}</small>`,
+          monto: `$${m2(m.monto_usd)}<br><small class="total">${esc(m.pago)}</small>`, nota: `<small>${esc(m.nota)}</small><br><small class="total">por ${esc(m.por)}</small>` })));
+      return;
+    }
+    const r = await api(`/ventas/resumen?dias=${S.venDias}`);
+    const tile = (ic, t, val, nota, cls = "") => `<div class="fin-kpi ${cls}"><div class="fk-t"><span class="fk-ic">${ic}</span>${t}</div><div class="fk-v">${val}</div><div class="fk-n">${nota}</div></div>`;
+    const maxT = Math.max(1, ...Object.values(r.por_tienda));
+    v.innerHTML = `<div class="fin-kpis">
+        ${tile("🛒", "Servicios nuevos", r.nuevos, r.dias === 1 ? "Hoy" : `Últimos ${r.dias} días`)}
+        ${tile("✕", "Cancelados", r.cancelados, r.tasa_cancelacion === null ? "—" : `${r.tasa_cancelacion}% de los nuevos`)}
+        ${tile("↻", "Reprogramados", r.reprogramados, "Cambio de fecha")}
+        ${tile("⚠", "Entregas fallidas", r.fallidos, "Con penalidad")}
+        ${tile("✓", "Completados", r.completados, `${r.en_curso} en curso ahora`)}
+        ${tile("$", "Ticket promedio", "$" + m2(r.ticket_usd), "Por servicio nuevo")}</div>
+      <div class="fin-medio">
+        <div class="fin-lado"><div class="fin-lado-t">⚡ Lo último <a href="#" data-vir="nuevo">Ver todo</a></div>
+          ${r.ultimos.length ? r.ultimos.slice(0, 6).map((m) => `<div class="v-item ${CLASE_VENTA[m.tipo]}"><span class="bz-ic">${icoNoti(m.tipo_texto)}</span><div><b>${esc(m.tipo_texto)} · ${esc(m.orden)}</b>
+            <small>${esc(m.cliente)} · ${esc(m.tienda)}</small><em>${fmt("", m.en)}</em></div><span class="v-m">$${m2(m.monto_usd)}</span></div>`).join("") : `<div class="fin-vacio">Todavía no hay movimientos.</div>`}</div>
+        <div class="fin-hero v-hero"><div class="fh-top"><span class="chip-est">📈 Departamento de ventas</span></div>
+          <div class="fh-tit">Vendido en caja en el período</div><div class="fh-num">$${m2(r.vendido_usd)}</div>
+          <div class="fh-sub"><b>${r.nuevos}</b> servicios nuevos · <span class="ley"><i></i>Nuevos</span> <span class="ley l2"><i></i>Cancelados y fallidos</span></div>
+          ${lineas(r.serie_nuevos, r.serie_bajas)}
+          <div class="fh-acc"><button class="btn blanco" data-vir="nuevo">▸ Ver servicios nuevos</button><button class="btn vidrio" data-vir="cancelado">Ver cancelados</button></div></div>
+      </div>
+      <div class="fin-dos">
+        <div class="card"><div class="tit"><span>Servicios nuevos por tienda</span><span class="total">${r.nuevos}</span></div>${Object.keys(r.por_tienda).length ? `<div class="barras-h">${Object.entries(r.por_tienda).map(([k, n]) => `<div><span>${esc(k)}</span><i style="width:${(n * 100) / maxT}%"></i><b>${n}</b></div>`).join("")}</div>` : `<div class="fin-vacio">Sin servicios en el período.</div>`}
+          <div class="tit" style="margin-top:18px"><span>Ranking de cajas</span></div>${r.por_cajero.length ? r.por_cajero.slice(0, 5).map((c, i) => `<div class="cta-mini"><span class="fk-ic">${i + 1}</span><div><b>${esc(c.cajero)}</b><small>${c.servicios} servicio(s)</small></div><span>$${m2(c.monto_usd)}</span></div>`).join("") : ""}</div>
+        <div class="card"><div class="tit"><span>Por tipo de servicio</span><span class="total">${r.nuevos}</span></div>${dona(r.por_servicio)}</div>
+      </div>`;
+    v.querySelectorAll("[data-vir]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); S.venTab = a.dataset.vir; pintar(true); }));
+  }
+
   async function usuarios(main) {
     const [cat, us, ts, cc] = await Promise.all([api("/ceo/permisos"), api("/ceo/usuarios"), api("/admin/tiendas"), api("/ceo/correos")]);
     S.dominio = cc.dominio;
@@ -444,7 +839,7 @@
     if (!S.token) return login(app);
     if (!S.yo) {
       try { S.yo = await api("/yo"); } catch { return; }
-      if (!["supervisor", "superadmin"].includes(S.yo.rol)) { salir(); alert("El panel es solo para el superadmin y el centro de control. La caja usa la app."); return; }
+      if (!["supervisor", "superadmin", "ventas"].includes(S.yo.rol)) { salir(); alert("El panel es solo para el equipo de oficina (superadmin, centro de control y ventas). La caja usa la app."); return; }
     }
     if (S.yo.clave_temporal) return cambioObligatorio(app);
     if (!puede(S.ruta) && !(S.ruta === "usuarios" && S.yo.es_ceo) && !(S.ruta === "auditoria" && S.yo.es_ceo) && !(S.ruta === "correos" && S.yo.es_ceo)) {
@@ -456,11 +851,13 @@
       app.innerHTML = `<div class="top"><button class="hamb" id="hamb">☰</button><div class="marca"><svg><use href="#logo"/></svg>AHA HOME</div>
         <div class="buscar"><input id="bg" placeholder="Presiona / para buscar"><div class="resultados" id="rg" style="display:none"></div></div><div class="esp"></div>
         <button class="ico-btn" id="tema" title="Tema claro u oscuro">${document.documentElement.dataset.tema === "oscuro" ? "☀" : "☾"}</button>
-        <a class="ico-btn" href="#verificaciones" title="Pendientes">🔔${S.notif ? `<span class="badge">${S.notif}</span>` : ""}</a>
-        <div class="usuario"><button class="ico-btn" style="width:auto;padding:0 12px;border-radius:19px" id="um">${esc(S.yo.nombre)} ⌄</button><div class="menu" id="umm" style="display:none"><button disabled>${S.yo.es_ceo ? "CEO" : S.yo.rol === "superadmin" ? "Superadministrador" : "Centro de control"}</button><button id="mic">🔑 Cambiar mi clave</button><button id="sal">Cerrar sesión</button></div></div></div>
+        <div class="campana"><button class="ico-btn" id="cam" title="Notificaciones">🔔<span class="badge" id="camn" hidden></span></button><div class="cam-menu" id="camm" hidden></div></div>
+        <div class="usuario"><button class="ico-btn" style="width:auto;padding:0 12px;border-radius:19px" id="um">${esc(S.yo.nombre)} ⌄</button><div class="menu" id="umm" style="display:none"><button disabled>${S.yo.es_ceo ? "CEO" : S.yo.rol === "superadmin" ? "Superadministrador" : S.yo.rol === "ventas" ? "Departamento de ventas" : "Centro de control"}</button><button id="mic">🔑 Cambiar mi clave</button><button id="sal">Cerrar sesión</button></div></div></div>
         <div class="cuerpo"><nav class="lat ${S.latOculta ? "oculto" : ""}">${menuHTML()}</nav><main class="main"></main></div>`;
       $("#hamb").onclick = () => { S.latOculta = !S.latOculta; $(".lat").classList.toggle("oculto"); };
       $("#tema").onclick = () => { const n = document.documentElement.dataset.tema === "oscuro" ? "claro" : "oscuro"; document.documentElement.dataset.tema = n; localStorage.setItem("ahahome.panel.tema", n); pintar(); };
+      $("#cam").onclick = (e) => { e.stopPropagation(); const m = $("#camm"); m.hidden = !m.hidden; if (!m.hidden) pintarCampana(); };
+      revisarCampana(true);
       $("#um").onclick = () => { const m = $("#umm"); m.style.display = m.style.display === "none" ? "block" : "none"; };
       $("#sal").onclick = salir;
       $("#mic").onclick = () => { $("#umm").style.display = "none"; miClave(); };
@@ -481,6 +878,9 @@
       if (S.ruta === "sinpermisos") main.innerHTML += `<p class="total">Tu cuenta todavía no tiene permisos. Pídeselos al CEO.</p>`;
       else if (S.ruta === "usuarios") await usuarios(main);
       else if (S.ruta === "correos") await correos(main);
+      else if (S.ruta === "finanzas") await finanzas(main);
+      else if (S.ruta === "diseno") await diseno(main);
+      else if (S.ruta === "ventas") await ventasPag(main);
       else if (S.ruta === "inicio") await inicio(main);
       else if (S.ruta === "anuncios") await anuncios(main);
       else if (S.ruta === "auditoria") await auditoria(main);

@@ -43,7 +43,7 @@ def perfil(u: User) -> dict:
     d = {"id": u.id, "nombre": u.nombre, "telefono": u.telefono, "email": u.email, "rol": u.rol, "cedula": u.cedula,
          "tienda_id": u.tienda_id, "foto": u.foto, "email_verificado": u.email_verificado, "es_ceo": bool(u.es_ceo and u.rol == "superadmin"), "clave_temporal": bool(u.clave_temporal),
          "verificacion_vence": u.verificacion_vence.isoformat() + "Z" if u.verificacion_vence and not u.email_verificado else None}
-    if u.rol in ("agente", "tecnico_supervisor", "supervisor", "superadmin"):
+    if u.rol in ("agente", "tecnico_supervisor", "supervisor", "superadmin", "ventas"):
         from ..deps import permisos_de
         d["permisos"] = permisos_de(u)
     if u.tecnico:
@@ -305,7 +305,7 @@ def leer_todas(user: User = Depends(current_user), db: Session = Depends(get_db)
 # ---------- Recuperar la clave por correo (equipo AHA HOME) ----------
 import hashlib
 
-ROLES_RECUPERAR = ("agente", "supervisor", "tecnico_supervisor", "superadmin")
+ROLES_RECUPERAR = ("agente", "supervisor", "tecnico_supervisor", "superadmin", "ventas")
 RESET_MINUTOS = 30
 MENSAJE_RECUPERAR = "Si ese correo es de una cuenta del equipo AHA HOME, te enviamos un enlace para crear una clave nueva. Revisa tu bandeja y la carpeta de spam."
 

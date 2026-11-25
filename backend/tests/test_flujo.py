@@ -1218,3 +1218,99 @@ def test_panel_sin_cache_y_con_version(client):
     assert r.status_code == 200 and "no-cache" in r.headers["cache-control"]
     assert "/panel/panel.js?v=" in r.text and "/panel/ios.css?v=" in r.text
     assert client.get("/panel/panel.js").status_code == 200
+
+
+def test_finanzas_contables(client):
+    sa = login(client, "superadmin@ahahome.test")
+    sup = login(client, "supervisor@ahahome.test")
+    cat = client.get("/finanzas/catalogo", headers=sa).json()
+    nombres = [m["nombre"] for m in cat["medios"]]
+    assert "Zelle" in nombres and "Efectivo en dólares (cash)" in nombres and "Transferencia bancaria internacional" in nombres
+    # agregar otro tipo de pago
+    bp = client.post("/finanzas/medios", json={"nombre": "Binance Pay", "categoria": "otro", "moneda": "USD"}, headers=sa).json()
+    assert bp["nombre"] == "Binance Pay" and not bp["del_sistema"]
+    assert client.post("/finanzas/medios", json={"nombre": "Binance Pay"}, headers=sa).status_code == 409
+    # cuentas: banco nacional, internacional y zelle
+    bn = client.post("/finanzas/cuentas", json={"nombre": "Banesco operativa", "categoria": "banco_nacional", "banco": "Banesco", "moneda": "Bs",
+                                               "identificador": "01340000000012345678", "saldo_inicial": 5000}, headers=sa).json()
+    assert bn["identificador"] == "•••• 5678" and bn["saldo"] == "5000.00"
+    zl = client.post("/finanzas/cuentas", json={"nombre": "Zelle Onyxa", "categoria": "zelle", "moneda": "USD", "identificador": "pagos@aha-go.com"}, headers=sa).json()
+    # gasto en Bs a la tasa del día y gasto en USD
+    zid = next(m["id"] for m in cat["medios"] if m["nombre"] == "Zelle")
+    g = client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "pago_tecnicos", "fecha": str(dt.date.today()), "monto": 40, "moneda": "USD",
+                                                   "medio_id": zid, "cuenta_id": zl["id"], "descripcion": "Pago semanal"}, headers=sa).json()
+    assert g["monto_usd"] == "40.00" and g["medio"] == "Zelle"
+    b = client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "comisiones", "fecha": str(dt.date.today()), "monto": 500, "moneda": "Bs",
+                                                   "tasa": 250, "cuenta_id": bn["id"]}, headers=sa).json()
+    assert b["monto_usd"] == "2.00"
+    assert client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "nada", "fecha": str(dt.date.today()), "monto": 1}, headers=sa).status_code == 422
+    # reclamo → reembolso queda como gasto
+    r = client.post("/finanzas/reclamos", json={"cliente": "María González", "orden": "wo-1", "motivo": "Cobro doble en caja", "monto": 15}, headers=sa).json()
+    assert r["codigo"].startswith("RF-") and r["estado"] == "abierto"
+    res = client.get("/finanzas/resumen", headers=sa).json()
+    assert res["gastos_usd"] == "42.00" and res["reclamos_abiertos"] == 1
+    client.put(f"/finanzas/reclamos/{r['id']}", json={"estado": "reembolsado", "resolucion": "Se devolvió por Zelle", "medio_id": zid}, headers=sa)
+    res = client.get("/finanzas/resumen", headers=sa).json()
+    assert res["gastos_usd"] == "57.00" and res["reclamos_abiertos"] == 0 and "Reembolsos a clientes" in res["gastos_por_categoria"]
+    assert any(c["nombre"] == "Banesco operativa" and c["saldo"] == "4500.00" for c in res["cuentas"])
+    # el centro de control ve pero no registra; la caja no entra
+    assert client.get("/finanzas/resumen", headers=sup).status_code == 200
+    assert client.post("/finanzas/reclamos", json={"cliente": "X Y", "motivo": "abc"}, headers=sup).status_code == 403
+    assert client.get("/finanzas/resumen", headers=login(client, "agente@ahahome.test")).status_code == 403
+
+
+def test_diseno_de_la_app_desde_el_panel(client):
+    sa = login(client, "superadmin@ahahome.test")
+    sup = login(client, "supervisor@ahahome.test")
+    base = client.get("/interfaz").json()
+    assert base["marca"]["nombre"] == "AHA HOME" and [x["id"] for x in base["menus"]["cliente"]] == ["inicio", "pedidos", "mensajes", "cuenta"]
+    assert client.get("/admin/interfaz", headers=sup).status_code == 403
+    v = client.get("/admin/interfaz", headers=sa).json()
+    d = v["borrador"]
+    d["marca"]["colores"]["lima"] = "#ff9900"; d["marca"]["colores"]["marino"] = "rojo"  # inválido: se ignora
+    d["portada"]["titulo"] = "Tu compra, instalada hoy"
+    d["menus"]["cliente"] = [{"id": "mensajes", "texto": "Chat", "visible": True}, {"id": "inicio", "texto": "Casa", "visible": False},
+                             {"id": "pedidos", "texto": "Pedidos", "visible": False}, {"id": "nada", "texto": "x"}]
+    d["aviso"] = {"activo": True, "texto": "Mañana no hay servicio por feriado", "tono": "alerta", "para": ["cliente"]}
+    r = client.put("/admin/interfaz/borrador", json={"datos": d}, headers=sa).json()
+    assert r["hay_cambios"] and client.get("/interfaz").json()["portada"]["titulo"] == "Hacemos todo por ti"  # aún no publicado
+    b = r["borrador"]
+    assert b["marca"]["colores"]["lima"] == "#FF9900" and b["marca"]["colores"]["marino"] == "#21244D"
+    assert [x["id"] for x in b["menus"]["cliente"]] == ["mensajes", "inicio", "pedidos", "cuenta"]
+    assert next(x for x in b["menus"]["cliente"] if x["id"] == "inicio")["visible"] is True  # Inicio no se puede ocultar
+    client.post("/admin/interfaz/publicar", json={"nota": "Feriado y color nuevo"}, headers=sa)
+    pub = client.get("/interfaz").json()
+    assert pub["portada"]["titulo"] == "Tu compra, instalada hoy" and pub["aviso"]["activo"] and pub["version"] > 0
+    hist = client.get("/admin/interfaz", headers=sa).json()["historial"]
+    assert hist[0]["nota"] == "Feriado y color nuevo"
+    # volver a la versión de fábrica: descartar no toca lo publicado; restaurar copia al borrador
+    client.put("/admin/interfaz/borrador", json={"datos": {}}, headers=sa)
+    client.post("/admin/interfaz/publicar", json={"nota": "Volver al diseño original"}, headers=sa)
+    assert client.get("/interfaz").json()["portada"]["titulo"] == "Hacemos todo por ti"
+    r = client.post(f"/admin/interfaz/restaurar/{hist[0]['id']}", headers=sa).json()
+    assert r["borrador"]["portada"]["titulo"] == "Tu compra, instalada hoy" and r["hay_cambios"]
+
+
+def test_departamento_de_ventas(client):
+    ceo = login(client, "ceo@ahahome.test")
+    v = client.post("/ceo/usuarios", json={"nombre": "Laura Ventas", "email": "ventas@aha-go.com", "rol": "ventas"}, headers=ceo).json()
+    assert v["permisos"] == ["ver_ventas"]
+    ven = {"Authorization": "Bearer " + client.post("/auth/login", json={"usuario": "ventas@aha-go.com", "password": v["clave"]}).json()["token"]}
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente)
+    notis = client.get("/notificaciones", headers=ven).json()
+    assert notis and notis[0]["titulo"].startswith("Nuevo servicio · ") and o["codigo"] in notis[0]["titulo"]
+    client.post(f"/ordenes/{o['id']}/cancelar", json={"motivo": "El cliente se arrepintió"}, headers=agente)
+    notis = client.get("/notificaciones", headers=ven).json()
+    assert notis[0]["titulo"].startswith("Servicio cancelado") and "arrepintió" in notis[0]["texto"]
+    o2 = nueva(client, agente)
+    d = (dt.date.today() + dt.timedelta(days=3)).isoformat()
+    client.post(f"/ordenes/{o2['id']}/reprogramar", json={"fecha": d, "franja": "13:00-15:00"}, headers=agente)
+    assert client.get("/notificaciones", headers=ven).json()[0]["titulo"].startswith("Servicio reprogramado")
+    r = client.get("/ventas/resumen", headers=ven).json()
+    assert r["nuevos"] >= 2 and r["cancelados"] >= 1 and r["reprogramados"] >= 1
+    assert all(m["tipo"] == "cancelado" for m in client.get("/ventas/movimientos?tipo=cancelado", headers=ven).json())
+    # la caja no ve ventas; el centro de control sí; ventas no ve finanzas
+    assert client.get("/ventas/resumen", headers=agente).status_code == 403
+    assert client.get("/ventas/resumen", headers=login(client, "supervisor@ahahome.test")).status_code == 200
+    assert client.get("/finanzas/resumen", headers=ven).status_code == 403

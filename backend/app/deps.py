@@ -33,9 +33,10 @@ PERMISOS = [
     ("ver_empresas", "Ver", "Empresas aliadas"),
     ("ver_tecnicos", "Ver", "Técnicos y verificaciones"),
     ("ver_ordenes", "Ver", "Órdenes"),
-    ("ver_finanzas", "Ver", "Transacciones y liquidaciones"),
+    ("ver_finanzas", "Ver", "Finanzas, transacciones y liquidaciones"),
     ("ver_soporte", "Ver", "Mensajería, reportes y reseñas"),
     ("ver_personal", "Ver", "Personal interno"),
+    ("ver_ventas", "Ver", "Ventas: servicios nuevos, cancelados y reprogramados"),
     ("tasa", "Editar", "Cargar la tasa BCV"),
     ("precios", "Editar", "Tabulación de precios e inspección"),
     ("qr_tiendas", "Editar", "Generar el QR de las tiendas"),
@@ -44,6 +45,8 @@ PERMISOS = [
     ("pagar_materiales", "Editar", "Pagar materiales a los técnicos"),
     ("altas_tecnicos", "Editar", "Expedientes y altas de técnicos"),
     ("activar_cuentas", "Editar", "Activar o desactivar cuentas"),
+    ("finanzas", "Editar", "Finanzas: pagos, gastos, reclamos, bancos y tipos de pago"),
+    ("diseno", "Editar", "Diseño de la app: colores, textos, menús y avisos"),
 ]
 CLAVES_PERMISO = [p[0] for p in PERMISOS]
 TEXTO_PERMISO = {p[0]: p[2] for p in PERMISOS}
@@ -53,6 +56,7 @@ PERMISOS_POR_ROL = {
     "supervisor": _VER + ["altas_tecnicos"],
     "tecnico_supervisor": ["ver_tecnicos", "ver_ordenes", "altas_tecnicos"],
     "agente": [],
+    "ventas": ["ver_ventas"],
 }
 
 
