@@ -1237,11 +1237,12 @@ def test_finanzas_contables(client):
     zl = client.post("/finanzas/cuentas", json={"nombre": "Zelle Onyxa", "categoria": "zelle", "moneda": "USD", "identificador": "pagos@aha-go.com"}, headers=sa).json()
     # gasto en Bs a la tasa del día y gasto en USD
     zid = next(m["id"] for m in cat["medios"] if m["nombre"] == "Zelle")
+    pm = next(m["id"] for m in cat["medios"] if m["nombre"] == "Pago móvil")
     g = client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "pago_tecnicos", "fecha": str(dt.date.today()), "monto": 40, "moneda": "USD",
-                                                   "medio_id": zid, "cuenta_id": zl["id"], "descripcion": "Pago semanal"}, headers=sa).json()
+                                                   "medio_id": zid, "cuenta_id": zl["id"], "referencia": "Z-100", "descripcion": "Pago semanal"}, headers=sa).json()
     assert g["monto_usd"] == "40.00" and g["medio"] == "Zelle"
     b = client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "comisiones", "fecha": str(dt.date.today()), "monto": 500, "moneda": "Bs",
-                                                   "tasa": 250, "cuenta_id": bn["id"]}, headers=sa).json()
+                                                   "tasa": 250, "cuenta_id": bn["id"], "medio_id": pm, "referencia": "PM-1"}, headers=sa).json()
     assert b["monto_usd"] == "2.00"
     assert client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "nada", "fecha": str(dt.date.today()), "monto": 1}, headers=sa).status_code == 422
     # reclamo → reembolso queda como gasto
@@ -1249,7 +1250,7 @@ def test_finanzas_contables(client):
     assert r["codigo"].startswith("RF-") and r["estado"] == "abierto"
     res = client.get("/finanzas/resumen", headers=sa).json()
     assert res["gastos_usd"] == "42.00" and res["reclamos_abiertos"] == 1
-    client.put(f"/finanzas/reclamos/{r['id']}", json={"estado": "reembolsado", "resolucion": "Se devolvió por Zelle", "medio_id": zid}, headers=sa)
+    client.put(f"/finanzas/reclamos/{r['id']}", json={"estado": "reembolsado", "resolucion": "Se devolvió por Zelle", "medio_id": zid, "referencia": "Z-200"}, headers=sa)
     res = client.get("/finanzas/resumen", headers=sa).json()
     assert res["gastos_usd"] == "57.00" and res["reclamos_abiertos"] == 0 and "Reembolsos a clientes" in res["gastos_por_categoria"]
     assert any(c["nombre"] == "Banesco operativa" and c["saldo"] == "4500.00" for c in res["cuentas"])
@@ -1323,3 +1324,129 @@ def test_ventas_clasifica_eventos():
     assert tipo_de("cancelado", "") == "cancelado"
     assert tipo_de("entrega_fallida", "") == "fallido"
     assert tipo_de("completado", "") == "completado"
+
+
+def test_reglas_de_pagos_a_mano(client):
+    """SIS-010: tipo de pago, referencia, motivo al anular, cuentas por moneda, sin cobros dobles y reclamos sin reabrir."""
+    import datetime as dt
+    sa = login(client, "superadmin@ahahome.test")
+    cat = client.get("/finanzas/catalogo", headers=sa).json()
+    zid = next(m["id"] for m in cat["medios"] if m["nombre"] == "Zelle")
+    efe = next(m["id"] for m in cat["medios"] if m["nombre"] == "Efectivo en dólares (cash)")
+    hoy = str(dt.date.today())
+    base = {"tipo": "gasto", "categoria": "materiales", "fecha": hoy, "monto": 10, "moneda": "USD"}
+    assert client.post("/finanzas/movimientos", json=base, headers=sa).status_code == 422                      # sin tipo de pago
+    assert client.post("/finanzas/movimientos", json=base | {"medio_id": zid}, headers=sa).status_code == 422  # Zelle sin referencia
+    ok = client.post("/finanzas/movimientos", json=base | {"medio_id": efe}, headers=sa)                       # efectivo: sin referencia
+    assert ok.status_code == 200
+    bs = client.post("/finanzas/cuentas", json={"nombre": "Cuenta Bs", "categoria": "banco_nacional", "moneda": "Bs"}, headers=sa).json()
+    r = client.post("/finanzas/movimientos", json=base | {"medio_id": zid, "referencia": "Z-1", "cuenta_id": bs["id"]}, headers=sa)
+    assert r.status_code == 422 and "Bs" in r.json()["detail"]                                                   # cuenta de otra moneda
+    mid = ok.json()["id"]
+    assert client.put(f"/finanzas/movimientos/{mid}", json={"estado": "anulado"}, headers=sa).status_code == 422  # anular sin motivo
+    an = client.put(f"/finanzas/movimientos/{mid}", json={"estado": "anulado", "motivo": "Registrado dos veces"}, headers=sa).json()
+    assert an["estado"] == "anulado" and an["motivo_anulacion"] == "Registrado dos veces"
+    assert client.put(f"/finanzas/movimientos/{mid}", json={"estado": "registrado"}, headers=sa).status_code == 409
+    # un cobro de servicio no se carga a mano
+    serv = {"tipo": "ingreso", "categoria": "servicio", "fecha": hoy, "monto": 30, "moneda": "USD", "medio_id": efe}
+    assert client.post("/finanzas/movimientos", json=serv, headers=sa).status_code == 422
+    # reclamo: se reembolsa una sola vez y no se reabre
+    rec = client.post("/finanzas/reclamos", json={"cliente": "Cliente Prueba", "motivo": "Cobro doble", "monto": 5}, headers=sa).json()
+    assert client.put(f"/finanzas/reclamos/{rec['id']}", json={"estado": "reembolsado", "medio_id": zid}, headers=sa).status_code == 422
+    assert client.put(f"/finanzas/reclamos/{rec['id']}", json={"estado": "reembolsado", "medio_id": zid, "referencia": "Z-9"}, headers=sa).status_code == 200
+    assert client.put(f"/finanzas/reclamos/{rec['id']}", json={"estado": "abierto"}, headers=sa).status_code == 409
+    assert client.put(f"/finanzas/reclamos/{rec['id']}", json={"estado": "reembolsado", "medio_id": zid, "referencia": "Z-9"}, headers=sa).status_code == 409
+
+
+def test_dia_de_caracas():
+    import datetime as dt
+    from app.models import dia_caracas
+    assert dia_caracas(dt.datetime(2026, 11, 26, 2, 30)) == "2026-11-25"   # 10:30 p. m. del 25 en Caracas
+    assert dia_caracas(dt.datetime(2026, 11, 26, 4, 0)) == "2026-11-26"
+
+
+def test_libro_pendientes_y_cierre_de_caja(client):
+    """Finanzas: libro único con conciliación, gastos por pagar, pendientes y cierre de caja por tienda."""
+    import datetime as dt
+    sa = login(client, "superadmin@ahahome.test")
+    cat = client.get("/finanzas/catalogo", headers=sa).json()
+    efe = next(m["id"] for m in cat["medios"] if m["nombre"] == "Efectivo en dólares (cash)")
+    hoy = str(dt.date.today())
+    g = client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "servicios", "fecha": hoy, "monto": 120, "moneda": "USD",
+                                                   "beneficiario": "Arrendador", "por_pagar": True}, headers=sa)
+    assert g.status_code == 200 and g.json()["estado"] == "por_pagar"
+    lib = client.get(f"/finanzas/libro?desde={hoy}&hasta={hoy}", headers=sa).json()
+    fila = next(f for f in lib["filas"] if f["mov_id"] == g.json()["id"])
+    assert fila["estado"] == "por pagar" and fila["cliente"] == "Arrendador"
+    pen = client.get("/finanzas/pendientes", headers=sa).json()
+    assert any(x["clave"] == f"v{g.json()['id']}" for x in pen["pagar"])
+    assert client.post("/finanzas/conciliar", json={"clave": fila["clave"], "conciliado": True}, headers=sa).status_code == 409  # aún no se pagó
+    assert client.post("/finanzas/pendientes/pagar", json={"clave": fila["clave"], "medio_id": efe}, headers=sa).status_code == 200
+    assert client.post("/finanzas/conciliar", json={"clave": fila["clave"], "conciliado": True}, headers=sa).status_code == 200
+    tab = client.get(f"/finanzas/tablero?desde={hoy}&hasta={hoy}", headers=sa).json()
+    assert float(tab["gastos_usd"]) >= 120 and tab["dias"] == 1 and len(tab["por_tipo_pago"]) == 5
+    # cierre de caja: sin cobros hoy, contar 0 cuadra; contar de más pide nota
+    t = client.get("/admin/tiendas", headers=sa).json()[0]["id"]
+    c = client.get(f"/finanzas/cierre?tienda_id={t}&dia={hoy}", headers=sa).json()
+    assert len(c["metodos"]) == 5 and c["cerrado"] is None
+    sistema = {m["metodo"]: float(m["sistema"]) for m in c["metodos"]}
+    mal = {k: v + 10 for k, v in sistema.items()}
+    assert client.post("/finanzas/cierres", json={"tienda_id": t, "dia": hoy, "contado": mal}, headers=sa).status_code == 422
+    ok = client.post("/finanzas/cierres", json={"tienda_id": t, "dia": hoy, "contado": mal, "nota": "Sobrante de prueba"}, headers=sa).json()
+    assert ok["cuadra"] is False and ok["diferencias"]
+    assert client.post("/finanzas/cierres", json={"tienda_id": t, "dia": hoy, "contado": sistema}, headers=sa).status_code == 409
+    client.post(f"/finanzas/cierres/{ok['id']}/reabrir", json={}, headers=sa)
+    assert client.post("/finanzas/cierres", json={"tienda_id": t, "dia": hoy, "contado": sistema}, headers=sa).json()["cuadra"] is True
+
+
+def test_qr_con_nombre_y_papelera(client):
+    sa = login(client, "superadmin@ahahome.test")
+    t = client.get("/admin/tiendas", headers=sa).json()[0]["id"]
+    q = client.post("/admin/qrs", json={"tienda_id": t, "nombre": "Caja 1"}, headers=sa).json()
+    assert q["codigo"].startswith("QR-") and q["contenido"].startswith("AHATIENDA:")
+    assert client.post("/admin/qrs", json={"tienda_id": t, "nombre": "Caja 1"}, headers=sa).status_code == 409
+    assert client.put(f"/admin/qrs/{q['id']}", json={"nombre": "Caja 2"}, headers=sa).json()["nombre"] == "Caja 2"
+    client.post(f"/admin/qrs/{q['id']}/papelera", json={}, headers=sa)
+    assert client.post("/admin/qrs", json={"tienda_id": t, "nombre": "Caja 2"}, headers=sa).status_code == 409  # nombre reservado
+    lista = client.get("/admin/qrs", headers=sa).json()
+    assert any(x["id"] == q["id"] for x in lista["papelera"]) and not any(x["id"] == q["id"] for x in lista["activos"])
+    from app.db import SessionLocal
+    from app.routers.qr_tiendas import buscar_token
+    with SessionLocal() as db:
+        assert buscar_token(db, q["contenido"].split(":", 1)[1]) is None  # en la papelera no sirve
+    client.post(f"/admin/qrs/{q['id']}/recuperar", json={}, headers=sa)
+    with SessionLocal() as db:
+        assert buscar_token(db, q["contenido"].split(":", 1)[1]) is not None
+    assert client.get(f"/admin/qrs/{q['id']}.png", headers=sa).headers["content-type"] == "image/png"
+
+
+def test_historial_de_actividad(client):
+    r = client.post("/auth/login", json={"usuario": "ceo@ahahome.test", "password": "aha12345"}, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0) Chrome/120"}).json()
+    assert r["sesion"]
+    h = {"Authorization": "Bearer " + r["token"], "X-Sesion": r["sesion"]}
+    client.post("/panel-api/actividad", json={"tipo": "consulta", "texto": "Abrió Finanzas: movimientos"}, headers=h)
+    client.post("/auth/login", json={"usuario": "ceo@ahahome.test", "password": "equivocada"})
+    act = client.get("/ceo/historial", headers=h).json()
+    tipos = {a["tipo"] for a in act}
+    assert {"ingreso", "consulta", "ingreso_fallido"} <= tipos
+    assert any(a["texto"] == "Abrió Finanzas: movimientos" and a["sesion"] == r["sesion"] for a in act)
+    assert any(a["tipo"] == "ingreso" and a["dispositivo"] == "Chrome · Windows" for a in act)
+    ses = client.get("/ceo/sesiones", headers=h).json()
+    assert any(s["id"] == r["sesion"] and s["actividades"] >= 2 for s in ses)
+    sup = login(client, "supervisor@ahahome.test")
+    assert client.get("/ceo/historial", headers=sup).status_code == 403
+
+
+def test_ceo_edita_datos_y_rol_de_una_cuenta(client):
+    ceo = login(client, "ceo@ahahome.test")
+    n = client.post("/ceo/usuarios", json={"nombre": "Pedro Prueba", "email": "pedro@ahahome.test", "rol": "supervisor"}, headers=ceo).json()
+    r = client.put(f"/ceo/usuarios/{n['id']}", json={"nombre": "Pedro Pérez", "email": "pedro.perez@aha-go.com", "telefono": "04141112233", "rol": "superadmin"}, headers=ceo)
+    assert r.status_code == 200
+    v = r.json()
+    assert (v["nombre"], v["email"], v["rol"]) == ("Pedro Pérez", "pedro.perez@aha-go.com", "superadmin") and v["telefono"]
+    assert client.post("/auth/login", json={"usuario": "pedro.perez@aha-go.com", "password": n["clave"]}).status_code == 200
+    assert client.post("/auth/login", json={"usuario": "pedro@ahahome.test", "password": n["clave"]}).status_code == 401
+    correos = client.get("/ceo/correos", headers=ceo).json()
+    assert any(c["direccion"] == "pedro.perez@aha-go.com" and c["persona"] == "Pedro Pérez" for c in correos["correos"])
+    assert client.put(f"/ceo/usuarios/{n['id']}", json={"email": "ceo@ahahome.test"}, headers=ceo).status_code == 409
+    assert client.put(f"/ceo/usuarios/{n['id']}", json={"email": "no-es-correo"}, headers=ceo).status_code == 422

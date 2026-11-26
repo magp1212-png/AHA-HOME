@@ -12,7 +12,7 @@ from sqlalchemy import text
 
 from . import config
 from .db import Base, engine
-from .routers import admin, archivos, auth, banners, chat, legal, ordenes, ceo, conformidad, panel, penalidad, precios, finanzas, interfaz, ventas, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
+from .routers import admin, archivos, auth, banners, chat, legal, ordenes, ceo, conformidad, panel, penalidad, precios, finanzas, finanzas_libro, qr_tiendas, historial, interfaz, ventas, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
 
 log = logging.getLogger("ahahome")
 app = FastAPI(title="AHA HOME API", version=config.APP_VERSION)
@@ -43,6 +43,11 @@ def _auditar(request: Request, estado: int) -> None:
         marcar_acceso(db, u, ip)
         if request.method in ("POST", "PUT", "PATCH", "DELETE"):
             registrar(db, u, request.method, request.url.path, estado, ip)
+            from .actividad import anotar
+            from .auditoria import describir
+            texto = describir(request.method, request.url.path)
+            if texto and estado < 400:
+                anotar(db, request.headers.get("x-sesion", "")[:12], u, "cambio", texto, ip, request.headers.get("user-agent", ""))
         db.commit()
 
 
@@ -68,7 +73,7 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router, ceo.router, panel.router, precios.router, finanzas.router, interfaz.router, ventas.router):
+for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router, ceo.router, panel.router, precios.router, finanzas.router, finanzas_libro.router, qr_tiendas.router, historial.router, interfaz.router, ventas.router):
     app.include_router(r)
 
 

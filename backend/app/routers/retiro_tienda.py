@@ -98,7 +98,8 @@ class Escaneo(BaseModel):
 def escanear_tienda(body: Escaneo, user: User = Depends(require("tecnico")), db: Session = Depends(get_db)):
     t = verificado(user)
     token = body.qr.strip().removeprefix(PREFIJO)
-    tienda = db.scalar(select(Tienda).where(Tienda.qr_token == token)) if token else None
+    from .qr_tiendas import buscar_token
+    tienda = buscar_token(db, token) if token else None
     if not tienda:
         raise HTTPException(404, "Este no es un QR de tienda AHA HOME válido")
     from .presupuestos import listo_para_instalar
