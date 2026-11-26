@@ -11,6 +11,14 @@ def ahora() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
 
 
+CARACAS = dt.timedelta(hours=-4)  # Venezuela: UTC-4 todo el año
+
+
+def dia_caracas(t: dt.datetime | None = None) -> str:
+    """Fecha (AAAA-MM-DD) en Caracas de un momento guardado en UTC; sin argumento, la de hoy."""
+    return ((t or ahora()) + CARACAS).date().isoformat()
+
+
 # Roles:
 #   cliente            compra en Damasco y sigue su servicio
 #   agente             Agente AHA HOME en la caja de la tienda
@@ -577,9 +585,9 @@ class Banner(Base):
 CATEGORIAS_MEDIO = {"banco_nacional": "Banco nacional", "banco_internacional": "Banco internacional", "zelle": "Zelle",
                     "efectivo": "Efectivo (cash)", "otro": "Otro"}
 CATEGORIAS_INGRESO = {"servicio": "Traslado e instalación", "inspeccion": "Inspección", "presupuesto": "Presupuestos",
-                      "penalidad": "Penalidades", "publicidad": "Publicidad de aliados", "otro_ingreso": "Otro ingreso"}
+                      "penalidad": "Penalidades", "publicidad": "Publicidad de aliados", "comercio_aliado": "Pago de comercio aliado", "otro_ingreso": "Otro ingreso"}
 CATEGORIAS_GASTO = {"pago_tecnicos": "Pago a técnicos", "materiales": "Materiales", "nomina": "Nómina del personal",
-                    "plataformas": "Servidor y plataformas", "marketing": "Publicidad y marketing", "transporte": "Transporte y combustible",
+                    "plataformas": "Servidor y plataformas", "marketing": "Publicidad y marketing", "transporte": "Transporte y combustible", "servicios": "Servicios y alquiler",
                     "comisiones": "Comisiones bancarias", "impuestos": "Impuestos", "reembolsos": "Reembolsos a clientes", "otro_gasto": "Otro gasto"}
 ESTADOS_RECLAMO = {"abierto": "Abierto", "en_revision": "En revisión", "reembolsado": "Reembolsado", "rechazado": "Rechazado"}
 
@@ -627,6 +635,9 @@ class MovimientoFinanciero(Base):
     referencia: Mapped[str] = mapped_column(String(80), default="")
     orden_codigo: Mapped[str] = mapped_column(String(20), default="")
     estado: Mapped[str] = mapped_column(String(12), default="registrado")  # registrado | conciliado | anulado
+    motivo_anulacion: Mapped[str] = mapped_column(String(200), default="")
+    beneficiario: Mapped[str] = mapped_column(String(120), default="")  # cliente, proveedor o persona que recibe o paga
+    conciliado: Mapped[bool] = mapped_column(Boolean, default=False)   # ya se comprobó en el banco o la caja
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
 
@@ -664,3 +675,69 @@ class ArchivoFoto(Base):
     nombre: Mapped[str] = mapped_column(String(80), primary_key=True)
     datos: Mapped[bytes] = mapped_column(LargeBinary)
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+
+
+
+class Conciliacion(Base):
+    """Marca de «ya lo vi en el banco o la caja» para los pagos que llegan solos (caja, presupuestos, penalidades…)."""
+    __tablename__ = "conciliaciones"
+    clave: Mapped[str] = mapped_column(String(30), primary_key=True)  # c12 (caja de la orden 12), p3 (presupuesto 3)…
+    conciliado: Mapped[bool] = mapped_column(Boolean, default=True)
+    por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    en: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+
+
+class CierreCaja(Base):
+    """Cuadre diario de la caja de una tienda: lo que dice el sistema contra lo que se contó."""
+    __tablename__ = "cierres_caja"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tienda_id: Mapped[int] = mapped_column(ForeignKey("tiendas.id"), index=True)
+    dia: Mapped[str] = mapped_column(String(10), index=True)  # AAAA-MM-DD (Caracas)
+    detalle: Mapped[list] = mapped_column(JSON, default=list)  # [{metodo, texto, moneda, cobros, sistema, contado, diferencia}]
+    cuadra: Mapped[bool] = mapped_column(Boolean, default=True)
+    nota: Mapped[str] = mapped_column(String(300), default="")
+    abierto: Mapped[bool] = mapped_column(Boolean, default=False)  # reabierto: se puede volver a cerrar
+    cerrado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    cerrado_en: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+
+
+class TiendaQR(Base):
+    """QR que se pega en cada caja: el técnico lo escanea al llegar y la caja autoriza el retiro."""
+    __tablename__ = "tiendas_qr"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tienda_id: Mapped[int] = mapped_column(ForeignKey("tiendas.id"), index=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    token: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    principal: Mapped[bool] = mapped_column(Boolean, default=False)
+    escaneos: Mapped[int] = mapped_column(Integer, default=0)
+    en_papelera: Mapped[bool] = mapped_column(Boolean, default=False)
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+
+
+class SesionPanel(Base):
+    """Una sesión del superadministrador o del centro de control (desde que entra hasta que sale)."""
+    __tablename__ = "sesiones_panel"
+    id: Mapped[str] = mapped_column(String(12), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    rol: Mapped[str] = mapped_column(String(30), default="")
+    ip: Mapped[str] = mapped_column(String(64), default="")
+    dispositivo: Mapped[str] = mapped_column(String(60), default="")
+    inicio: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)
+    ultima: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+    actividades: Mapped[int] = mapped_column(Integer, default=0)
+    cerrada: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class ActividadPanel(Base):
+    """Lo que se hizo en cada sesión: ingresos, intentos fallidos, pantallas consultadas, cambios y descargas."""
+    __tablename__ = "actividad_panel"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sesion_id: Mapped[str] = mapped_column(String(12), default="", index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True, index=True)
+    rol: Mapped[str] = mapped_column(String(30), default="")
+    tipo: Mapped[str] = mapped_column(String(16))  # ingreso | ingreso_fallido | consulta | cambio | descarga | cierre_sesion
+    texto: Mapped[str] = mapped_column(String(200), default="")
+    ip: Mapped[str] = mapped_column(String(64), default="")
+    dispositivo: Mapped[str] = mapped_column(String(60), default="")
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)

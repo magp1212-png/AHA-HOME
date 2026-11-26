@@ -44,13 +44,41 @@ ACCIONES = [
     ("POST", r"^/caja/visitas/(\d+)/rechazar$", "No autorizó un retiro en tienda (visita #{0})"),
     ("POST", r"^/ordenes/(\d+)/chat$", "Escribió en el chat de la orden #{0}"),
     ("POST", r"^/ceo/usuarios$", "Creó una cuenta del personal"),
-    ("PUT", r"^/ceo/usuarios/(\d+)$", "Cambió el rol, permisos o estado del usuario #{0}"),
+    ("PUT", r"^/ceo/usuarios/(\d+)$", "Cambió los datos, el rol, los permisos o el estado del usuario #{0}"),
     ("POST", r"^/ceo/usuarios/(\d+)/clave$", "Restableció la clave del usuario #{0}"),
     ("POST", r"^/ceo/correos$", "Agregó un correo corporativo"),
     ("PUT", r"^/ceo/correos/(\d+)$", "Cambió el correo corporativo #{0}"),
     ("PUT", r"^/admin/precios/(\d+)$", "Editó un precio de la tabulación (#{0})"),
     ("PUT", r"^/admin/precios-inspeccion$", "Cambió el precio de la inspección"),
+    ("POST", r"^/finanzas/movimientos$", "Registró un movimiento en finanzas"),
+    ("PUT", r"^/finanzas/movimientos/(\d+)$", "Cambió el movimiento #{0} en finanzas"),
+    ("POST", r"^/finanzas/conciliar$", "Cambió la conciliación de un movimiento"),
+    ("POST", r"^/finanzas/pendientes/pagar$", "Registró un pago pendiente"),
+    ("POST", r"^/finanzas/reclamos$", "Registró un reclamo de dinero"),
+    ("PUT", r"^/finanzas/reclamos/(\d+)$", "Atendió el reclamo RF-{0}"),
+    ("POST", r"^/finanzas/cuentas$", "Agregó un banco o cuenta"),
+    ("PUT", r"^/finanzas/cuentas/(\d+)$", "Editó la cuenta #{0}"),
+    ("POST", r"^/finanzas/medios$", "Agregó un tipo de pago"),
+    ("PUT", r"^/finanzas/medios/(\d+)$", "Editó el tipo de pago #{0}"),
+    ("POST", r"^/finanzas/cierres$", "Cerró la caja de una tienda"),
+    ("POST", r"^/finanzas/cierres/(\d+)/reabrir$", "Reabrió el cierre de caja #{0}"),
+    ("PUT", r"^/admin/interfaz/borrador$", "Guardó un borrador del diseño de la app"),
+    ("POST", r"^/admin/interfaz/publicar$", "Publicó el diseño de la app"),
+    ("POST", r"^/admin/interfaz/descartar$", "Descartó el borrador del diseño de la app"),
+    ("POST", r"^/admin/interfaz/restaurar/(\d+)$", "Volvió a la versión #{0} del diseño"),
+    ("POST", r"^/admin/qrs$", "Creó un QR de tienda"),
+    ("PUT", r"^/admin/qrs/(\d+)$", "Renombró el QR #{0}"),
+    ("POST", r"^/admin/qrs/(\d+)/papelera$", "Envió a la papelera el QR #{0}"),
+    ("POST", r"^/admin/qrs/(\d+)/recuperar$", "Recuperó de la papelera el QR #{0}"),
+    ("POST", r"^/yo/contrasena$", "Cambió su clave"),
+    ("POST", r"^/admin/usuarios/(\d+)/activo$", "Activó o pausó al usuario #{0}"),
+    ("POST", r"^/supervisor/incidencias/(\d+)/resolver$", "Resolvió el reporte #{0}"),
+    ("PUT", r"^/admin/precios$", "Cambió la tabulación de precios"),
+    ("POST", r"^/admin/precios$", "Agregó un artículo a la tabulación de precios"),
 ]
+SIN_AUDITAR = (r"^/panel-api/actividad$", r"^/notificaciones", r"^/auth/", r"^/archivos")
+SECCIONES = {"finanzas": "finanzas", "admin": "la administración", "supervisor": "la operación", "ceo": "el centro de mando", "ordenes": "las órdenes",
+             "caja": "la caja", "tecnico": "los técnicos"}
 
 
 def describir(metodo: str, ruta: str) -> str | None:
@@ -59,8 +87,9 @@ def describir(metodo: str, ruta: str) -> str | None:
             r = re.match(patron, ruta)
             if r:
                 return texto.format(*r.groups())
-    if metodo in ("POST", "PUT", "PATCH", "DELETE") and not ruta.startswith("/archivos"):
-        return f"{metodo} {ruta}"
+    if metodo in ("POST", "PUT", "PATCH", "DELETE") and not any(re.match(p, ruta) for p in SIN_AUDITAR):
+        seccion = SECCIONES.get(ruta.strip("/").split("/")[0], "el sistema")
+        return f"Hizo un cambio en {seccion}"
     return None
 
 

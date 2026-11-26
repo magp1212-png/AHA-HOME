@@ -151,6 +151,8 @@ def crear_personal(body: NuevoPersonal, user: User = Depends(solo_ceo), db: Sess
 
 class EditarPersonal(BaseModel):
     nombre: str | None = Field(default=None, max_length=120)
+    email: str | None = Field(default=None, max_length=160)
+    telefono: str | None = Field(default=None, max_length=30)
     rol: str | None = None
     tienda_id: int | None = None
     permisos: list[str] | None = None
@@ -169,8 +171,30 @@ def editar_personal(uid: int, body: EditarPersonal, user: User = Depends(solo_ce
     _comprobar(db, rol, body.tienda_id if body.tienda_id is not None else u.tienda_id, body.permisos)
     if u.id == user.id and (body.activo is False or rol != "ceo"):
         raise HTTPException(422, "No puedes desactivarte ni quitarte el rol de CEO a ti mismo")
-    if body.nombre:
+    if body.nombre is not None:
+        if len(body.nombre.strip()) < 3:
+            raise HTTPException(422, "Escribe el nombre y apellido (mínimo 3 letras)")
         u.nombre = body.nombre.strip()
+    if body.email is not None and body.email.strip().lower() != (u.email or ""):
+        email = body.email.strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            raise HTTPException(422, "Escribe un correo válido")
+        if _es_principal(u):
+            raise HTTPException(422, "El correo de la cuenta CEO principal no se cambia desde el panel: identifica a la cuenta principal")
+        if db.scalar(select(User).where(User.email == email, User.id != u.id)):
+            raise HTTPException(409, "Ya existe una cuenta con ese correo")
+        for c in db.scalars(select(CorreoCorporativo).where(CorreoCorporativo.user_id == u.id)):
+            c.user_id = None  # el buzón anterior queda en la base de correos, ya sin persona asignada
+        u.email = email
+        cambio_correo = True
+    else:
+        cambio_correo = False
+    if body.telefono is not None:
+        from .auth import limpiar_tel
+        tel = limpiar_tel(body.telefono) if body.telefono.strip() else None
+        if tel and db.scalar(select(User).where(User.telefono == tel, User.id != u.id)):
+            raise HTTPException(409, "Ya existe una cuenta con ese teléfono")
+        u.telefono = tel
     u.es_ceo = rol == "ceo"
     u.rol = "superadmin" if rol == "ceo" else rol
     if u.es_ceo:
@@ -184,6 +208,8 @@ def editar_personal(uid: int, body: EditarPersonal, user: User = Depends(solo_ce
     if body.activo is not None:
         u.activo = body.activo
     db.commit()
+    if cambio_correo:
+        registrar_correo_persona(db, u)
     return _vista_personal(db, u)
 
 

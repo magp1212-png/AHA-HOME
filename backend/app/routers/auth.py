@@ -5,7 +5,7 @@ import datetime as dt
 import re
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
@@ -169,19 +169,27 @@ class Login(BaseModel):
 
 
 @router.post("/auth/login")
-def login(body: Login, db: Session = Depends(get_db)):
+def login(body: Login, request: Request, db: Session = Depends(get_db)):
     purgar_no_verificados(db)
     ident = body.usuario.strip().lower()
     u = db.scalar(select(User).where(or_(User.email == ident, User.telefono == limpiar_tel(ident))))
+    ip = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "")
+    ua = request.headers.get("user-agent", "")
     if not u or not u.activo or not verify_password(body.password, u.password_hash):
+        if u:
+            from ..actividad import anotar
+            anotar(db, "", u, "ingreso_fallido", "Clave incorrecta o cuenta pausada", ip, ua)
+            db.commit()
         raise HTTPException(401, "Teléfono, correo o contraseña incorrectos. Si no verificaste tu correo en 24 horas, regístrate de nuevo.")
     from .. import config
     if config.SOLO_EQUIPO and u.rol not in config.ROLES_EQUIPO:
         raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
     from ..auditoria import registrar
-    registrar(db, u, "POST", "/auth/login", 200, "", "Inició sesión")
+    registrar(db, u, "POST", "/auth/login", 200, ip, "Inició sesión")
+    from ..actividad import ROLES, abrir_sesion
+    sesion = abrir_sesion(db, u, ip, ua) if u.rol in ROLES else ""
     db.commit()
-    return {"token": make_token(u.id), "usuario": perfil(u)}
+    return {"token": make_token(u.id), "usuario": perfil(u), "sesion": sesion}
 
 
 class LoginPin(BaseModel):
