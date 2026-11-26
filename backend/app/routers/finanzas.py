@@ -74,7 +74,7 @@ def _vista_mov(m: MovimientoFinanciero, medios: dict, cuentas: dict) -> dict:
     return {"id": m.id, "fecha": m.fecha, "tipo": m.tipo, "categoria": m.categoria, "categoria_texto": cats.get(m.categoria, m.categoria),
             "descripcion": m.descripcion, "monto": _d(m.monto_centavos), "moneda": m.moneda, "tasa": m.tasa, "monto_usd": _d(m.monto_usd_centavos),
             "medio": medios.get(m.medio_id), "cuenta": cuentas.get(m.cuenta_id), "referencia": m.referencia, "orden": m.orden_codigo,
-            "estado": m.estado, "motivo_anulacion": m.motivo_anulacion, "origen": "manual"}
+            "estado": m.estado, "motivo_anulacion": m.motivo_anulacion, "beneficiario": m.beneficiario, "conciliado": m.conciliado, "origen": "manual"}
 
 
 def _pagos_automaticos(db: Session) -> list[dict]:
@@ -121,7 +121,7 @@ def resumen(dias: int = 30, user: User = Depends(ver), db: Session = Depends(get
     medios = {m.id: m for m in db.scalars(select(MedioPago))}
     por_clave = {m.clave_caja: m for m in medios.values() if m.clave_caja}
     auto = [f for f in _pagos_automaticos(db) if f["fecha"] >= desde and f["estado"] in ("cobrado", "confirmado")]
-    movs = [m for m in db.scalars(select(MovimientoFinanciero).where(MovimientoFinanciero.estado != "anulado")) if m.fecha >= desde]
+    movs = [m for m in db.scalars(select(MovimientoFinanciero).where(MovimientoFinanciero.estado.not_in(("anulado", "por_pagar")))) if m.fecha >= desde]
     ingresos = sum(f["_usd"] for f in auto) + sum(m.monto_usd_centavos for m in movs if m.tipo == "ingreso")
     gastos = sum(m.monto_usd_centavos for m in movs if m.tipo == "gasto")
     por_medio, por_cat_ing, por_cat_gasto, por_moneda = defaultdict(int), defaultdict(int), defaultdict(int), defaultdict(int)
@@ -142,7 +142,7 @@ def resumen(dias: int = 30, user: User = Depends(ver), db: Session = Depends(get
     abiertos = [r for r in recl if r.estado in ("abierto", "en_revision")]
     # Saldo por cuenta: saldo inicial + ingresos − gastos registrados en esa cuenta (todo el historial)
     saldos = defaultdict(int)
-    for m in db.scalars(select(MovimientoFinanciero).where(MovimientoFinanciero.estado != "anulado", MovimientoFinanciero.cuenta_id.is_not(None))):
+    for m in db.scalars(select(MovimientoFinanciero).where(MovimientoFinanciero.estado.not_in(("anulado", "por_pagar")), MovimientoFinanciero.cuenta_id.is_not(None))):
         saldos[m.cuenta_id] += m.monto_centavos if m.tipo == "ingreso" else -m.monto_centavos
     cuentas = [_vista_cuenta(c, c.saldo_inicial_centavos + saldos[c.id]) for c in db.scalars(select(CuentaFinanciera).where(CuentaFinanciera.activo.is_(True)))]
     serie_i, serie_g = defaultdict(int), defaultdict(int)
@@ -192,6 +192,8 @@ class NuevoMovimiento(BaseModel):
     cuenta_id: int | None = None
     referencia: str = Field(default="", max_length=80)
     orden: str = Field(default="", max_length=20)
+    beneficiario: str = Field(default="", max_length=120)
+    por_pagar: bool = False  # gasto que todavía no se pagó: queda en «Por pagar»
 
 
 @router.post("/movimientos")
@@ -211,7 +213,10 @@ def crear_movimiento(body: NuevoMovimiento, user: User = Depends(editar), db: Se
     else:
         usd = centavos
     medio = db.get(MedioPago, body.medio_id) if body.medio_id else None
-    _validar_pago(db, medio, body.cuenta_id, body.moneda, body.referencia)
+    if body.por_pagar and body.tipo != "gasto":
+        raise HTTPException(422, "Solo un gasto puede quedar por pagar")
+    if not body.por_pagar:
+        _validar_pago(db, medio, body.cuenta_id, body.moneda, body.referencia)
     orden = body.orden.strip().upper()
     if body.tipo == "ingreso" and body.categoria in ("servicio", "inspeccion"):
         o = db.scalar(select(Orden).where(Orden.codigo == orden)) if orden else None
@@ -221,7 +226,8 @@ def crear_movimiento(body: NuevoMovimiento, user: User = Depends(editar), db: Se
             raise HTTPException(409, f"La orden {o.codigo} ya se cobró en la caja: ese ingreso ya está registrado.")
     m = MovimientoFinanciero(fecha=body.fecha.isoformat(), tipo=body.tipo, categoria=body.categoria, descripcion=body.descripcion.strip(),
                              monto_centavos=centavos, moneda=body.moneda, tasa=tasa, monto_usd_centavos=usd, medio_id=body.medio_id,
-                             cuenta_id=body.cuenta_id, referencia=body.referencia.strip(), orden_codigo=body.orden.strip().upper(), creado_por=user.id)
+                             cuenta_id=body.cuenta_id, referencia=body.referencia.strip(), orden_codigo=body.orden.strip().upper(), creado_por=user.id,
+                             beneficiario=body.beneficiario.strip(), estado="por_pagar" if body.por_pagar else "registrado")
     db.add(m)
     db.commit()
     medios, cuentas = _mapas(db)

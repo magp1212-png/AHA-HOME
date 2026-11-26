@@ -3,20 +3,32 @@
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const S = {
-    token: localStorage.getItem("ahahome.panel.token"), gAbiertos: new Set(), yo: null, ruta: location.hash.slice(1) || "inicio",
+    token: localStorage.getItem("ahahome.panel.token"), sesion: localStorage.getItem("ahahome.panel.sesion") || "", gAbiertos: new Set(), yo: null, ruta: location.hash.slice(1) || "inicio",
     ocultas: JSON.parse(localStorage.getItem("ahahome.panel.ocultas") || "[]"), dias: {}, cache: {}, tabla: {}, notif: 0,
   };
-  document.documentElement.dataset.tema = localStorage.getItem("ahahome.panel.tema") || "oscuro";
+  document.documentElement.dataset.tema = localStorage.getItem("ahahome.panel.tema") || "claro";  // como en el catálogo de pantallas: claro de entrada
 
   async function api(ruta, opts = {}) {
-    const r = await fetch(ruta, { method: opts.method || (opts.body ? "POST" : "GET"), headers: { "Content-Type": "application/json", ...(S.token ? { Authorization: "Bearer " + S.token } : {}) },
+    const r = await fetch(ruta, { method: opts.method || (opts.body ? "POST" : "GET"), headers: { "Content-Type": "application/json", ...(S.token ? { Authorization: "Bearer " + S.token } : {}), ...(S.sesion ? { "X-Sesion": S.sesion } : {}) },
       body: opts.body ? JSON.stringify(opts.body) : undefined });
     if (r.status === 401) { salir(); throw new Error("Inicia sesión de nuevo"); }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : j.detail?.mensaje || "No se pudo completar");
     return j;
   }
-  function salir() { localStorage.removeItem("ahahome.panel.token"); S.token = null; S.yo = null; pintar(); }
+  function salir(voluntario) {
+    if (voluntario === true && S.token) fetch("/panel-api/actividad", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", Authorization: "Bearer " + S.token, "X-Sesion": S.sesion },
+      body: JSON.stringify({ tipo: "cierre_sesion", texto: "Cerró sesión" }) }).catch(() => {});
+    localStorage.removeItem("ahahome.panel.token"); localStorage.removeItem("ahahome.panel.sesion"); S.token = null; S.sesion = ""; S.yo = null; pintar();
+  }
+  function anotarConsulta(main) {
+    // Historial de actividad: qué pantalla se abrió (una vez por pantalla o pestaña)
+    const t = main.querySelector("h1")?.textContent || "", clave = S.ruta + "|" + (S.ruta === "finanzas" ? S.finTab : S.ruta === "historial" ? S.hTab : "");
+    if (!t || clave === S.consultaVista || S.ruta === "sinpermisos") return;
+    S.consultaVista = clave;
+    const texto = S.ruta === "finanzas" ? `Abrió Finanzas: ${(FIN_TABS.find((x) => x[0] === S.finTab) || [, "resumen"])[1].toLowerCase()}` : `Abrió ${t}`;
+    api("/panel-api/actividad", { body: { tipo: "consulta", texto } }).catch(() => {});
+  }
 
   // ---------- Menú ----------
   // Cada tipo de registro va en su propia sección; el personal interno (superadmin, control, caja) va aparte.
@@ -27,12 +39,12 @@
     { k: "empresas", t: "Empresas aliadas", i: "🏬" },
     { g: "Técnicos", i: "👷", hijos: [["tecnicos", "Técnicos y ayudantes"], ["verificaciones", "Verificaciones", "verif"]] },
     { sec: "OPERACIÓN" },
-    { g: "Órdenes", i: "🛒", hijos: [["ordenes", "Lista"], ["transacciones", "Transacciones"], ["liquidaciones", "Liquidaciones"]] },
+    { k: "ordenes", t: "Órdenes", i: "🛒" },
     { g: "Centro de soporte", i: "◎", hijos: [["mensajeria", "Mensajería"], ["reportes", "Reportes", "rep"], ["resenas", "Reseñas"]] },
     { k: "anuncios", t: "Banners y aliados", i: "▤" },
     { sec: "VENTAS Y FINANZAS" },
     { k: "ventas", t: "Departamento de ventas", i: "📈" },
-    { k: "finanzas", t: "Finanzas", i: "💼" },
+    { g: "Finanzas", i: "💼", hijos: [["finanzas", "Finanzas y contabilidad"], ["transacciones", "Transacciones"], ["liquidaciones", "Liquidaciones"]] },
     { sec: "NEGOCIO" },
     { k: "tasa", t: "Tasa BCV", i: "💱" },
     { k: "precios", t: "Tabulación de precios", i: "🏷" },
@@ -42,9 +54,9 @@
     { g: "Personal interno", i: "🛡", hijos: [["administradores", "Superadministradores"], ["control", "Centro de control"], ["caja", "Operadores de caja"]] },
   ];
   const TITULOS = { inicio: ["Tableros", "Panel principal"], tecnicos: ["Técnicos", "Técnicos y ayudantes"], empresas: ["Registros", "Empresas aliadas"], clientes: ["Registros", "Clientes"],
-    equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Órdenes", "Lista"], transacciones: ["Órdenes", "Transacciones"],
-    mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Órdenes", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
-    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"], usuarios: ["Centro de mando", "Usuarios y permisos"], correos: ["Centro de mando", "Correos corporativos"],
+    equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Operación", "Órdenes"], transacciones: ["Finanzas", "Transacciones"],
+    mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Finanzas", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
+    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"], usuarios: ["Centro de mando", "Usuarios y permisos"], correos: ["Centro de mando", "Correos corporativos"], historial: ["Centro de mando", "Historial de actividad"],
     finanzas: ["Finanzas", "Finanzas y contabilidad"], diseno: ["Diseño", "Diseño de la app"], ventas: ["Ventas", "Departamento de ventas"], tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
 
   // Permiso que necesita cada pantalla (el CEO lo asigna a cada usuario)
@@ -69,7 +81,7 @@
       h += `<div class="sub" ${abierto ? "" : "hidden"}>${m.hijos.map(([k, t, c]) => `<a href="#${k}" class="${S.ruta === k ? "on" : ""}">${t}${c && S.cuentas?.[c] ? `<span class="cuenta">${S.cuentas[c]}</span>` : ""}</a>`).join("")}</div>`;
     }
     if (S.yo?.es_ceo) h += `<div style="margin:14px 12px 4px;font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--suave)">CENTRO DE MANDO (CEO)</div>`
-      + it("usuarios", "Usuarios y permisos", "🔑") + it("correos", "Correos corporativos", "✉") + it("auditoria", "Auditoría del equipo", "🛡");
+      + it("usuarios", "Usuarios y permisos", "🔑") + it("correos", "Correos corporativos", "✉") + it("auditoria", "Auditoría del equipo", "🛡") + it("historial", "Historial de actividad", "📒");
     return h;
   }
 
@@ -308,28 +320,101 @@
     const na = $("#na"); if (na) na.onclick = () => api("/admin/precios", { body: { nombre: $("#nn").value } }).then(() => pintar()).catch(err);
   }
   async function pagQrs(main) {
-    const ts = await api("/admin/tiendas-qr");
-    main.innerHTML += `<p class="total" style="margin-top:-6px">QR fijo de cada tienda aliada. Se imprime y se pega en la caja: el técnico lo escanea al llegar y la caja autoriza el retiro con un OK.</p>
-      <div class="grid">${ts.map((t) => `<div class="card" style="text-align:center"><div class="tit" style="justify-content:center">${esc(t.nombre)}</div><div class="total">${esc(t.zona)} · ${esc(t.direccion)}</div>
-        ${t.qr ? `<canvas data-c="${t.id}" width="200" height="200" style="margin:16px auto;display:block;background:#fff;border-radius:10px"></canvas><div class="total">${esc(t.qr)}</div>` : `<p class="total" style="margin:30px 0">Sin QR todavía.</p>`}
-        ${esSA() ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn ${t.qr ? "sec" : "pri"}" data-n="${t.id}">${t.qr ? "Cambiar QR" : "Generar QR"}</button>${t.qr ? `<a class="btn sec" href="#" data-im="${t.id}">Imprimir</a>` : ""}</div>` : ""}</div>`).join("")}</div>`;
-    for (const t of ts) if (t.qr) dibujarQR(main.querySelector(`[data-c="${t.id}"]`), t.id);
-    main.querySelectorAll("[data-n]").forEach((b) => (b.onclick = () => { if (b.textContent.includes("Cambiar") && !confirm("El QR impreso dejará de servir. ¿Cambiarlo?")) return; api(`/admin/tiendas/${b.dataset.n}/qr`, { body: {} }).then(() => pintar()); }));
-    main.querySelectorAll("[data-im]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); const cv = main.querySelector(`[data-c="${a.dataset.im}"]`); const w = window.open(""); w.document.write(`<img src="${cv.toDataURL()}" style="width:80%"><script>print()<\/script>`); }));
+    const d = await api("/admin/qrs"), papelera = S.qrPapelera === true, lista = papelera ? d.papelera : d.activos;
+    main.querySelector("h1").insertAdjacentHTML("afterend", `<p class="total" style="margin-top:-8px">Cada QR tiene un nombre y un código únicos. Se imprime y se pega en la caja: el técnico lo escanea al llegar y la caja autoriza el retiro con un OK.</p>`);
+    main.innerHTML += `<div class="qr-barra">${esSA() && !papelera ? `<button class="btn pri" id="qnuevo">＋ Nuevo QR</button>` : "<span></span>"}
+        <div class="qr-vista"><button class="${papelera ? "" : "on"}" data-pap="0">Activos (${d.activos.length})</button><button class="${papelera ? "on" : ""}" data-pap="1">🗑 Papelera (${d.papelera.length})</button></div></div>
+      ${lista.length ? `<div class="qr-grid">${lista.map((q) => `<div class="card qr-card"><div class="total">${q.codigo}${q.principal ? ` · <span class="est ok">Principal</span>` : ""}</div>
+          <div class="qr-nom">${esc(q.nombre)}</div><div class="total">${esc(q.tienda)} · ${esc(q.zona)}</div>
+          <img class="qr-img" data-qimg="${q.id}" alt="Código QR de ${esc(q.nombre)}"><div class="total">${q.escaneos} escaneo(s)</div>
+          <div class="total">Creado por ${esc(q.creado_por)} · ${fmt("", q.creado)}</div>
+          ${esSA() ? `<div class="qr-acc">${papelera ? `<button class="btn sec" data-qrec="${q.id}">↺ Recuperar</button>`
+            : `<button class="btn sec" data-qnom="${q.id}">✎ Nombre</button><button class="btn sec" data-qimp="${q.id}">🖨 Imprimir</button><button class="btn rojo" data-qdel="${q.id}">🗑 Eliminar</button>`}</div>` : ""}</div>`).join("")}</div>`
+        : `<div class="fin-vacio">${papelera ? "La papelera está vacía." : "Todavía no hay QR. Crea el primero con «＋ Nuevo QR»."}</div>`}`;
+    for (const q of lista) cargarQR(main.querySelector(`[data-qimg="${q.id}"]`), q.id);
+    main.querySelectorAll("[data-pap]").forEach((b) => (b.onclick = () => { S.qrPapelera = b.dataset.pap === "1"; pintar(true); }));
+    const n = $("#qnuevo"); if (n) n.onclick = () => cajonFin("Nuevo QR", finSel("qti", "Tienda", d.tiendas.map((t) => [t.id, t.nombre]), d.tiendas[0]?.id) +
+      finCampo("qno", "Nombre del QR", "", "text", 'placeholder="Ej. Caja 1 – San Martín"'), () => api("/admin/qrs", { body: { tienda_id: Number($("#qti").value), nombre: $("#qno").value } }), "QR de las tiendas");
+    main.querySelectorAll("[data-qnom]").forEach((b) => (b.onclick = () => { const q = lista.find((x) => x.id === Number(b.dataset.qnom));
+      cajonFin("Cambiar nombre", finCampo("qno", "Nombre del QR", q.nombre), () => api(`/admin/qrs/${q.id}`, { method: "PUT", body: { nombre: $("#qno").value } }), "QR de las tiendas"); }));
+    main.querySelectorAll("[data-qdel]").forEach((b) => (b.onclick = () => { const q = lista.find((x) => x.id === Number(b.dataset.qdel));
+      cajonFin("Enviar a la papelera", `<p class="total">El QR «${esc(q.nombre)}» deja de servir en la caja hasta que lo recuperes de la papelera.</p>`, () => api(`/admin/qrs/${q.id}/papelera`, { body: {} }), "QR de las tiendas"); }));
+    main.querySelectorAll("[data-qrec]").forEach((b) => (b.onclick = () => api(`/admin/qrs/${b.dataset.qrec}/recuperar`, { body: {} }).then(() => pintar(true))));
+    main.querySelectorAll("[data-qimp]").forEach((b) => (b.onclick = () => { const q = lista.find((x) => x.id === Number(b.dataset.qimp)), img = main.querySelector(`[data-qimg="${q.id}"]`);
+      const w = window.open(""); if (!w) return; w.document.write(`<div style="font-family:sans-serif;text-align:center"><h2>${esc(q.nombre)}</h2><p>${esc(q.tienda)} · ${q.codigo}</p><img src="${img.src}" style="width:70%"></div><script>print()<\/script>`); }));
   }
-  async function dibujarQR(canvas, tiendaId) {
-    // el servidor genera la imagen del QR; se pinta en un canvas para poder imprimirla
-    const r = await fetch(`/admin/tiendas/${tiendaId}/qr.png`, { headers: { Authorization: "Bearer " + S.token } });
-    if (!r.ok) return;
-    const img = new Image(); img.onload = () => canvas.getContext("2d").drawImage(img, 0, 0, 200, 200); img.src = URL.createObjectURL(await r.blob());
+  async function historial(main) {
+    S.hTab = S.hTab || "actividad";
+    if (!S.finHasta) { S.finPre = "30"; S.finHasta = hoyLocal(); S.finDesde = restaDias(S.finHasta, 29); }
+    const F = (S.hFil = S.hFil || {}), ses = S.hTab === "sesiones";
+    const datos = await api(`/ceo/${ses ? "sesiones" : "historial"}?desde=${S.finDesde}&hasta=${S.finHasta}`);
+    main.querySelector("h1").insertAdjacentHTML("afterend", `<p class="total" style="margin-top:-8px">Todo lo que hacen los superadministradores y el centro de control en sus sesiones: ingresos, intentos fallidos, pantallas consultadas, cambios y descargas. No se guardan claves ni lo que escribieron, y nadie puede borrarlo desde el panel.</p>`);
+    const uniq = (k) => [...new Set(datos.map((x) => x[k]))].filter(Boolean).sort();
+    const sel = (k, todos, ops) => `<select class="sel" data-hf="${k}"><option value="">${todos}</option>${ops.map(([v, t]) => `<option value="${esc(v)}" ${F[k] === v ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
+    const q = (F.q || "").toLowerCase();
+    const filas = datos.filter((x) => (!F.disp || x.dispositivo === F.disp) && (!F.quien || x.usuario === F.quien) && (!F.tipo || x.tipo === F.tipo) && (!F.sesion || x.sesion === F.sesion)
+      && (!q || [x.texto, x.usuario, x.ip].some((v) => String(v || "").toLowerCase().includes(q))));
+    const porPag = 30, paginas = Math.max(1, Math.ceil(filas.length / porPag)); S.hPag = Math.min(S.hPag || 1, paginas);
+    const vista = filas.slice((S.hPag - 1) * porPag, S.hPag * porPag);
+    const fh = (iso) => new Date(iso).toLocaleString("es-VE", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const dur = (m) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`);
+    const cuentas = {}; if (!ses) filas.forEach((x) => (cuentas[x.tipo_texto] = (cuentas[x.tipo_texto] || 0) + 1));
+    main.innerHTML += `<div class="fin-desc"><div class="qr-vista"><button class="${ses ? "" : "on"}" data-ht="actividad">Actividad</button><button class="${ses ? "on" : ""}" data-ht="sesiones">Sesiones</button></div>
+        <button class="btn sec" id="hcsv">⬇ Descargar Excel (CSV)</button></div>${finPeriodo()}
+      <div class="fin-filtros">${ses ? "" : `<input class="finp fbus" id="hq" placeholder="⌕ Buscar actividad" value="${esc(F.q || "")}">`}
+        ${sel("disp", "Todos los equipos", uniq("dispositivo").map((v) => [v, v]))}${sel("quien", "Todas las personas", uniq("usuario").map((v) => [v, v]))}
+        ${ses ? "" : sel("tipo", "Toda la actividad", [["ingreso", "Ingreso"], ["ingreso_fallido", "Ingreso fallido"], ["consulta", "Consulta"], ["cambio", "Cambio"], ["descarga", "Descarga"], ["cierre_sesion", "Cierre de sesión"]])}
+        ${F.sesion && !ses ? `<button class="btn sec" id="hsinses">Sesión ${esc(F.sesion)} ✕</button>` : ""}</div>
+      <div class="tabla"><div class="fl-cab">${ses ? `${filas.length} sesión(es)` : `${filas.length} registro(s)${Object.keys(cuentas).length ? " · " + Object.entries(cuentas).map(([k, v]) => `${k}: ${v}`).join(" · ") : ""}`}</div>
+      <table><thead><tr>${(ses ? ["Usuario", "Rol", "Inicio", "Última actividad", "Duración", "Actividades", "IP y dispositivo", "Estado", ""] : ["Fecha y hora", "Usuario", "Rol", "Tipo", "Actividad", "IP y dispositivo", "Sesión"]).map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>
+      ${vista.length ? vista.map((x) => ses
+        ? `<tr><td class="nombre">${esc(x.usuario)}</td><td>${esc(x.rol)}</td><td>${fmt("", x.inicio)}</td><td>${fmt("", x.ultima)}</td><td>${dur(x.minutos)}</td><td>${x.actividades}</td>
+            <td>${esc(x.ip)}<br><small class="total">${esc(x.dispositivo)}</small></td><td><span class="est ${x.estado === "activa" ? "ok" : "neutro"}">${esc(x.estado)}</span></td><td><button class="btn sec" data-hses="${x.id}">Ver</button></td></tr>`
+        : `<tr><td>${fh(x.en)}</td><td class="nombre">${esc(x.usuario)}</td><td>${esc(x.rol)}</td><td><span class="est ${x.tipo === "ingreso_fallido" ? "mal" : x.tipo === "cambio" ? "pend" : "neutro"}">${esc(x.tipo_texto)}</span></td>
+            <td>${esc(x.texto)}</td><td>${esc(x.ip)}<br><small class="total">${esc(x.dispositivo)}</small></td><td class="nombre">${esc(x.sesion || "—")}</td></tr>`).join("")
+        : `<tr><td colspan="9" class="total" style="text-align:center;padding:26px">No hay registros en este período.</td></tr>`}</tbody></table>
+      <div class="pie"><span>Página ${S.hPag} de ${paginas}</span><span style="display:flex;gap:8px"><button id="hant" ${S.hPag <= 1 ? "disabled" : ""}>← Anterior</button><button id="hsig" ${S.hPag >= paginas ? "disabled" : ""}>Siguiente →</button></span></div></div>`;
+    enlazarPeriodo(main);
+    main.querySelectorAll("[data-ht]").forEach((b) => (b.onclick = () => { S.hTab = b.dataset.ht; S.hPag = 1; pintar(true); }));
+    main.querySelectorAll("[data-hf]").forEach((s2) => (s2.onchange = () => { F[s2.dataset.hf] = s2.value; S.hPag = 1; pintar(true); }));
+    main.querySelectorAll("[data-hses]").forEach((b) => (b.onclick = () => { S.hTab = "actividad"; F.sesion = b.dataset.hses; S.hPag = 1; pintar(true); }));
+    const hs = $("#hsinses"); if (hs) hs.onclick = () => { F.sesion = ""; pintar(true); };
+    const hq = $("#hq"); let reloj; if (hq) hq.oninput = (e) => { clearTimeout(reloj); reloj = setTimeout(() => { F.q = e.target.value; S.hPag = 1; pintar(true); }, 400); };
+    $("#hant").onclick = () => { S.hPag--; pintar(true); }; $("#hsig").onclick = () => { S.hPag++; pintar(true); };
+    $("#hcsv").onclick = () => {
+      const cab = ses ? ["Usuario", "Rol", "Inicio", "Última actividad", "Minutos", "Actividades", "IP", "Dispositivo", "Estado"] : ["Fecha y hora", "Usuario", "Rol", "Tipo", "Actividad", "IP", "Dispositivo", "Sesión"];
+      const csv = [cab].concat(filas.map((x) => ses ? [x.usuario, x.rol, x.inicio, x.ultima, x.minutos, x.actividades, x.ip, x.dispositivo, x.estado] : [fh(x.en), x.usuario, x.rol, x.tipo_texto, x.texto, x.ip, x.dispositivo, x.sesion]))
+        .map((l) => l.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv" })); a.download = `aha-home-historial-${S.hTab}-${S.finDesde}-a-${S.finHasta}.csv`; a.click();
+      api("/panel-api/actividad", { body: { tipo: "descarga", texto: `Descargó el historial de ${S.hTab}` } }).catch(() => {});
+    };
+  }
+  async function cargarQR(img, id) {
+    // el servidor genera la imagen del QR
+    if (!img) return;
+    const r = await fetch(`/admin/qrs/${id}.png`, { headers: { Authorization: "Bearer " + S.token } });
+    if (r.ok) img.src = URL.createObjectURL(await r.blob());
   }
 
   // ---------- Centro de mando: usuarios del personal, claves y limitaciones ----------
   // ---------- Finanzas y contabilidad ----------
-  const FIN_TABS = [["resumen", "Resumen"], ["pagos", "Pagos recibidos"], ["gastos", "Gastos"], ["reclamos", "Reclamos"], ["cuentas", "Bancos y cuentas"], ["medios", "Tipos de pago"]];
-  const GRAD = { "Zelle": "g-zelle", "Efectivo (cash)": "g-cash", "Banco nacional": "g-nac", "Banco internacional": "g-int", "Otro": "g-otro" };
+  const FIN_TABS = [["resumen", "Resumen", "Finanzas y contabilidad"], ["movimientos", "Movimientos", "Movimientos"], ["pagos", "Pagos recibidos", "Pagos recibidos"],
+    ["gastos", "Gastos", "Gastos"], ["reclamos", "Reclamos", "Reclamos"], ["pendientes", "Por cobrar y pagar", "Por cobrar y por pagar"], ["cierre", "Cierre de caja", "Cierre de caja"],
+    ["cuentas", "Bancos y cuentas", "Bancos y cuentas"], ["medios", "Tipos de pago", "Tipos de pago"]];
+  const FIN_TEXTO = {
+    movimientos: "Libro único de ingresos y gastos, con filtros y conciliación.",
+    pagos: "Todo lo que entró: los cobros de la caja, los presupuestos y las penalidades llegan solos; los demás ingresos se registran con «＋ Ingreso».",
+    gastos: "Pagos a técnicos, materiales, nómina, servidor, publicidad, comisiones, impuestos y reembolsos.",
+    reclamos: "Reclamos de dinero de clientes o tiendas. Al marcar uno como «Reembolsado», el reembolso queda registrado como gasto.",
+    pendientes: "Se arma solo con lo que ocurre en las aplicaciones y los gastos que registres. El sistema no mueve dinero: deja constancia de lo que ya pagaste o recibiste.",
+    cierre: "Compara lo que el sistema dice que se cobró en la caja de la tienda con lo que se contó. No incluye presupuestos ni penalidades, que se confirman aparte.",
+  };
+  const GRAD = { zelle: "g-zelle", efectivo: "g-cash", banco_nacional: "g-nac", banco_internacional: "g-int", otro: "g-otro" };
   const ICONO_MEDIO = { zelle: "Z", efectivo: "$", banco_nacional: "🏦", banco_internacional: "🌎", otro: "＋" };
   const m2 = (x) => Number(x || 0).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const dmy = (f) => (f ? String(f).slice(0, 10).split("-").reverse().join("/") : "—");
+  const hoyLocal = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+  const restaDias = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
   function lineas(a, b, alto = 150) {
     const n = Math.max(a.length, 2), max = Math.max(1, ...a, ...b), w = 600;
     const ruta = (serie) => serie.map((v, i) => `${i ? "L" : "M"}${((i * w) / (n - 1)).toFixed(1)} ${(alto - 10 - (v / max) * (alto - 30)).toFixed(1)}`).join(" ");
@@ -348,95 +433,204 @@
     const max = Math.max(1, ...vals);
     return `<div class="barritas">${vals.map((v) => `<i style="height:${Math.max(6, (v / max) * 100)}%"></i>`).join("")}</div>`;
   }
+  function finPeriodo() {
+    const pre = [["hoy", "Hoy", 1], ["7", "7 días", 7], ["30", "30 días", 30], ["90", "90 días", 90], ["365", "1 año", 365]];
+    return `<div class="fin-periodo">${pre.map(([k, t]) => `<button class="${S.finPre === k ? "on" : ""}" data-pre="${k}">${t}</button>`).join("")}
+      <label>Desde <input type="date" id="fdesde" value="${S.finDesde}"></label><label>Hasta <input type="date" id="fhasta" value="${S.finHasta}"></label></div>`;
+  }
+  function enlazarPeriodo(raiz) {
+    raiz.querySelectorAll("[data-pre]").forEach((b) => (b.onclick = () => { const n = { hoy: 1, 7: 7, 30: 30, 90: 90, 365: 365 }[b.dataset.pre];
+      S.finPre = b.dataset.pre; S.finHasta = hoyLocal(); S.finDesde = restaDias(S.finHasta, n - 1); S.finPag = 1; pintar(true); }));
+    const fd = raiz.querySelector("#fdesde"), fh = raiz.querySelector("#fhasta");
+    if (fd) fd.onchange = () => { S.finDesde = fd.value; S.finPre = ""; S.finPag = 1; pintar(true); };
+    if (fh) fh.onchange = () => { S.finHasta = fh.value; S.finPre = ""; S.finPag = 1; pintar(true); };
+  }
   async function finanzas(main) {
-    S.finTab = S.finTab || "resumen"; S.finDias = S.finDias || 30;
+    S.finTab = S.finTab || "resumen";
+    if (!S.finHasta) { S.finPre = "30"; S.finHasta = hoyLocal(); S.finDesde = restaDias(S.finHasta, 29); }
     const cat = await api("/finanzas/catalogo");
-    const edita = cat.puede_editar;
-    main.innerHTML += `<div class="fin-barra"><div class="tabs">${FIN_TABS.map(([k, t]) => `<button class="${S.finTab === k ? "on" : ""}" data-ft="${k}">${t}</button>`).join("")}</div>
-      <div class="fin-acc">${edita ? `<button class="btn sec" data-nuevo="ingreso">＋ Ingreso</button><button class="btn sec" data-nuevo="reclamo">＋ Reclamo</button><button class="btn pri" data-nuevo="gasto">＋ Registrar gasto</button>` : ""}</div></div><div id="fin"></div>`;
-    main.querySelectorAll("[data-ft]").forEach((b) => (b.onclick = () => { S.finTab = b.dataset.ft; pintar(true); }));
+    const edita = cat.puede_editar, tab = FIN_TABS.find((x) => x[0] === S.finTab) || FIN_TABS[0];
+    main.querySelector(".migas").innerHTML = `Finanzas › <b>${esc(tab[2])}</b>`; main.querySelector("h1").textContent = tab[2];
+    main.innerHTML += `<div class="fin-barra"><div class="tabs">${FIN_TABS.map(([k, t]) => `<button class="${S.finTab === k ? "on" : ""}" data-ft="${k}">${t}</button>`).join("")}</div></div>
+      ${edita ? `<div class="fin-acc"><button class="btn sec" data-nuevo="ingreso">＋ Ingreso</button><button class="btn sec" data-nuevo="reclamo">＋ Reclamo</button><button class="btn pri" data-nuevo="gasto">＋ Registrar gasto</button></div>` : ""}<div id="fin"></div>`;
+    main.querySelectorAll("[data-ft]").forEach((b) => (b.onclick = () => { S.finTab = b.dataset.ft; S.finPag = 1; S.finFil = {}; pintar(true); }));
     main.querySelectorAll("[data-nuevo]").forEach((b) => (b.onclick = () => (b.dataset.nuevo === "reclamo" ? fichaReclamo(cat, null) : fichaMovimiento(cat, b.dataset.nuevo))));
     const fin = $("#fin");
     if (S.finTab === "resumen") return finResumen(fin, cat);
-    if (S.finTab === "pagos") return finPagos(fin);
-    if (S.finTab === "gastos") return finGastos(fin, cat);
+    if (["movimientos", "pagos", "gastos"].includes(S.finTab)) return finLibro(fin, cat);
     if (S.finTab === "reclamos") return finReclamos(fin, cat);
+    if (S.finTab === "pendientes") return finPendientes(fin, cat);
+    if (S.finTab === "cierre") return finCierre(fin, cat);
     if (S.finTab === "cuentas") return finCuentas(fin, cat);
     return finMedios(fin, cat);
   }
+  const pctVs = (v, malo) => v === null || v === undefined ? `<span class="fk-vs">Sin período anterior</span>`
+    : `<span class="fk-vs ${(v >= 0) !== !!malo ? "sube" : "baja"}">${v >= 0 ? "↗" : "↘"} ${m2(Math.abs(v))}% vs. anterior</span>`;
+  function barrasLista(items, total) {
+    const max = Math.max(1, ...items.map((x) => Number(x.usd)));
+    return items.length ? items.map((x) => `<div class="fb-fila"><div class="fb-t"><span>${esc(x.nombre)}</span><b>$${m2(x.usd)}</b></div><i style="width:${(Number(x.usd) * 100) / max}%"></i></div>`).join("")
+      : `<div class="fin-vacio">Nada en este período.</div>`;
+  }
   async function finResumen(fin, cat) {
-    const r = await api(`/finanzas/resumen?dias=${S.finDias}`), recl = await api("/finanzas/reclamos");
+    const [r, recl] = await Promise.all([api(`/finanzas/tablero?desde=${S.finDesde}&hasta=${S.finHasta}`), api("/finanzas/reclamos")]);
     const abiertos = recl.filter((x) => ["abierto", "en_revision"].includes(x.estado)).slice(0, 3);
     const ing = Number(r.ingresos_usd), gas = Number(r.gastos_usd), res = Number(r.resultado_usd);
-    const totMedio = Object.values(r.por_medio).reduce((a, b) => a + b, 0);
-    const tile = (ic, t, v, nota, serie) => `<div class="fin-kpi"><div class="fk-t"><span class="fk-ic">${ic}</span>${t}</div><div class="fk-v">${v}</div><div class="fk-n">${nota}</div>${serie ? spark(serie, 34) : ""}</div>`;
-    fin.innerHTML = `<div class="fin-kpis">
-        ${tile("↗", "Ingresos", "$" + m2(ing), `Últimos ${r.dias} días`, r.serie_ingresos)}
-        ${tile("↘", "Gastos", "$" + m2(gas), "Pagos, nómina y más", r.serie_gastos)}
-        ${tile("≈", "Resultado", (res < 0 ? "−$" : "$") + m2(Math.abs(res)), res < 0 ? "Pérdida del período" : "Ganancia del período")}
+    const tile = (ic, t, v, nota, serie) => `<div class="fin-kpi"><div class="fk-t"><span class="fk-ic">${ic}</span>${t}</div><div class="fk-v">${v}</div><div class="fk-n">${nota}</div>${serie ? spark(serie, 30) : ""}</div>`;
+    fin.innerHTML = finPeriodo() + `<div class="fin-kpis tres">
+        ${tile("↗", "Ingresos", "$" + m2(ing), pctVs(r.var_ingresos), r.serie_ingresos)}
+        ${tile("↘", "Gastos", "$" + m2(gas), pctVs(r.var_gastos, true), r.serie_gastos)}
+        ${tile("≈", "Resultado", (res < 0 ? "−$" : "$") + m2(Math.abs(res)), pctVs(r.var_resultado))}
         ${tile("%", "Margen", r.margen === null ? "—" : r.margen + "%", "Resultado sobre ingresos")}
         ${tile("!", "Reclamos abiertos", r.reclamos_abiertos, "$" + m2(r.reclamos_monto_usd) + " en disputa")}
-        ${tile("Bs", "Tasa BCV", r.tasa ? m2(r.tasa) : "—", r.tasa ? "Bs por USD" : "Sin cargar")}</div>
+        ${tile("Bs", "Tasa BCV", r.tasa ? m2(r.tasa) : "—", r.tasa ? "Bs por USD" : "Sin cargar")}
+        ${tile("←", "Por cobrar", "$" + m2(r.por_cobrar_usd), `${r.por_cobrar_n} cuenta(s) · ${r.por_confirmar_n} pago(s) por confirmar ($${m2(r.por_confirmar_usd)})`)}
+        ${tile("→", "Por pagar", "$" + m2(r.por_pagar_usd), `${r.por_pagar_n} cuenta(s) · incluye $${m2(r.propinas_por_pagar_usd)} de propinas`)}
+        ${tile("✓", "Sin conciliar", r.sin_conciliar, "Movimientos por comprobar en el banco o la caja")}</div>
       <div class="fin-medio">
         <div class="fin-lado"><div class="fin-lado-t">⚑ Reclamos por atender <a href="#" data-ir="reclamos">Ver todos</a></div>
           ${abiertos.length ? abiertos.map((x, i) => `<div class="mini-grad mg${i}" data-rec="${x.id}"><span class="chip-est">${esc(x.estado_texto)}</span><b>$${m2(x.monto_usd)}</b>
             <div class="mg-t">${esc(x.cliente)}</div><div class="mg-s">${esc(x.motivo)}${x.orden ? " · " + esc(x.orden) : ""}</div><span class="mg-ir">›</span></div>`).join("")
-            : `<div class="fin-vacio">Sin reclamos abiertos. 🎉</div>`}
-          <div class="fin-lado-t" style="margin-top:12px">⇄ Bancos y cuentas</div>
-          ${r.cuentas.length ? r.cuentas.slice(0, 3).map((c) => `<div class="cta-mini"><span class="fk-ic">${ICONO_MEDIO[c.categoria] || "🏦"}</span><div><b>${esc(c.nombre)}</b><small>${esc(c.categoria_texto)} · ${esc(c.identificador || "")}</small></div><span>${c.moneda === "Bs" ? "Bs" : "$"} ${m2(c.saldo)}</span></div>`).join("")
+            : `<div class="fin-vacio">Sin reclamos abiertos.</div>`}
+          <div class="fin-lado-t" style="margin-top:12px">⇄ Bancos y cuentas <a href="#" data-ir="cuentas">Ver todas</a></div>
+          ${r.cuentas.length ? r.cuentas.slice(0, 3).map((c) => `<div class="cta-mini"><span class="fk-ic">${ICONO_MEDIO[c.categoria] || "🏦"}</span><div><b>${esc(c.nombre)}</b><small>${esc(c.categoria_texto)}${c.identificador ? " · " + esc(c.identificador) : ""}</small></div><span>${c.moneda === "Bs" ? "Bs" : "$"} ${m2(c.saldo)}</span></div>`).join("")
             : `<div class="fin-vacio">Agrega tus bancos en «Bancos y cuentas».</div>`}
         </div>
-        <div class="fin-hero"><div class="fh-top"><span class="chip-est">💼 Estado del negocio</span>
-            <select class="sel" id="fdias">${[7, 30, 90, 365].map((d) => `<option value="${d}" ${d === S.finDias ? "selected" : ""}>${d === 365 ? "1 año" : d + " días"}</option>`).join("")}</select></div>
+        <div class="fin-hero"><div class="fh-top"><span class="chip-est">💼 Estado del negocio</span><span class="chip-est">${dmy(r.desde)} al ${dmy(r.hasta)}</span></div>
           <div class="fh-tit">${res < 0 ? "Pérdida" : "Ganancia"} del período</div><div class="fh-num">${res < 0 ? "−" : ""}$${m2(Math.abs(res))}</div>
           <div class="fh-sub">Entraron <b>$${m2(ing)}</b> y salieron <b>$${m2(gas)}</b> · <span class="ley"><i></i>Ingresos</span> <span class="ley l2"><i></i>Gastos</span></div>
           ${lineas(r.serie_ingresos, r.serie_gastos)}
           <div class="fh-acc"><button class="btn blanco" data-ir="pagos">▸ Ver pagos</button><button class="btn vidrio" id="fexp">⇩ Exportar</button></div></div>
       </div>
-      <div class="fin-sec-t">Ingresos por tipo de pago <small>${totMedio ? "$" + m2(totMedio) + " en el período" : "Aún no hay cobros en el período"}</small></div>
-      <div class="fin-grads">${["Zelle", "Efectivo (cash)", "Banco nacional", "Banco internacional", "Otro"].map((k) => { const v = r.por_medio[k] || 0, pc = totMedio ? (v * 100) / totMedio : 0;
-        return `<div class="grad ${GRAD[k]}"><div class="gr-top"><span class="chip-est">${pc ? "↗ " + Math.round(pc) + "%" : "—"}</span><span class="gr-ic">${{ "Zelle": "Z", "Efectivo (cash)": "$", "Banco nacional": "🏦", "Banco internacional": "🌎", "Otro": "＋" }[k]}</span></div>
-          <div class="gr-c">${anillo(pc)}</div><div class="gr-t">${k}</div><div class="gr-v">$${m2(v)}</div></div>`; }).join("")}</div>
-      <div class="fin-dos">
-        <div class="card"><div class="tit"><span>Gastos por categoría</span><span class="total">$${m2(gas)}</span></div>${Object.keys(r.gastos_por_categoria).length ? `<div class="barras-h">${Object.entries(r.gastos_por_categoria).map(([k, v]) => `<div><span>${esc(k)}</span><i style="width:${(v * 100) / Math.max(...Object.values(r.gastos_por_categoria))}%"></i><b>$${m2(v)}</b></div>`).join("")}</div>` : `<div class="fin-vacio">Sin gastos en el período.</div>`}</div>
-        <div class="card"><div class="tit"><span>Ingresos por concepto</span><span class="total">$${m2(ing)}</span></div>${dona(Object.fromEntries(Object.entries(r.ingresos_por_categoria).map(([k, v]) => [k, Math.round(v)])))}
-          <div class="total" style="margin-top:10px">Por moneda: ${Object.entries(r.por_moneda).map(([k, v]) => `${k} $${m2(v)}`).join(" · ") || "—"}</div></div>
-      </div>`;
-    $("#fdias").onchange = (e) => { S.finDias = Number(e.target.value); pintar(true); };
+      <div class="fin-sec-t">Ingresos por tipo de pago <small>$${m2(ing)} en el período</small></div>
+      <div class="fin-grads">${r.por_tipo_pago.map((x) => `<div class="grad ${GRAD[x.categoria]}"><div class="gr-top"><span class="chip-est">${x.pct ? x.pct + "%" : "—"}</span><span class="gr-ic">${ICONO_MEDIO[x.categoria]}</span></div>
+          <div class="gr-c">${anillo(x.pct)}</div><div class="gr-t">${esc(x.nombre)}</div><div class="gr-v">$${m2(x.usd)}</div></div>`).join("")}</div>
+      <div class="card fin-bloque"><div class="tit"><span>Ingresos por concepto</span></div>${barrasLista(r.por_concepto)}</div>
+      <div class="card fin-bloque"><div class="tit"><span>Gastos por categoría</span></div>${barrasLista(r.por_gasto)}</div>
+      <div class="card fin-bloque"><div class="tit"><span>Ingresos por tienda</span></div>${barrasLista(r.por_tienda)}</div>
+      <div class="card fin-bloque"><div class="tit"><span>Ingresos por método</span><span class="total">USD: $${m2(r.metodo_usd)} · Bs: $${m2(r.metodo_bs)}</span></div>
+        ${r.por_metodo.length ? r.por_metodo.map((m) => `<div class="fm-fila"><div><span>${esc(m.metodo)} (${m.cobros})</span>${m.bs ? `<small>Bs ${m2(m.bs)}</small>` : ""}</div><b>$${m2(m.usd)}</b></div>`).join("") : `<div class="fin-vacio">Nada en este período.</div>`}</div>
+      <p class="total fin-nota">Solo cuenta lo confirmado. Las propinas no son ingreso ni gasto de AHA HOME: pertenecen a los técnicos. Los montos en bolívares usan la tasa BCV guardada en cada cobro.</p>`;
+    enlazarPeriodo(fin);
     fin.querySelectorAll("[data-ir]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); S.finTab = a.dataset.ir; pintar(true); }));
     fin.querySelectorAll("[data-rec]").forEach((d) => (d.onclick = () => fichaReclamo(cat, recl.find((x) => x.id === Number(d.dataset.rec)))));
-    $("#fexp").onclick = async () => {
-      const filas = await api("/finanzas/pagos"), gastos = await api("/finanzas/movimientos?tipo=gasto");
-      const csv = [["Tipo", "Fecha", "Concepto", "Detalle", "Tipo de pago", "Moneda", "Monto USD", "Referencia", "Orden", "Estado"]]
-        .concat(filas.map((f) => ["Ingreso", f.fecha, f.categoria_texto, f.descripcion, f.medio, f.moneda, f.monto_usd, f.referencia, f.orden, f.estado]))
-        .concat(gastos.map((g) => ["Gasto", g.fecha, g.categoria_texto, g.descripcion, g.medio || "", g.moneda, g.monto_usd, g.referencia, g.orden, g.estado]))
-        .map((l) => l.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
-      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" })); a.download = `aha-home-finanzas-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
-    };
+    $("#fexp").onclick = async () => { const l = await api(`/finanzas/libro?desde=${S.finDesde}&hasta=${S.finHasta}`); descargarLibro(l.filas, "finanzas"); };
+  }
+  function descargarLibro(filas, nombre) {
+    const csv = [["Fecha", "Tipo", "Concepto", "Detalle", "Orden", "Cliente o beneficiario", "Tipo de pago", "Referencia", "Cuenta", "Monto USD", "Monto Bs", "Estado", "Conciliado", "Tienda"]]
+      .concat(filas.map((f) => [f.fecha, f.tipo === "ingreso" ? "Ingreso" : "Gasto", f.concepto, f.detalle, f.orden, f.cliente, f.medio, f.referencia, f.cuenta,
+        (f.tipo === "gasto" ? "-" : "") + f.monto_usd, f.monto_bs || "", f.estado, f.conciliado ? "Sí" : "No", f.tienda]))
+      .map((l) => l.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
+    a.download = `aha-home-${nombre}-${S.finDesde}-a-${S.finHasta}.csv`; a.click();
+    api("/panel-api/actividad", { body: { tipo: "descarga", texto: `Descargó ${nombre} (${dmy(S.finDesde)} al ${dmy(S.finHasta)})` } }).catch(() => {});
   }
   function tablaFin(cols, filas, acc) {
     return `<div class="tabla"><table><thead><tr>${cols.map(([, t]) => `<th>${t}</th>`).join("")}${acc ? "<th></th>" : ""}</tr></thead><tbody>
       ${filas.length ? filas.map((f, i) => `<tr>${cols.map(([k]) => `<td>${f[k] ?? "—"}</td>`).join("")}${acc ? `<td>${acc(f, i)}</td>` : ""}</tr>`).join("") : `<tr><td colspan="${cols.length + 1}" class="total" style="text-align:center;padding:26px">Todavía no hay registros.</td></tr>`}</tbody></table></div>`;
   }
-  const estFin = (e) => `<span class="est ${{ cobrado: "ok", confirmado: "ok", conciliado: "ok", reembolsado: "ok", registrado: "neutro", abierto: "pend", en_revision: "pend", "por confirmar": "pend", anulado: "mal", rechazado: "mal" }[e] || "neutro"}">${esc(String(e).replace("_", " "))}</span>`;
-  async function finPagos(fin) {
-    const filas = (await api("/finanzas/pagos")).map((f) => ({ ...f, fecha: esc(f.fecha), concepto: `<b>${esc(f.categoria_texto)}</b><br><small class="total">${esc(f.descripcion || "")}</small>`,
-      medio: esc(f.medio || "—"), monto: `<b>$${m2(f.monto_usd)}</b>${f.monto_bs ? `<br><small class="total">Bs ${m2(f.monto_bs)}</small>` : ""}`, ref: esc(f.referencia || "—"), orden: esc(f.orden || "—"),
-      origen: `<span class="est neutro">${f.origen === "manual" ? "Registro manual" : f.origen === "caja" ? "Caja" : f.origen === "presupuesto" ? "Presupuesto" : "Penalidad"}</span>`, est: estFin(f.estado) }));
-    fin.innerHTML = `<p class="total">Todo lo que entró: los cobros de la caja, los presupuestos y las penalidades llegan solos; los demás ingresos se registran con «＋ Ingreso».</p>` +
-      tablaFin([["fecha", "Fecha"], ["concepto", "Concepto"], ["medio", "Tipo de pago"], ["monto", "Monto"], ["ref", "Referencia"], ["orden", "Orden"], ["origen", "Origen"], ["est", "Estado"]], filas);
+  const estFin = (e) => `<span class="est ${{ cobrado: "ok", confirmado: "ok", conciliado: "ok", reembolsado: "ok", registrado: "neutro", abierto: "pend", en_revision: "pend", "por confirmar": "pend", "por pagar": "info", anulado: "mal", rechazado: "mal" }[e] || "neutro"}">${esc(String(e).replace("_", " "))}</span>`;
+  async function finLibro(fin, cat) {
+    const l = await api(`/finanzas/libro?desde=${S.finDesde}&hasta=${S.finHasta}`);
+    const F = (S.finFil = S.finFil || {}), tab = S.finTab;
+    const base = l.filas.filter((f) => tab === "movimientos" || (tab === "pagos" ? f.tipo === "ingreso" : f.tipo === "gasto"));
+    const q = (F.q || "").toLowerCase();
+    const filas = base.filter((f) => (!F.tipo || f.tipo === F.tipo) && (!F.concepto || f.concepto === F.concepto) && (!F.medio || f.medio === F.medio) && (!F.estado || f.estado === F.estado)
+      && (!F.tienda || f.tienda === F.tienda) && (!F.conc || (F.conc === "si" ? f.conciliado : !f.conciliado))
+      && (!q || [f.orden, f.cliente, f.referencia, f.concepto, f.detalle].some((v) => String(v || "").toLowerCase().includes(q))));
+    const cuenta = (f) => f.estado === "confirmado" && !f.propina;
+    const entra = filas.filter((f) => cuenta(f) && f.tipo === "ingreso").reduce((a, f) => a + Number(f.monto_usd), 0);
+    const sale = filas.filter((f) => cuenta(f) && f.tipo === "gasto").reduce((a, f) => a + Number(f.monto_usd), 0);
+    const porPag = 25, paginas = Math.max(1, Math.ceil(filas.length / porPag)); S.finPag = Math.min(S.finPag || 1, paginas);
+    const vista = filas.slice((S.finPag - 1) * porPag, S.finPag * porPag);
+    const sel = (k, todos, ops) => `<select class="sel" data-fil="${k}"><option value="">${todos}</option>${ops.map(([v, t]) => `<option value="${esc(v)}" ${F[k] === v ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
+    const uniq = (k) => [...new Set(base.map((f) => f[k]))].filter(Boolean).sort().map((v) => [v, v]);
+    fin.innerHTML = `<div class="fin-desc"><p class="total">${FIN_TEXTO[tab]}</p><button class="btn sec" id="fcsv">⬇ Descargar Excel (CSV)</button></div>` + finPeriodo() +
+      `<div class="fin-filtros"><input class="finp fbus" id="fq" placeholder="⌕ Orden, cliente, referencia" value="${esc(F.q || "")}">
+        ${tab === "movimientos" ? sel("tipo", "Ingresos y gastos", [["ingreso", "Solo ingresos"], ["gasto", "Solo gastos"]]) : ""}
+        ${sel("concepto", "Todos los conceptos", uniq("concepto"))}${sel("medio", "Todos los tipos de pago", uniq("medio"))}
+        ${sel("estado", "Todos los estados", [["confirmado", "Confirmado"], ["por confirmar", "Por confirmar"], ["por pagar", "Por pagar"], ["anulado", "Anulado"]])}
+        ${sel("tienda", "Todas las tiendas", uniq("tienda"))}${sel("conc", "Conciliación", [["si", "Conciliado"], ["no", "Sin conciliar"]])}</div>
+      <div class="tabla fin-libro"><div class="fl-cab"><span>${filas.length} movimiento(s) · confirmado: entra <b class="sube">$${m2(entra)}</b> · sale <b class="baja">$${m2(sale)}</b></span></div>
+      <table><thead><tr><th>Fecha</th><th>Concepto</th><th>Orden</th><th>Cliente o beneficiario</th><th>Tipo de pago</th><th style="text-align:right">Monto</th><th>Estado</th><th>Conciliado</th><th></th></tr></thead><tbody>
+      ${vista.length ? vista.map((f) => `<tr class="${f.estado === "anulado" ? "anulada" : ""}"><td>${dmy(f.fecha)}</td>
+        <td><b>${esc(f.concepto)}</b>${f.detalle ? `<br><small class="total">${esc(f.detalle)}</small>` : ""}</td><td>${esc(f.orden || "—")}</td><td>${esc(f.cliente || "—")}</td>
+        <td>${f.medio && f.medio !== "—" ? esc(f.medio) : "—"}${f.referencia || f.cuenta ? `<br><small class="total">${esc([f.referencia, f.cuenta].filter(Boolean).join(" · "))}</small>` : ""}</td>
+        <td class="fl-monto ${f.tipo === "ingreso" ? "sube" : "baja"}"><b>${f.tipo === "ingreso" ? "+" : "−"}$${m2(f.monto_usd)}</b>${f.monto_bs ? `<br><small class="total">Bs ${m2(f.monto_bs)}</small>` : ""}</td>
+        <td>${estFin(f.estado)}</td>
+        <td>${f.estado === "confirmado" ? `<label class="fl-conc"><input type="checkbox" data-conc="${f.clave}" ${f.conciliado ? "checked" : ""} ${cat.puede_editar ? "" : "disabled"}> ${f.conciliado ? "Sí" : "No"}</label>` : "—"}</td>
+        <td><div class="acc"><button title="Ver" data-ver="${f.clave}">👁</button>${cat.puede_editar && f.mov_id && f.estado !== "anulado" ? `<button title="Anular" data-anu="${f.mov_id}">⊘</button>` : ""}</div></td></tr>`).join("")
+        : `<tr><td colspan="9" class="total" style="text-align:center;padding:26px">No hay movimientos con estos filtros.</td></tr>`}</tbody></table>
+      <div class="pie"><span>Página ${S.finPag} de ${paginas}</span><span style="display:flex;gap:8px"><button id="fant" ${S.finPag <= 1 ? "disabled" : ""}>← Anterior</button><button id="fsig" ${S.finPag >= paginas ? "disabled" : ""}>Siguiente →</button></span></div></div>`;
+    enlazarPeriodo(fin);
+    fin.querySelectorAll("[data-fil]").forEach((s) => (s.onchange = () => { F[s.dataset.fil] = s.value; S.finPag = 1; pintar(true); }));
+    let reloj; $("#fq").oninput = (e) => { clearTimeout(reloj); reloj = setTimeout(() => { F.q = e.target.value; S.finPag = 1; pintar(true).then?.(() => { const i = $("#fq"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }); }, 400); };
+    $("#fant").onclick = () => { S.finPag--; pintar(true); }; $("#fsig").onclick = () => { S.finPag++; pintar(true); };
+    $("#fcsv").onclick = () => descargarLibro(filas, tab);
+    fin.querySelectorAll("[data-conc]").forEach((c) => (c.onchange = () => api("/finanzas/conciliar", { body: { clave: c.dataset.conc, conciliado: c.checked } }).then(() => pintar(true)).catch(() => pintar(true))));
+    fin.querySelectorAll("[data-ver]").forEach((b) => (b.onclick = () => verMovimiento(filas.find((f) => f.clave === b.dataset.ver))));
+    fin.querySelectorAll("[data-anu]").forEach((b) => (b.onclick = () => cajonFin("Anular movimiento", `<p class="total">El movimiento deja de contar en los totales. No se puede deshacer.</p><label class="flab">Motivo</label><textarea id="amo" class="finp" rows="3" placeholder="Ej. registrado dos veces"></textarea>`,
+      () => api(`/finanzas/movimientos/${b.dataset.anu}`, { method: "PUT", body: { estado: "anulado", motivo: $("#amo").value } }))));
   }
-  async function finGastos(fin, cat) {
-    const gs = await api("/finanzas/movimientos?tipo=gasto");
-    const filas = gs.map((g) => ({ fecha: esc(g.fecha), cat: `<b>${esc(g.categoria_texto)}</b><br><small class="total">${esc(g.descripcion || "")}</small>`, medio: esc(g.medio || "—"), cuenta: esc(g.cuenta || "—"),
-      monto: `<b>$${m2(g.monto_usd)}</b>${g.moneda === "Bs" ? `<br><small class="total">Bs ${m2(g.monto)} · tasa ${m2(g.tasa)}</small>` : ""}`, ref: esc(g.referencia || "—"), est: estFin(g.estado), _id: g.id, _e: g.estado }));
-    fin.innerHTML = `<p class="total">Pagos a técnicos, materiales, nómina, servidor, publicidad, comisiones, impuestos y reembolsos. Los montos en bolívares se pasan a dólares con la tasa del día.</p>` +
-      tablaFin([["fecha", "Fecha"], ["cat", "Categoría"], ["medio", "Tipo de pago"], ["cuenta", "Cuenta"], ["monto", "Monto"], ["ref", "Referencia"], ["est", "Estado"]], filas,
-        cat.puede_editar ? (f) => f._e === "anulado" ? "" : `<div class="acc">${f._e !== "conciliado" ? `<button title="Conciliar" data-mov="${f._id}" data-e="conciliado">✓</button>` : ""}<button title="Anular" data-mov="${f._id}" data-e="anulado">✕</button></div>` : null);
-    fin.querySelectorAll("[data-mov]").forEach((b) => (b.onclick = () => b.dataset.e === "anulado"
-      ? cajonFin("Anular movimiento", `<p class="total">El movimiento deja de contar en los totales. No se puede deshacer.</p><label class="flab">Motivo</label><textarea id="amo" class="finp" rows="3" placeholder="Ej. registrado dos veces"></textarea>`,
-          () => api(`/finanzas/movimientos/${b.dataset.mov}`, { method: "PUT", body: { estado: "anulado", motivo: $("#amo").value } }))
-      : api(`/finanzas/movimientos/${b.dataset.mov}`, { method: "PUT", body: { estado: b.dataset.e } }).then(() => pintar(true))));
+  function verMovimiento(f) {
+    const fila = (t, v) => v ? `<div class="fv-fila"><span>${t}</span><b>${v}</b></div>` : "";
+    const c = cajonFin(esc(f.concepto), `<div class="fv">${fila("Fecha", dmy(f.fecha))}${fila("Tipo", f.tipo === "ingreso" ? "Ingreso" : "Gasto")}${fila("Detalle", esc(f.detalle))}
+      ${fila("Orden", esc(f.orden))}${fila("Cliente o beneficiario", esc(f.cliente))}${fila("Tienda", esc(f.tienda))}${fila("Tipo de pago", esc(f.medio))}${fila("Referencia", esc(f.referencia))}
+      ${fila("Cuenta", esc(f.cuenta))}${fila("Monto", (f.tipo === "ingreso" ? "+" : "−") + "$" + m2(f.monto_usd))}${fila("Monto en bolívares", f.monto_bs ? "Bs " + m2(f.monto_bs) : "")}
+      ${fila("Estado", estFin(f.estado))}${fila("Conciliado", f.estado === "confirmado" ? (f.conciliado ? "Sí" : "No") : "")}${fila("Motivo de anulación", esc(f.motivo_anulacion || ""))}
+      ${fila("Origen", { caja: "Caja de la tienda", presupuesto: "Presupuesto", penalidad: "Penalidad", propina: "Propina (es del técnico)", materiales: "Materiales al técnico", manual: "Registro manual" }[f.origen])}</div>`, async () => {});
+    c.querySelector("#fg").hidden = true;
+  }
+  async function finPendientes(fin, cat) {
+    const p = await api("/finanzas/pendientes");
+    const dias = (n) => `<span class="est ${n >= 7 ? "mal" : "info"}">${n} día(s)</span>`;
+    const bloque = (t, sub, total, cols, filas, vacio) => `<div class="tabla fin-pend"><div class="fl-cab"><span><b>${t}</b> · ${filas.length} · ${sub}</span><b>$${m2(total)}</b></div>
+      <table><thead><tr>${cols.map(([, h]) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${filas.length ? filas.map((f) => `<tr>${cols.map(([k]) => `<td>${f[k] ?? "—"}</td>`).join("")}</tr>`).join("")
+        : `<tr><td colspan="${cols.length}" class="total">${vacio}</td></tr>`}</tbody></table></div>`;
+    fin.innerHTML = `<p class="total">${FIN_TEXTO.pendientes}</p>` +
+      bloque("Pagos por confirmar", "el cliente dice que pagó", p.confirmar_total, [["concepto", "Concepto"], ["orden", "Orden"], ["cliente", "Cliente"], ["pago", "Pago"], ["dias", "Antigüedad"], ["monto", "Monto"]],
+        p.confirmar.map((x) => ({ ...x, concepto: `<b>${esc(x.concepto)}</b>`, cliente: esc(x.cliente), pago: esc(x.pago), dias: dias(x.dias), monto: `<b>$${m2(x.monto_usd)}</b>` })), "Nada pendiente.") +
+      bloque("Por cobrar", "falta que el cliente pague", p.cobrar_total, [["concepto", "Concepto"], ["orden", "Orden"], ["cliente", "Cliente"], ["dias", "Antigüedad"], ["monto", "Monto"]],
+        p.cobrar.map((x) => ({ ...x, concepto: `<b>${esc(x.concepto)}</b>`, cliente: esc(x.cliente), dias: dias(x.dias), monto: `<b>$${m2(x.monto_usd)}</b>` })), "Nada por cobrar.") +
+      bloque("Por pagar", "técnicos, reembolsos y gastos", p.pagar_total, [["concepto", "Concepto"], ["orden", "Orden"], ["quien", "A quién"], ["dias", "Antigüedad"], ["monto", "Monto"], ["acc", ""]],
+        p.pagar.map((x) => ({ ...x, concepto: `<b>${esc(x.concepto)}</b>`, quien: esc(x.quien), dias: dias(x.dias), monto: `<b>$${m2(x.monto_usd)}</b>`,
+          acc: cat.puede_editar ? `<button class="btn sec" data-pagar="${x.clave}">Registrar pago</button>` : "" })), "Nada por pagar.");
+    fin.querySelectorAll("[data-pagar]").forEach((b) => (b.onclick = () => { const x = p.pagar.find((y) => y.clave === b.dataset.pagar);
+      cajonFin("Registrar pago", `<div class="card" style="min-height:0;margin-top:10px"><b>${esc(x.concepto)}</b>${x.orden && x.orden !== "—" ? " · " + esc(x.orden) : ""}<div class="total">Para ${esc(x.quien)}</div><div class="grande">$${m2(x.monto_usd)}</div></div>
+        ${finSel("pmp", "Tipo de pago", [["", "Elige el tipo de pago"]].concat(cat.medios.filter((m) => m.activo).map((m) => [m.id, m.nombre])), "")}
+        ${finSel("pct", "Cuenta (opcional)", [["", "Ninguna"]].concat(cat.cuentas.filter((c) => c.activo).map((c) => [c.id, `${c.nombre} · ${c.moneda}`])), "")}
+        ${finCampo("prf", "Referencia", "")}<div class="total">Obligatoria si no es efectivo. El sistema no mueve dinero: deja constancia de lo que ya pagaste.</div>`,
+        () => api("/finanzas/pendientes/pagar", { body: { clave: x.clave, medio_id: $("#pmp").value ? Number($("#pmp").value) : null, cuenta_id: $("#pct").value ? Number($("#pct").value) : null, referencia: $("#prf").value } })); }));
+  }
+  async function finCierre(fin, cat) {
+    const tiendas = (await api("/admin/tiendas").catch(() => [])) || [];
+    S.cierreTienda = S.cierreTienda || tiendas[0]?.id; S.cierreDia = S.cierreDia || hoyLocal();
+    if (!S.cierreTienda) { fin.innerHTML = `<div class="fin-vacio">No hay tiendas registradas.</div>`; return; }
+    const [c, hist] = await Promise.all([api(`/finanzas/cierre?tienda_id=${S.cierreTienda}&dia=${S.cierreDia}`), api("/finanzas/cierres")]);
+    const mon = (m, v) => (m === "Bs" ? "Bs " : "$") + m2(v);
+    const cerrado = c.cerrado;
+    fin.innerHTML = `<p class="total">${FIN_TEXTO.cierre}</p>
+      <div class="tabla fin-cierre"><div class="fl-cab"><b>${cerrado ? "Caja cerrada" : "Cerrar caja"}</b><span class="fc-sel"><select class="sel" id="ctienda">${c.tiendas.map((t) => `<option value="${t.id}" ${t.id === Number(S.cierreTienda) ? "selected" : ""}>${esc(t.nombre)}</option>`).join("")}</select>
+        <input type="date" id="cdia" value="${S.cierreDia}" max="${hoyLocal()}"></span></div>
+      <table><thead><tr><th>Método</th><th>Cobros</th><th style="text-align:right">Según el sistema</th><th>Contado</th><th style="text-align:right">Diferencia</th></tr></thead><tbody>
+      ${(cerrado ? cerrado.detalle : c.metodos).map((m) => `<tr><td><b>${esc(m.texto)}</b></td><td>${m.cobros}</td><td style="text-align:right"><b>${mon(m.moneda, m.sistema)}</b></td>
+        <td>${cerrado ? mon(m.moneda, m.contado) : `<input class="finp fc-in" type="number" step="0.01" min="0" data-cont="${m.metodo}" data-sis="${m.sistema}" data-mon="${m.moneda}" placeholder="0,00">`}</td>
+        <td style="text-align:right" class="fc-dif" data-dif="${m.metodo}">${cerrado ? (Number(m.diferencia) ? `<b class="baja">${mon(m.moneda, m.diferencia)}</b>` : "—") : "—"}</td></tr>`).join("")}</tbody></table>
+      ${cerrado ? `<div class="fc-pie"><span class="est ${cerrado.cuadra ? "ok" : "mal"}">${cerrado.cuadra ? "Cuadra" : "Con diferencias"}</span> <span class="total">Cerrada por ${esc(cerrado.cerrado_por)} · ${fmt("", cerrado.cerrado_en)}${cerrado.nota ? " · " + esc(cerrado.nota) : ""}</span></div>`
+        : cat.puede_editar ? `<div class="fc-pie"><input class="finp" id="cnota" placeholder="Nota (obligatoria si hay diferencias)"><button class="btn pri" id="ccerrar">Cerrar caja</button></div><p class="error" id="cerr"></p>` : ""}</div>
+      <div class="fin-sec-t">Cierres anteriores</div>
+      ${tablaFin([["dia", "Día"], ["tienda", "Tienda"], ["res", "Resultado"], ["por", "Cerrado por"], ["nota", "Nota"]], hist.map((h) => ({ dia: dmy(h.dia), tienda: `<b class="acento">${esc(h.tienda)}</b>`,
+        res: `<span class="est ${h.cuadra ? "ok" : "mal"}">${h.abierto ? "Reabierto" : h.cuadra ? "Cuadra" : "Con diferencias"}</span>${h.diferencias.length ? `<br><small class="total">${h.diferencias.map(esc).join("<br>")}</small>` : ""}`,
+        por: `${esc(h.cerrado_por)}<br><small class="total">${fmt("", h.cerrado_en)}</small>`, nota: esc(h.nota || "—"), _h: h })),
+        cat.puede_editar ? (f) => (f._h.abierto ? "" : `<button class="btn sec" data-reabrir="${f._h.id}">Reabrir</button>`) : null)}`;
+    $("#ctienda").onchange = (e) => { S.cierreTienda = e.target.value; pintar(true); };
+    $("#cdia").onchange = (e) => { S.cierreDia = e.target.value; pintar(true); };
+    fin.querySelectorAll("[data-cont]").forEach((i) => (i.oninput = () => { const d = Number(i.value || 0) - Number(i.dataset.sis), td = fin.querySelector(`[data-dif="${i.dataset.cont}"]`);
+      td.innerHTML = i.value === "" ? "—" : Math.abs(d) < 0.005 ? `<span class="sube">Cuadra</span>` : `<b class="baja">${d > 0 ? "+" : "−"}${mon(i.dataset.mon, Math.abs(d))}</b>`; }));
+    const cc = $("#ccerrar"); if (cc) cc.onclick = async () => {
+      const contado = {}; fin.querySelectorAll("[data-cont]").forEach((i) => (contado[i.dataset.cont] = Number(i.value || 0)));
+      try { await api("/finanzas/cierres", { body: { tienda_id: Number(S.cierreTienda), dia: S.cierreDia, contado, nota: $("#cnota").value } }); pintar(true); }
+      catch (e) { $("#cerr").textContent = e.message; } };
+    fin.querySelectorAll("[data-reabrir]").forEach((b) => (b.onclick = () => api(`/finanzas/cierres/${b.dataset.reabrir}/reabrir`, { body: {} }).then(() => pintar(true))));
   }
   async function finReclamos(fin, cat) {
     const rs = await api("/finanzas/reclamos");
@@ -468,10 +662,10 @@
     const n = $("#nmed"); if (n) n.onclick = () => fichaMedio(cat, null);
     fin.querySelectorAll("[data-med]").forEach((b) => (b.onclick = () => fichaMedio(cat, cat.medios.find((m) => m.id === Number(b.dataset.med)))));
   }
-  function cajonFin(titulo, cuerpo, alGuardar) {
+  function cajonFin(titulo, cuerpo, alGuardar, seccion = "Finanzas") {
     document.querySelector(".cajon")?.remove();
     const c = document.createElement("div"); c.className = "cajon";
-    c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="total">Finanzas</span><button class="btn sec" id="cer">✕</button></div>
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="total">${esc(seccion)}</span><button class="btn sec" id="cer">✕</button></div>
       <h2 style="margin-top:8px">${titulo}</h2>${cuerpo}<div style="margin-top:18px"><button class="btn pri" id="fg">Guardar</button></div><p class="error" id="ferr"></p>`;
     document.body.appendChild(c); $("#cer").onclick = () => c.remove();
     $("#fg").onclick = async () => { try { await alGuardar(); c.remove(); pintar(true); } catch (e) { $("#ferr").textContent = e.message; } };
@@ -482,7 +676,10 @@
   function fichaMovimiento(cat, tipo) {
     const cats = Object.entries(tipo === "gasto" ? cat.gastos : cat.ingresos);
     cajonFin(tipo === "gasto" ? "Registrar gasto" : "Registrar ingreso",
-      finSel("mc", "Categoría", cats, cats[0][0]) + finCampo("md", "Descripción", "", "text", 'placeholder="Ej. pago semanal grupo A"') + finCampo("mf", "Fecha", new Date().toISOString().slice(0, 10), "date") +
+      finSel("mc", "Categoría", cats, cats[0][0]) + finCampo("md", "Descripción", "", "text", 'placeholder="Ej. pago semanal grupo A"') +
+      finCampo("mb", tipo === "gasto" ? "Beneficiario" : "Cliente o pagador", "", "text", 'placeholder="Opcional"') +
+      (tipo === "gasto" ? `<label class="fchk"><input type="checkbox" id="mpp"> Todavía no se ha pagado (dejar por pagar)</label>` : "") +
+      finCampo("mf", "Fecha", hoyLocal(), "date") +
       `<div class="fila2"><div>${finCampo("mm", "Monto", "", "number", 'step="0.01" min="0"')}</div><div>${finSel("mo", "Moneda", [["USD", "Dólares"], ["Bs", "Bolívares"]], "USD")}</div></div>
        <div class="total" id="mconv"></div>` +
       finSel("mp", "Tipo de pago", [["", "Elige el tipo de pago"]].concat(cat.medios.filter((m) => m.activo).map((m) => [m.id, m.nombre])), "") +
@@ -490,7 +687,8 @@
       finCampo("mr", "Referencia", "") + `<div class="total">Obligatoria si no es efectivo. Cada cuenta solo recibe pagos de su moneda.</div>` +
       finCampo("mn", "Orden (opcional)", "", "text", 'placeholder="WO-1234"'),
       () => api("/finanzas/movimientos", { body: { tipo, categoria: $("#mc").value, descripcion: $("#md").value, fecha: $("#mf").value, monto: Number($("#mm").value), moneda: $("#mo").value,
-        medio_id: $("#mp").value ? Number($("#mp").value) : null, cuenta_id: $("#mk").value ? Number($("#mk").value) : null, referencia: $("#mr").value, orden: $("#mn").value } }));
+        medio_id: $("#mp").value ? Number($("#mp").value) : null, cuenta_id: $("#mk").value ? Number($("#mk").value) : null, referencia: $("#mr").value, orden: $("#mn").value,
+        beneficiario: $("#mb").value, por_pagar: !!$("#mpp")?.checked } }));
     const conv = () => { const v = Number($("#mm").value || 0); $("#mconv").textContent = $("#mo").value === "Bs" && cat.tasa ? `≈ $${m2(v / cat.tasa)} a la tasa BCV de Bs ${m2(cat.tasa)}` : ""; };
     $("#mm").oninput = conv; $("#mo").onchange = conv;
   }
@@ -533,7 +731,7 @@
 
   // ---------- Diseño de la app: el panel controla colores, textos, menús y avisos ----------
   const ICO_MENU = { inicio: "🏠", pedidos: "🧾", mensajes: "💬", cuenta: "👤", avisos: "🔔", soporte: "🎧", ordenes: "📄", mapa: "📍", perfil: "👤" };
-  const MENUS_NOMBRE = { cliente: "Cliente · menú de abajo", cliente_lateral: "Cliente · menú ☰", tecnico: "Técnico · menú de abajo" };
+  const MENUS_NOMBRE = { cliente: "Cliente · menú de abajo", cliente_lateral: "Cliente · menú ☰ (hoy solo lo ve quien no ha verificado su correo)", tecnico: "Técnico · menú de abajo" };
   const VISTAS = [["portada", "Portada"], ["cliente", "Inicio del cliente"], ["cliente_lateral", "Menú ☰ del cliente"], ["tecnico", "Inicio del técnico"], ["caja", "Inicio de la caja"]];
   async function diseno(main) {
     S.dis = S.dis || await api("/admin/interfaz");
@@ -576,7 +774,7 @@
     const f = $("#dform");
     const inp = (ruta, l, v, extra = "") => `<label class="flab">${l}</label><input class="finp" data-r="${ruta}" value="${esc(v)}" ${extra}>`;
     if (S.disSec === "marca") {
-      f.innerHTML = inp("marca.nombre", "Nombre de la app", D.marca.nombre, 'maxlength="30"') + inp("marca.eslogan", "Eslogan", D.marca.eslogan, 'maxlength="60"') +
+      f.innerHTML = inp("marca.nombre", "Nombre de la app", D.marca.nombre, 'maxlength="30"') + inp("marca.eslogan", "Eslogan", D.marca.eslogan, 'maxlength="60"') + `<div class="total" style="margin:-4px 0 8px">Por ahora la app no muestra el eslogan en ninguna pantalla.</div>` +
         `<label class="flab">Colores</label><div class="colores">${[["marino", "Principal (azul marino)"], ["lima", "Acento (lima)"], ["naranja", "Botones de acción (naranja)"], ["fondo", "Fondo de pantallas"]]
           .map(([k, t]) => `<label class="color"><input type="color" data-c="${k}" value="${D.marca.colores[k]}"><span><b>${t}</b><small>${D.marca.colores[k]}</small></span></label>`).join("")}</div>
         <button class="enlace" id="dfab" style="align-self:flex-start">Volver a los colores de fábrica</button>`;
@@ -713,7 +911,7 @@
     const r = await api(`/ventas/resumen?dias=${S.venDias}`);
     const tile = (ic, t, val, nota, cls = "") => `<div class="fin-kpi ${cls}"><div class="fk-t"><span class="fk-ic">${ic}</span>${t}</div><div class="fk-v">${val}</div><div class="fk-n">${nota}</div></div>`;
     const maxT = Math.max(1, ...Object.values(r.por_tienda));
-    v.innerHTML = `<div class="fin-kpis">
+    v.innerHTML = `<div class="fin-kpis tres">
         ${tile("🛒", "Servicios nuevos", r.nuevos, r.dias === 1 ? "Hoy" : `Últimos ${r.dias} días`)}
         ${tile("✕", "Cancelados", r.cancelados, r.tasa_cancelacion === null ? "—" : `${r.tasa_cancelacion}% de los nuevos`)}
         ${tile("↻", "Reprogramados", r.reprogramados, "Cambio de fecha")}
@@ -847,7 +1045,7 @@
       <label>Clave temporal</label><input id="a" type="password" required><label>Clave nueva</label><input id="n" type="password" required><label>Repite la clave nueva</label><input id="r" type="password" required>
       <div class="total">Mínimo 8 caracteres, una letra y un número.</div><p class="error" id="e"></p><button class="btn pri" style="height:48px">Guardar y entrar</button>
       <button type="button" class="btn sec" id="sal2">Cerrar sesión</button></form></div>`;
-    $("#sal2").onclick = salir;
+    $("#sal2").onclick = () => salir(true);
     $("#f").onsubmit = async (ev) => {
       ev.preventDefault();
       try { await api("/yo/contrasena", { body: { actual: $("#a").value, nueva: $("#n").value, repetir: $("#r").value } }); S.yo = null; pintar(); }
@@ -866,7 +1064,7 @@
       if (!["supervisor", "superadmin", "ventas"].includes(S.yo.rol)) { salir(); alert("El panel es solo para el equipo de oficina (superadmin, centro de control y ventas). La caja usa la app."); return; }
     }
     if (S.yo.clave_temporal) return cambioObligatorio(app);
-    if (!puede(S.ruta) && !(S.ruta === "usuarios" && S.yo.es_ceo) && !(S.ruta === "auditoria" && S.yo.es_ceo) && !(S.ruta === "correos" && S.yo.es_ceo)) {
+    if (!puede(S.ruta) && !(S.ruta === "usuarios" && S.yo.es_ceo) && !(S.ruta === "auditoria" && S.yo.es_ceo) && !(S.ruta === "correos" && S.yo.es_ceo) && !(S.ruta === "historial" && S.yo.es_ceo)) {
       const primera = Object.keys(PERM_RUTA).find((k) => puede(k)); S.ruta = primera || "sinpermisos"; location.hash = S.ruta;
     }
     if (puedeHacer("ver_tablero")) try { const r = await datos(30); S.cuentas = { verif: r.verificaciones_pendientes, rep: r.reportes_abiertos }; S.notif = r.verificaciones_pendientes + r.reportes_abiertos; } catch { /* sin datos */ }
@@ -883,7 +1081,7 @@
       $("#cam").onclick = (e) => { e.stopPropagation(); const m = $("#camm"); m.hidden = !m.hidden; if (!m.hidden) pintarCampana(); };
       revisarCampana(true);
       $("#um").onclick = () => { const m = $("#umm"); m.style.display = m.style.display === "none" ? "block" : "none"; };
-      $("#sal").onclick = salir;
+      $("#sal").onclick = () => salir(true);
       $("#mic").onclick = () => { $("#umm").style.display = "none"; miClave(); };
       const bg = $("#bg"), rg = $("#rg"); let tm;
       bg.oninput = () => { clearTimeout(tm); tm = setTimeout(async () => {
@@ -912,8 +1110,10 @@
       else if (S.ruta === "tarifas") await pagTarifas(main);
       else if (S.ruta === "precios") await pagPrecios(main);
       else if (S.ruta === "qrs") await pagQrs(main);
+      else if (S.ruta === "historial") await historial(main);
       else await tabla(main, S.ruta);
     } catch (e) { main.innerHTML += `<p class="error">${esc(e.message)}</p>`; }
+    anotarConsulta(main);
   }
 
   function login(app) {
@@ -925,7 +1125,7 @@
     $("#olv").onclick = () => recuperar(app, $("#u").value);
     $("#f").onsubmit = async (ev) => {
       ev.preventDefault();
-      try { const r = await api("/auth/login", { body: { usuario: $("#u").value, password: $("#p").value } }); S.token = r.token; localStorage.setItem("ahahome.panel.token", r.token); S.yo = null; pintar(); }
+      try { const r = await api("/auth/login", { body: { usuario: $("#u").value, password: $("#p").value } }); S.token = r.token; S.sesion = r.sesion || ""; localStorage.setItem("ahahome.panel.token", r.token); localStorage.setItem("ahahome.panel.sesion", S.sesion); S.yo = null; S.consultaVista = ""; pintar(); }
       catch (e) { $("#e").textContent = e.message; }
     };
   }
