@@ -381,3 +381,6 @@ b.acento,.acento{color:var(--acento)}
 .lat .grupo.abierto .flecha{transform:rotate(180deg)}
 .ocultar{display:inline-flex;align-items:center;gap:4px}
 .chev-arriba{display:inline-flex}.chev-arriba .chev{transform:rotate(180deg)}
+
+/* Tarjetas sin movimiento (por ejemplo «Quién está dentro» en Auditoría) */
+.card.quieta,.card.quieta:hover{transform:none!important}

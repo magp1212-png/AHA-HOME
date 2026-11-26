@@ -1371,7 +1371,8 @@ def test_libro_pendientes_y_cierre_de_caja(client):
     sa = login(client, "superadmin@ahahome.test")
     cat = client.get("/finanzas/catalogo", headers=sa).json()
     efe = next(m["id"] for m in cat["medios"] if m["nombre"] == "Efectivo en dólares (cash)")
-    hoy = str(dt.date.today())
+    from app.models import dia_caracas
+    hoy = dia_caracas()  # el sistema cuenta por día de Caracas
     g = client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "servicios", "fecha": hoy, "monto": 120, "moneda": "USD",
                                                    "beneficiario": "Arrendador", "por_pagar": True}, headers=sa)
     assert g.status_code == 200 and g.json()["estado"] == "por_pagar"

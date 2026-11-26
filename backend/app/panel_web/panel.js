@@ -151,7 +151,7 @@
   const logo3D = (px) => `<div class="logo3d" style="--s:${px}px">${Array.from({ length: 16 }, (_, i) => `<svg style="--z:${i}"><use href="#logo"/></svg>`).join("")}</div>`;
   // Inclinación 3D de las tarjetas con el mouse (estilo vidrio de iOS)
   document.addEventListener("pointermove", (e) => {
-    const c = e.target.closest && e.target.closest(".card"); document.querySelectorAll(".card.incl").forEach((x) => { if (x !== c) { x.classList.remove("incl"); x.style.transform = ""; } });
+    const c = e.target.closest && e.target.closest(".card:not(.quieta)"); document.querySelectorAll(".card.incl").forEach((x) => { if (x !== c) { x.classList.remove("incl"); x.style.transform = ""; } });
     if (!c || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
     c.classList.add("incl"); c.style.transform = `rotateX(${(0.5 - y) * 7}deg) rotateY(${(x - 0.5) * 9}deg) translateZ(6px)`;
@@ -269,7 +269,7 @@
 
   async function auditoria(main) {
     const [eq, act] = await Promise.all([api("/ceo/equipo"), api("/ceo/actividad?limite=200")]);
-    main.innerHTML += `<div class="grid" style="grid-template-columns:1fr 2fr"><div class="card"><div class="tit">Quién está dentro</div><div class="grande">${eq.en_linea} <span class="total">en línea de ${eq.total}</span></div>
+    main.innerHTML += `<div class="grid" style="grid-template-columns:1fr 2fr"><div class="card quieta"><div class="tit">Quién está dentro</div><div class="grande">${eq.en_linea} <span class="total">en línea de ${eq.total}</span></div>
       ${eq.equipo.map((p) => `<div class="fila" style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--borde)"><span style="width:9px;height:9px;border-radius:5px;margin-top:6px;background:${p.en_linea ? "var(--verde)" : "var(--borde)"}"></span><span style="flex:1"><b>${esc(p.nombre)}</b> <span class="total">· ${esc(p.rol_texto)}</span><br><span class="total">${p.en_linea ? "En línea" : "Último acceso " + fmt("", p.ultimo_acceso)}${p.ultima_accion ? " · " + esc(p.ultima_accion) : ""}</span></span><span class="est pend">${p.acciones_hoy} hoy</span></div>`).join("")}</div>
       <div class="tabla"><div class="barra"><span style="flex:1;color:var(--suave)">Lo que hizo el equipo · ${act.length} acciones</span></div><table><thead><tr><th>Fecha</th><th>Quién</th><th>Rol</th><th>Acción</th><th>IP</th></tr></thead><tbody>${act.map((a) => `<tr><td>${fmt("", a.en)}</td><td class="nombre">${esc(a.quien)}</td><td>${esc(a.rol_texto)}</td><td style="${a.estado >= 400 ? "color:var(--rojo)" : ""}">${esc(a.accion)}</td><td>${esc(a.ip || "—")}</td></tr>`).join("")}</tbody></table></div></div>`;
   }
