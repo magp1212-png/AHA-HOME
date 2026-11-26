@@ -11,6 +11,14 @@ def ahora() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
 
 
+CARACAS = dt.timedelta(hours=-4)  # Venezuela: UTC-4 todo el año
+
+
+def dia_caracas(t: dt.datetime | None = None) -> str:
+    """Fecha (AAAA-MM-DD) en Caracas de un momento guardado en UTC; sin argumento, la de hoy."""
+    return ((t or ahora()) + CARACAS).date().isoformat()
+
+
 # Roles:
 #   cliente            compra en Damasco y sigue su servicio
 #   agente             Agente AHA HOME en la caja de la tienda
@@ -627,6 +635,7 @@ class MovimientoFinanciero(Base):
     referencia: Mapped[str] = mapped_column(String(80), default="")
     orden_codigo: Mapped[str] = mapped_column(String(20), default="")
     estado: Mapped[str] = mapped_column(String(12), default="registrado")  # registrado | conciliado | anulado
+    motivo_anulacion: Mapped[str] = mapped_column(String(200), default="")
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
 

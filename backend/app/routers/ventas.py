@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import current_user, exigir_permiso, permisos_de
-from ..models import METODO_PAGO_TEXTO, TIPO_SERVICIO_TEXTO, Evento, Orden, User, ahora
+from ..models import METODO_PAGO_TEXTO, TIPO_SERVICIO_TEXTO, Evento, Orden, User, ahora, dia_caracas
 from ..ventas_avisos import TIPOS, tipo_de
 
 router = APIRouter(prefix="/ventas", tags=["ventas"])
@@ -38,7 +38,7 @@ def _movimientos(db: Session, desde: dt.datetime) -> list[dict]:
         quien = usuarios.get(e.actor_id)
         cajero = db.get(User, o.agente_id) if o.agente_id else None
         monto = o.monto_instalacion_centavos + o.inspeccion_centavos
-        filas.append({"id": e.id, "tipo": tipo, "tipo_texto": TIPOS[tipo], "en": _iso(e.creado), "orden_id": o.id, "orden": o.codigo,
+        filas.append({"id": e.id, "tipo": tipo, "tipo_texto": TIPOS[tipo], "en": _iso(e.creado), "_dia": dia_caracas(e.creado), "orden_id": o.id, "orden": o.codigo,
                       "cliente": o.cliente_nombre, "tienda": o.tienda.nombre if o.tienda else "", "cajero": cajero.nombre if cajero else "—",
                       "por": quien.nombre if quien else "Sistema", "servicio": TIPO_SERVICIO_TEXTO.get(o.tipo_servicio, o.tipo_servicio),
                       "articulos": len(o.articulos), "monto_usd": svc.dinero(monto), "_monto": monto, "pago": METODO_PAGO_TEXTO.get(o.pago_metodo or "", "—"),
@@ -57,12 +57,12 @@ def resumen(dias: int = 30, user: User = Depends(ventas), db: Session = Depends(
     vendido = sum(m["_monto"] for m in nuevos)
     serie_n, serie_c = defaultdict(int), defaultdict(int)
     for m in movs:
-        d = m["en"][:10]
+        d = m["_dia"]
         if m["tipo"] == "nuevo":
             serie_n[d] += 1
         elif m["tipo"] in ("cancelado", "fallido"):
             serie_c[d] += 1
-    dias_lista = [(ahora() - dt.timedelta(days=dias - 1 - i)).date().isoformat() for i in range(dias)]
+    dias_lista = [dia_caracas(ahora() - dt.timedelta(days=dias - 1 - i)) for i in range(dias)]
     por_tienda, por_cajero = Counter(), defaultdict(lambda: {"servicios": 0, "monto": 0})
     for m in nuevos:
         por_tienda[m["tienda"]] += 1

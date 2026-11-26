@@ -11,7 +11,7 @@ from .. import ordenes as svc
 from ..db import get_db
 from ..deps import exigir_permiso, require
 from ..models import (CATEGORIAS_GASTO, CATEGORIAS_INGRESO, CATEGORIAS_MEDIO, ESTADOS_RECLAMO, METODO_PAGO_TEXTO, CuentaFinanciera,
-                      MedioPago, MovimientoFinanciero, Orden, Presupuesto, ReclamoFinanciero, User, ahora, moneda_de)
+                      MedioPago, MovimientoFinanciero, Orden, Presupuesto, ReclamoFinanciero, User, ahora, dia_caracas, moneda_de)
 
 router = APIRouter(prefix="/finanzas", tags=["finanzas"])
 _EQUIPO = require("supervisor")
@@ -74,7 +74,7 @@ def _vista_mov(m: MovimientoFinanciero, medios: dict, cuentas: dict) -> dict:
     return {"id": m.id, "fecha": m.fecha, "tipo": m.tipo, "categoria": m.categoria, "categoria_texto": cats.get(m.categoria, m.categoria),
             "descripcion": m.descripcion, "monto": _d(m.monto_centavos), "moneda": m.moneda, "tasa": m.tasa, "monto_usd": _d(m.monto_usd_centavos),
             "medio": medios.get(m.medio_id), "cuenta": cuentas.get(m.cuenta_id), "referencia": m.referencia, "orden": m.orden_codigo,
-            "estado": m.estado, "origen": "manual"}
+            "estado": m.estado, "motivo_anulacion": m.motivo_anulacion, "origen": "manual"}
 
 
 def _pagos_automaticos(db: Session) -> list[dict]:
@@ -82,18 +82,18 @@ def _pagos_automaticos(db: Session) -> list[dict]:
     filas = []
     for o in db.scalars(select(Orden).where(Orden.pagado_en.is_not(None))):
         usd = o.monto_instalacion_centavos + o.inspeccion_centavos
-        filas.append({"id": f"c{o.id}", "fecha": o.pagado_en.date().isoformat(), "categoria_texto": "Cobro en caja", "descripcion": f"Servicio {o.codigo} · {o.cliente_nombre}",
+        filas.append({"id": f"c{o.id}", "fecha": dia_caracas(o.pagado_en), "categoria_texto": "Cobro en caja", "descripcion": f"Servicio {o.codigo} · {o.cliente_nombre}",
                       "metodo": o.pago_metodo, "medio": METODO_PAGO_TEXTO.get(o.pago_metodo or "", "—"), "moneda": o.pago_moneda or moneda_de(o.pago_metodo) or "USD",
                       "monto_usd": _d(usd), "monto_bs": _d(round(usd * o.pago_tasa)) if o.pago_tasa else None, "referencia": o.pago_referencia or "",
                       "orden": o.codigo, "estado": "cobrado", "origen": "caja", "_usd": usd, "_cat": "servicio"})
     for p in db.scalars(select(Presupuesto).where(Presupuesto.pago_registrado_en.is_not(None))):
-        filas.append({"id": f"p{p.id}", "fecha": p.pago_registrado_en.date().isoformat(), "categoria_texto": "Presupuesto", "descripcion": f"Presupuesto de {p.orden.codigo}",
+        filas.append({"id": f"p{p.id}", "fecha": dia_caracas(p.pago_registrado_en), "categoria_texto": "Presupuesto", "descripcion": f"Presupuesto de {p.orden.codigo}",
                       "metodo": p.pago_metodo, "medio": METODO_PAGO_TEXTO.get(p.pago_metodo or "", "—"), "moneda": p.pago_moneda or "USD",
                       "monto_usd": _d(p.a_pagar_centavos), "monto_bs": _d(round(p.a_pagar_centavos * p.pago_tasa)) if p.pago_tasa else None,
                       "referencia": p.pago_referencia or "", "orden": p.orden.codigo, "estado": "confirmado" if p.pago_confirmado_en else "por confirmar",
                       "origen": "presupuesto", "_usd": p.a_pagar_centavos, "_cat": "presupuesto"})
     for o in db.scalars(select(Orden).where(Orden.penalidad_pagada_en.is_not(None))):
-        filas.append({"id": f"n{o.id}", "fecha": o.penalidad_pagada_en.date().isoformat(), "categoria_texto": "Penalidad", "descripcion": f"Entrega fallida {o.codigo}",
+        filas.append({"id": f"n{o.id}", "fecha": dia_caracas(o.penalidad_pagada_en), "categoria_texto": "Penalidad", "descripcion": f"Entrega fallida {o.codigo}",
                       "metodo": o.penalidad_metodo, "medio": METODO_PAGO_TEXTO.get(o.penalidad_metodo or "", "—"), "moneda": moneda_de(o.penalidad_metodo) or "USD",
                       "monto_usd": _d(o.penalidad_centavos or 0), "monto_bs": None, "referencia": o.penalidad_referencia or "", "orden": o.codigo,
                       "estado": "cobrado", "origen": "penalidad", "_usd": o.penalidad_centavos or 0, "_cat": "penalidad"})
@@ -117,10 +117,10 @@ def catalogo(user: User = Depends(ver), db: Session = Depends(get_db)):
 def resumen(dias: int = 30, user: User = Depends(ver), db: Session = Depends(get_db)):
     sembrar_medios(db)
     dias = max(1, min(dias, 3650))
-    desde = (ahora() - dt.timedelta(days=dias)).date().isoformat()
+    desde = dia_caracas(ahora() - dt.timedelta(days=dias - 1))
     medios = {m.id: m for m in db.scalars(select(MedioPago))}
     por_clave = {m.clave_caja: m for m in medios.values() if m.clave_caja}
-    auto = [f for f in _pagos_automaticos(db) if f["fecha"] >= desde]
+    auto = [f for f in _pagos_automaticos(db) if f["fecha"] >= desde and f["estado"] in ("cobrado", "confirmado")]
     movs = [m for m in db.scalars(select(MovimientoFinanciero).where(MovimientoFinanciero.estado != "anulado")) if m.fecha >= desde]
     ingresos = sum(f["_usd"] for f in auto) + sum(m.monto_usd_centavos for m in movs if m.tipo == "ingreso")
     gastos = sum(m.monto_usd_centavos for m in movs if m.tipo == "gasto")
@@ -150,7 +150,7 @@ def resumen(dias: int = 30, user: User = Depends(ver), db: Session = Depends(get
         serie_i[f["fecha"]] += f["_usd"]
     for m in movs:
         (serie_i if m.tipo == "ingreso" else serie_g)[m.fecha] += m.monto_usd_centavos
-    dias_lista = [(ahora() - dt.timedelta(days=dias - 1 - i)).date().isoformat() for i in range(dias)]
+    dias_lista = [dia_caracas(ahora() - dt.timedelta(days=dias - 1 - i)) for i in range(dias)]
     return {"dias": dias, "ingresos_usd": _d(ingresos), "gastos_usd": _d(gastos), "resultado_usd": _d(ingresos - gastos),
             "margen": round((ingresos - gastos) * 100 / ingresos) if ingresos else None,
             "reclamos_abiertos": len(abiertos), "reclamos_monto_usd": _d(sum(r.monto_centavos for r in abiertos)),
@@ -210,9 +210,15 @@ def crear_movimiento(body: NuevoMovimiento, user: User = Depends(editar), db: Se
         usd = round(centavos / tasa)
     else:
         usd = centavos
-    for fk, modelo in ((body.medio_id, MedioPago), (body.cuenta_id, CuentaFinanciera)):
-        if fk and not db.get(modelo, fk):
-            raise HTTPException(422, "Tipo de pago o cuenta no encontrados")
+    medio = db.get(MedioPago, body.medio_id) if body.medio_id else None
+    _validar_pago(db, medio, body.cuenta_id, body.moneda, body.referencia)
+    orden = body.orden.strip().upper()
+    if body.tipo == "ingreso" and body.categoria in ("servicio", "inspeccion"):
+        o = db.scalar(select(Orden).where(Orden.codigo == orden)) if orden else None
+        if not o:
+            raise HTTPException(422, "Los cobros de servicio e inspección llegan solos desde la caja. Para otro ingreso elige otra categoría.")
+        if o.pagado_en:
+            raise HTTPException(409, f"La orden {o.codigo} ya se cobró en la caja: ese ingreso ya está registrado.")
     m = MovimientoFinanciero(fecha=body.fecha.isoformat(), tipo=body.tipo, categoria=body.categoria, descripcion=body.descripcion.strip(),
                              monto_centavos=centavos, moneda=body.moneda, tasa=tasa, monto_usd_centavos=usd, medio_id=body.medio_id,
                              cuenta_id=body.cuenta_id, referencia=body.referencia.strip(), orden_codigo=body.orden.strip().upper(), creado_por=user.id)
@@ -222,8 +228,23 @@ def crear_movimiento(body: NuevoMovimiento, user: User = Depends(editar), db: Se
     return _vista_mov(m, medios, cuentas)
 
 
+def _validar_pago(db: Session, medio: MedioPago | None, cuenta_id: int | None, moneda: str, referencia: str) -> None:
+    """Reglas de todo pago a mano: tipo de pago, referencia si no es efectivo y cuenta de la misma moneda."""
+    if not medio:
+        raise HTTPException(422, "Elige el tipo de pago")
+    if medio.categoria != "efectivo" and not referencia.strip():
+        raise HTTPException(422, "Escribe la referencia del pago (obligatoria si no es efectivo)")
+    if cuenta_id:
+        c = db.get(CuentaFinanciera, cuenta_id)
+        if not c:
+            raise HTTPException(422, "Cuenta no encontrada")
+        if c.moneda != moneda:
+            raise HTTPException(422, f"La cuenta {c.nombre} solo recibe pagos en {c.moneda}")
+
+
 class EstadoMovimiento(BaseModel):
     estado: str
+    motivo: str = Field(default="", max_length=200)
 
 
 @router.put("/movimientos/{mid}")
@@ -233,6 +254,12 @@ def cambiar_movimiento(mid: int, body: EstadoMovimiento, user: User = Depends(ed
         raise HTTPException(404, "Movimiento no encontrado")
     if body.estado not in ("registrado", "conciliado", "anulado"):
         raise HTTPException(422, "Estado no válido")
+    if m.estado == "anulado":
+        raise HTTPException(409, "Ese movimiento ya está anulado")
+    if body.estado == "anulado":
+        if len(body.motivo.strip()) < 3:
+            raise HTTPException(422, "Escribe el motivo para anular")
+        m.motivo_anulacion = body.motivo.strip()
     m.estado = body.estado
     db.commit()
     medios, cuentas = _mapas(db)
@@ -259,8 +286,17 @@ class NuevoReclamo(BaseModel):
     monto: float = Field(default=0, ge=0, le=1_000_000)
 
 
+def _tope_reclamo(db: Session, codigo: str, centavos: int) -> None:
+    o = db.scalar(select(Orden).where(Orden.codigo == codigo)) if codigo else None
+    if o and o.pagado_en:
+        pagado = o.monto_instalacion_centavos + o.inspeccion_centavos
+        if centavos > pagado:
+            raise HTTPException(422, f"El reclamo no puede superar lo pagado en la orden {o.codigo} (${pagado / 100:.2f})")
+
+
 @router.post("/reclamos")
 def crear_reclamo(body: NuevoReclamo, user: User = Depends(editar), db: Session = Depends(get_db)):
+    _tope_reclamo(db, body.orden.strip().upper(), round(body.monto * 100))
     r = ReclamoFinanciero(cliente=body.cliente.strip(), orden_codigo=body.orden.strip().upper(), motivo=body.motivo.strip(),
                           monto_centavos=round(body.monto * 100), creado_por=user.id)
     db.add(r)
@@ -273,6 +309,7 @@ class ResolverReclamo(BaseModel):
     resolucion: str = Field(default="", max_length=300)
     medio_id: int | None = None
     cuenta_id: int | None = None
+    referencia: str = Field(default="", max_length=80)
 
 
 @router.put("/reclamos/{rid}")
@@ -282,11 +319,15 @@ def resolver_reclamo(rid: int, body: ResolverReclamo, user: User = Depends(edita
         raise HTTPException(404, "Reclamo no encontrado")
     if body.estado not in ESTADOS_RECLAMO:
         raise HTTPException(422, "Estado no válido")
-    if body.estado == "reembolsado" and r.estado != "reembolsado" and r.monto_centavos:
+    if r.estado == "reembolsado":
+        raise HTTPException(409, "Este reclamo ya se reembolsó: no se reabre ni se paga de nuevo")
+    if body.estado == "reembolsado" and r.monto_centavos:
+        _tope_reclamo(db, r.orden_codigo, r.monto_centavos)
+        _validar_pago(db, db.get(MedioPago, body.medio_id) if body.medio_id else None, body.cuenta_id, "USD", body.referencia)
         # El reembolso queda como gasto en la contabilidad
-        db.add(MovimientoFinanciero(fecha=ahora().date().isoformat(), tipo="gasto", categoria="reembolsos", descripcion=f"Reembolso RF-{r.id:04d} · {r.cliente}",
+        db.add(MovimientoFinanciero(fecha=dia_caracas(), tipo="gasto", categoria="reembolsos", descripcion=f"Reembolso RF-{r.id:04d} · {r.cliente}",
                                     monto_centavos=r.monto_centavos, moneda="USD", monto_usd_centavos=r.monto_centavos, medio_id=body.medio_id,
-                                    cuenta_id=body.cuenta_id, orden_codigo=r.orden_codigo, creado_por=user.id))
+                                    cuenta_id=body.cuenta_id, referencia=body.referencia.strip(), orden_codigo=r.orden_codigo, creado_por=user.id))
     r.estado, r.resolucion, r.medio_id = body.estado, body.resolucion.strip(), body.medio_id or r.medio_id
     r.resuelto_en = ahora() if body.estado in ("reembolsado", "rechazado") else None
     db.commit()

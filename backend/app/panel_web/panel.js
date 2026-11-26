@@ -3,7 +3,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const S = {
-    token: localStorage.getItem("ahahome.panel.token"), yo: null, ruta: location.hash.slice(1) || "inicio",
+    token: localStorage.getItem("ahahome.panel.token"), gAbiertos: new Set(), yo: null, ruta: location.hash.slice(1) || "inicio",
     ocultas: JSON.parse(localStorage.getItem("ahahome.panel.ocultas") || "[]"), dias: {}, cache: {}, tabla: {}, notif: 0,
   };
   document.documentElement.dataset.tema = localStorage.getItem("ahahome.panel.tema") || "oscuro";
@@ -30,16 +30,14 @@
     { g: "Órdenes", i: "🛒", hijos: [["ordenes", "Lista"], ["transacciones", "Transacciones"], ["liquidaciones", "Liquidaciones"]] },
     { g: "Centro de soporte", i: "◎", hijos: [["mensajeria", "Mensajería"], ["reportes", "Reportes", "rep"], ["resenas", "Reseñas"]] },
     { k: "anuncios", t: "Banners y aliados", i: "▤" },
-    { sec: "VENTAS" },
+    { sec: "VENTAS Y FINANZAS" },
     { k: "ventas", t: "Departamento de ventas", i: "📈" },
-    { sec: "DISEÑO" },
-    { k: "diseno", t: "Diseño de la app", i: "🎨" },
-    { sec: "FINANZAS" },
-    { k: "finanzas", t: "Finanzas y contabilidad", i: "💼" },
+    { k: "finanzas", t: "Finanzas", i: "💼" },
     { sec: "NEGOCIO" },
     { k: "tasa", t: "Tasa BCV", i: "💱" },
     { k: "precios", t: "Tabulación de precios", i: "🏷" },
     { k: "qrs", t: "QR de las tiendas", i: "▦" },
+    { k: "diseno", t: "Diseño de la app", i: "🎨" },
     { sec: "ADMINISTRACIÓN AHA HOME" },
     { g: "Personal interno", i: "🛡", hijos: [["administradores", "Superadministradores"], ["control", "Centro de control"], ["caja", "Operadores de caja"]] },
   ];
@@ -64,9 +62,11 @@
     for (const m of lim) {
       if (m.sec) { h += `<div style="margin:14px 12px 4px;font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--suave)">${m.sec}</div>`; continue; }
       if (m.k) { h += it(m.k, m.t, m.i); continue; }
-      h += `<div class="grupo"><span style="display:flex;gap:12px"><span class="i" style="width:22px;text-align:center">${m.i}</span>${m.g}</span><span>⌄</span></div>`;
-      if (m.cap) h += `<div class="cap">${m.cap}</div>`;
-      h += `<div class="sub">${m.hijos.map(([k, t, c]) => `<a href="#${k}" class="${S.ruta === k ? "on" : ""}">${t}${c && S.cuentas?.[c] ? `<span class="cuenta">${S.cuentas[c]}</span>` : ""}</a>`).join("")}</div>`;
+      const abierto = S.gAbiertos.has(m.g) || m.hijos.some(([k]) => k === S.ruta);
+      const pend = m.hijos.reduce((n, [, , c]) => n + (c && S.cuentas?.[c] ? S.cuentas[c] : 0), 0);
+      h += `<button type="button" class="grupo ${abierto ? "abierto" : ""}" data-grupo="${esc(m.g)}" aria-expanded="${abierto}"><span style="display:flex;gap:12px;align-items:center"><span class="i" style="width:22px;text-align:center">${m.i}</span>${m.g}</span><span class="g-der">${!abierto && pend ? `<span class="cuenta">${pend}</span>` : ""}<span class="flecha">⌄</span></span></button>`;
+      if (m.cap) h += `<div class="cap" ${abierto ? "" : "hidden"}>${m.cap}</div>`;
+      h += `<div class="sub" ${abierto ? "" : "hidden"}>${m.hijos.map(([k, t, c]) => `<a href="#${k}" class="${S.ruta === k ? "on" : ""}">${t}${c && S.cuentas?.[c] ? `<span class="cuenta">${S.cuentas[c]}</span>` : ""}</a>`).join("")}</div>`;
     }
     if (S.yo?.es_ceo) h += `<div style="margin:14px 12px 4px;font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--suave)">CENTRO DE MANDO (CEO)</div>`
       + it("usuarios", "Usuarios y permisos", "🔑") + it("correos", "Correos corporativos", "✉") + it("auditoria", "Auditoría del equipo", "🛡");
@@ -433,7 +433,10 @@
     fin.innerHTML = `<p class="total">Pagos a técnicos, materiales, nómina, servidor, publicidad, comisiones, impuestos y reembolsos. Los montos en bolívares se pasan a dólares con la tasa del día.</p>` +
       tablaFin([["fecha", "Fecha"], ["cat", "Categoría"], ["medio", "Tipo de pago"], ["cuenta", "Cuenta"], ["monto", "Monto"], ["ref", "Referencia"], ["est", "Estado"]], filas,
         cat.puede_editar ? (f) => f._e === "anulado" ? "" : `<div class="acc">${f._e !== "conciliado" ? `<button title="Conciliar" data-mov="${f._id}" data-e="conciliado">✓</button>` : ""}<button title="Anular" data-mov="${f._id}" data-e="anulado">✕</button></div>` : null);
-    fin.querySelectorAll("[data-mov]").forEach((b) => (b.onclick = () => api(`/finanzas/movimientos/${b.dataset.mov}`, { method: "PUT", body: { estado: b.dataset.e } }).then(() => pintar(true))));
+    fin.querySelectorAll("[data-mov]").forEach((b) => (b.onclick = () => b.dataset.e === "anulado"
+      ? cajonFin("Anular movimiento", `<p class="total">El movimiento deja de contar en los totales. No se puede deshacer.</p><label class="flab">Motivo</label><textarea id="amo" class="finp" rows="3" placeholder="Ej. registrado dos veces"></textarea>`,
+          () => api(`/finanzas/movimientos/${b.dataset.mov}`, { method: "PUT", body: { estado: "anulado", motivo: $("#amo").value } }))
+      : api(`/finanzas/movimientos/${b.dataset.mov}`, { method: "PUT", body: { estado: b.dataset.e } }).then(() => pintar(true))));
   }
   async function finReclamos(fin, cat) {
     const rs = await api("/finanzas/reclamos");
@@ -482,9 +485,10 @@
       finSel("mc", "Categoría", cats, cats[0][0]) + finCampo("md", "Descripción", "", "text", 'placeholder="Ej. pago semanal grupo A"') + finCampo("mf", "Fecha", new Date().toISOString().slice(0, 10), "date") +
       `<div class="fila2"><div>${finCampo("mm", "Monto", "", "number", 'step="0.01" min="0"')}</div><div>${finSel("mo", "Moneda", [["USD", "Dólares"], ["Bs", "Bolívares"]], "USD")}</div></div>
        <div class="total" id="mconv"></div>` +
-      finSel("mp", "Tipo de pago", [["", "—"]].concat(cat.medios.filter((m) => m.activo).map((m) => [m.id, m.nombre])), "") +
-      finSel("mk", "Cuenta", [["", "—"]].concat(cat.cuentas.filter((c) => c.activo).map((c) => [c.id, c.nombre])), "") +
-      finCampo("mr", "Referencia", "") + finCampo("mn", "Orden (opcional)", "", "text", 'placeholder="WO-1234"'),
+      finSel("mp", "Tipo de pago", [["", "Elige el tipo de pago"]].concat(cat.medios.filter((m) => m.activo).map((m) => [m.id, m.nombre])), "") +
+      finSel("mk", "Cuenta (opcional)", [["", "Ninguna"]].concat(cat.cuentas.filter((c) => c.activo).map((c) => [c.id, `${c.nombre} · ${c.moneda}`])), "") +
+      finCampo("mr", "Referencia", "") + `<div class="total">Obligatoria si no es efectivo. Cada cuenta solo recibe pagos de su moneda.</div>` +
+      finCampo("mn", "Orden (opcional)", "", "text", 'placeholder="WO-1234"'),
       () => api("/finanzas/movimientos", { body: { tipo, categoria: $("#mc").value, descripcion: $("#md").value, fecha: $("#mf").value, monto: Number($("#mm").value), moneda: $("#mo").value,
         medio_id: $("#mp").value ? Number($("#mp").value) : null, cuenta_id: $("#mk").value ? Number($("#mk").value) : null, referencia: $("#mr").value, orden: $("#mn").value } }));
     const conv = () => { const v = Number($("#mm").value || 0); $("#mconv").textContent = $("#mo").value === "Bs" && cat.tasa ? `≈ $${m2(v / cat.tasa)} a la tasa BCV de Bs ${m2(cat.tasa)}` : ""; };
@@ -494,12 +498,19 @@
     if (!x) return cajonFin("Nuevo reclamo", finCampo("rcl", "Cliente o tienda") + finCampo("ror", "Orden (opcional)", "", "text", 'placeholder="WO-1234"') +
       `<label class="flab">Motivo</label><textarea id="rmo" class="finp" rows="3" placeholder="Ej. cobro doble en caja"></textarea>` + finCampo("rmn", "Monto en disputa (USD)", "", "number", 'step="0.01" min="0"'),
       () => api("/finanzas/reclamos", { body: { cliente: $("#rcl").value, orden: $("#ror").value, motivo: $("#rmo").value, monto: Number($("#rmn").value || 0) } }));
+    if (x.estado === "reembolsado") {
+      const c = cajonFin(`Reclamo ${x.codigo}`, `<div class="card" style="min-height:0;margin-top:10px"><b>${esc(x.cliente)}</b>${x.orden ? " · " + esc(x.orden) : ""}<div class="total">${esc(x.motivo)}</div><div class="grande">$${m2(x.monto_usd)}</div></div>
+        <div class="aviso-ok" style="margin-top:12px">✓ Reembolsado${x.medio ? " por " + esc(x.medio) : ""}. Un reclamo reembolsado no se reabre ni se paga de nuevo.</div>${x.resolucion ? `<p class="total">${esc(x.resolucion)}</p>` : ""}`, async () => {});
+      c.querySelector("#fg").hidden = true; return;
+    }
     cajonFin(`Reclamo ${x.codigo}`, `<div class="card" style="min-height:0;margin-top:10px"><b>${esc(x.cliente)}</b>${x.orden ? " · " + esc(x.orden) : ""}<div class="total">${esc(x.motivo)}</div><div class="grande">$${m2(x.monto_usd)}</div></div>` +
       finSel("res", "Estado", Object.entries(cat.estados_reclamo), x.estado) + `<label class="flab">Resolución</label><textarea id="rrs" class="finp" rows="3">${esc(x.resolucion || "")}</textarea>` +
-      finSel("rmp", "Se devolvió por", [["", "—"]].concat(cat.medios.filter((m) => m.activo).map((m) => [m.id, m.nombre])), "") +
-      finSel("rct", "Desde la cuenta", [["", "—"]].concat(cat.cuentas.filter((c) => c.activo).map((c) => [c.id, c.nombre])), "") +
-      `<div class="total" style="margin-top:8px">Si lo marcas «Reembolsado», el monto queda registrado como gasto (Reembolsos a clientes).</div>`,
-      () => api(`/finanzas/reclamos/${x.id}`, { method: "PUT", body: { estado: $("#res").value, resolucion: $("#rrs").value, medio_id: $("#rmp").value ? Number($("#rmp").value) : null, cuenta_id: $("#rct").value ? Number($("#rct").value) : null } }));
+      `<div class="fila2"><div>${finSel("rmp", "Tipo de pago", [["", "Elige"]].concat(cat.medios.filter((m) => m.activo).map((m) => [m.id, m.nombre])), "")}</div>
+       <div>${finSel("rct", "Cuenta (opcional)", [["", "Ninguna"]].concat(cat.cuentas.filter((c) => c.activo && c.moneda === "USD").map((c) => [c.id, c.nombre])), "")}</div></div>` +
+      finCampo("rrf", "Referencia", "") +
+      `<div class="total" style="margin-top:8px">Obligatoria si no es efectivo. Al marcarlo «Reembolsado» el sistema no mueve dinero: deja constancia de lo que ya devolviste y lo suma a los gastos. No puede superar lo pagado en la orden.</div>`,
+      () => api(`/finanzas/reclamos/${x.id}`, { method: "PUT", body: { estado: $("#res").value, resolucion: $("#rrs").value, medio_id: $("#rmp").value ? Number($("#rmp").value) : null,
+        cuenta_id: $("#rct").value ? Number($("#rct").value) : null, referencia: $("#rrf").value } }));
   }
   function fichaCuenta(cat, c) {
     cajonFin(c ? esc(c.nombre) : "Agregar banco o cuenta",
@@ -641,8 +652,8 @@
     if (!S.token || !$("#camn")) return;
     try {
       const ns = await api("/notificaciones"); S.notis = ns;
-      const sin = ns.filter((n) => !n.leida), b = $("#camn");
-      b.hidden = !sin.length; b.textContent = sin.length > 9 ? "9+" : sin.length;
+      const sin = ns.filter((n) => !n.leida), b = $("#camn"), total = sin.length + pendientesCampana().reduce((t, x) => t + x.n, 0);
+      b.hidden = !total; b.textContent = total > 9 ? "9+" : total;
       const vistos = S.notiVistas || new Set(ns.map((n) => n.id));
       const llegaron = inicio ? [] : sin.filter((n) => !vistos.has(n.id));
       llegaron.slice(0, 3).reverse().forEach(brindis);
@@ -659,12 +670,25 @@
     d.onclick = () => { d.remove(); if (puede("ventas")) location.hash = "ventas"; };
     pila.appendChild(d); setTimeout(() => d.classList.add("fuera"), 9000); setTimeout(() => d.remove(), 9500);
   }
+  function pendientesCampana() {
+    const c = S.cuentas || {}, l = [];
+    if (c.verif && puede("verificaciones")) l.push({ n: c.verif, t: "Verificaciones de técnicos por revisar", r: "verificaciones", i: "👷" });
+    if (c.rep && puede("reportes")) l.push({ n: c.rep, t: "Reportes abiertos", r: "reportes", i: "⚠" });
+    return l;
+  }
   function pintarCampana() {
-    const m = $("#camm"), ns = S.notis || [];
-    m.innerHTML = `<div class="cm-cab"><b>Notificaciones</b>${ns.some((n) => !n.leida) ? `<button class="enlace" id="cmtodas">Marcar todas como leídas</button>` : ""}</div>
-      <div class="cm-lista">${ns.length ? ns.slice(0, 25).map((n) => `<div class="cm-i ${n.leida ? "" : "nueva"} ${claseNoti(n.titulo)}" data-n="${n.id}"><span class="bz-ic">${icoNoti(n.titulo)}</span>
-        <div><b>${esc(n.titulo)}</b><small>${esc(n.texto)}</small><em>${fmt("", n.fecha)}</em></div></div>`).join("") : `<div class="fin-vacio">Sin notificaciones por ahora.</div>`}</div>
+    const m = $("#camm"), ns = S.notis || [], tab = S.camTab || "nuevas";
+    const nuevas = ns.filter((n) => !n.leida), leidas = ns.filter((n) => n.leida), lista = tab === "nuevas" ? nuevas : leidas, pend = pendientesCampana();
+    const item = (n) => `<div class="cm-i ${n.leida ? "" : "nueva"} ${claseNoti(n.titulo)}" data-n="${n.id}"><span class="bz-ic">${icoNoti(n.titulo)}</span>
+        <div><b>${esc(n.titulo)}</b><small>${esc(n.texto)}</small><em>${fmt("", n.fecha)}</em></div></div>`;
+    m.innerHTML = `<div class="cm-cab"><b>Notificaciones</b>${nuevas.length ? `<button class="enlace" id="cmtodas">Marcar todas como leídas</button>` : ""}</div>
+      <div class="cm-tabs"><button class="${tab === "nuevas" ? "on" : ""}" data-ct="nuevas">Nuevas (${nuevas.length + pend.reduce((t, x) => t + x.n, 0)})</button><button class="${tab === "leidas" ? "on" : ""}" data-ct="leidas">Leídas</button></div>
+      <div class="cm-lista">${tab === "nuevas" && pend.length ? `<div class="cm-sec">PENDIENTES POR ATENDER</div>` + pend.map((x) => `<a class="cm-i nueva" href="#${x.r}"><span class="bz-ic">${x.i}</span><div><b>${x.t}</b><small>${x.n} pendiente(s) · toca para ir</small></div></a>`).join("") : ""}
+        ${lista.length ? (tab === "nuevas" ? `<div class="cm-sec">AVISOS</div>` : "") + lista.slice(0, 25).map(item).join("")
+          : tab === "nuevas" && pend.length ? "" : `<div class="fin-vacio">${tab === "nuevas" ? "Estás al día: no hay avisos nuevos." : "Todavía no hay avisos leídos."}</div>`}</div>
       ${puede("ventas") ? `<a class="cm-pie" href="#ventas">Ver todo en Ventas ›</a>` : ""}`;
+    m.querySelectorAll("[data-ct]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); S.camTab = b.dataset.ct; pintarCampana(); }));
+    m.querySelectorAll("a.cm-i").forEach((a) => (a.onclick = () => { m.hidden = true; }));
     const t = $("#cmtodas"); if (t) t.onclick = async (e) => { e.stopPropagation(); await api("/notificaciones/leer", { body: {} }); revisarCampana(true); };
     m.querySelectorAll("[data-n]").forEach((x) => (x.onclick = async () => { await api(`/notificaciones/${x.dataset.n}/leer`, { body: {} }).catch(() => {}); m.hidden = true; if (puede("ventas")) location.hash = "ventas"; revisarCampana(true); }));
   }
@@ -979,7 +1003,75 @@
       caja.appendChild(b);
     });
   }
-  new MutationObserver(() => ponerOjos(document.body)).observe(document.body, { childList: true, subtree: true });
+  // Menú: abrir y cerrar grupos
+  document.addEventListener("click", (e) => {
+    const g = e.target.closest(".lat .grupo"); if (!g) return;
+    const k = g.dataset.grupo; S.gAbiertos.has(k) ? S.gAbiertos.delete(k) : S.gAbiertos.add(k);
+    const ab = S.gAbiertos.has(k); g.classList.toggle("abierto", ab); g.setAttribute("aria-expanded", ab);
+    let s = g.nextElementSibling; while (s && (s.classList.contains("cap") || s.classList.contains("sub"))) { s.hidden = !ab; if (s.classList.contains("sub")) break; s = s.nextElementSibling; }
+  });
+
+  // Listas desplegables con el estilo del panel (SIS-008)
+  let listaAbierta = null;
+  function cerrarLista() { if (!listaAbierta) return; listaAbierta.ul.remove(); listaAbierta.btn.setAttribute("aria-expanded", "false"); listaAbierta = null; }
+  function textoSel(sel) { const o = sel.options[sel.selectedIndex]; return o ? o.textContent : ""; }
+  function abrirLista(sel, btn) {
+    cerrarLista();
+    const ul = document.createElement("ul"); ul.className = "sel-lista"; ul.setAttribute("role", "listbox");
+    const opts = [...sel.options];
+    opts.forEach((o, i) => {
+      const li = document.createElement("li"); li.setAttribute("role", "option"); li.dataset.i = i; li.textContent = o.textContent;
+      if (o.disabled) li.setAttribute("aria-disabled", "true");
+      if (i === sel.selectedIndex) { li.classList.add("elegida"); li.setAttribute("aria-selected", "true"); }
+      li.onmousedown = (e) => e.preventDefault();
+      li.onclick = () => { if (!o.disabled) elegir(i); };
+      ul.appendChild(li);
+    });
+    document.body.appendChild(ul);
+    const r = btn.getBoundingClientRect(), alto = Math.min(ul.scrollHeight, 300), abajo = innerHeight - r.bottom;
+    ul.style.minWidth = r.width + "px"; ul.style.left = Math.min(r.left, innerWidth - ul.offsetWidth - 8) + "px";
+    ul.style.top = (abajo < alto + 12 && r.top > abajo ? r.top - alto - 6 : r.bottom + 6) + "px";
+    let foco = Math.max(0, sel.selectedIndex), buscado = "", reloj;
+    const marcar = (i) => { foco = i; ul.querySelectorAll("li").forEach((li) => li.classList.toggle("foco", +li.dataset.i === i)); ul.children[i]?.scrollIntoView({ block: "nearest" }); };
+    const elegir = (i) => { if (i !== sel.selectedIndex) { sel.selectedIndex = i; sel.dispatchEvent(new Event("input", { bubbles: true })); sel.dispatchEvent(new Event("change", { bubbles: true })); }
+      btn.querySelector(".sel-txt").textContent = textoSel(sel); cerrarLista(); btn.focus(); };
+    listaAbierta = { ul, btn, sel, teclas: (e) => {
+      const n = opts.length;
+      if (e.key === "ArrowDown") { e.preventDefault(); let i = foco; do { i = Math.min(n - 1, i + 1); } while (opts[i]?.disabled && i < n - 1); marcar(i); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); let i = foco; do { i = Math.max(0, i - 1); } while (opts[i]?.disabled && i > 0); marcar(i); }
+      else if (e.key === "Home") { e.preventDefault(); marcar(0); } else if (e.key === "End") { e.preventDefault(); marcar(n - 1); }
+      else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); elegir(foco); }
+      else if (e.key === "Escape" || e.key === "Tab") { cerrarLista(); }
+      else if (e.key.length === 1) { buscado += e.key.toLowerCase(); clearTimeout(reloj); reloj = setTimeout(() => (buscado = ""), 700);
+        const i = opts.findIndex((o) => o.textContent.trim().toLowerCase().startsWith(buscado)); if (i >= 0) marcar(i); }
+    } };
+    btn.setAttribute("aria-expanded", "true"); marcar(foco);
+  }
+  function listaBonita(sel) {
+    if (sel.dataset.bonita || sel.multiple || sel.size > 1) return;
+    sel.dataset.bonita = "1";
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "sel-btn " + sel.className;
+    btn.style.cssText = sel.style.cssText; btn.setAttribute("aria-haspopup", "listbox"); btn.setAttribute("aria-expanded", "false");
+    const lab = sel.id && document.querySelector(`label[for="${sel.id}"]`); if (lab) btn.setAttribute("aria-label", lab.textContent.trim());
+    btn.innerHTML = `<span class="sel-txt"></span><span class="sel-flecha" aria-hidden="true">⌄</span>`;
+    btn.querySelector(".sel-txt").textContent = textoSel(sel);
+    btn.disabled = sel.disabled;
+    sel.classList.add("sel-oculto"); sel.tabIndex = -1; sel.setAttribute("aria-hidden", "true");
+    sel.insertAdjacentElement("afterend", btn);
+    btn.onclick = () => (listaAbierta?.btn === btn ? cerrarLista() : abrirLista(sel, btn));
+    btn.onkeydown = (e) => { if (listaAbierta?.btn === btn) return listaAbierta.teclas(e);
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) { e.preventDefault(); abrirLista(sel, btn); } };
+    const sync = () => { btn.querySelector(".sel-txt").textContent = textoSel(sel); btn.disabled = sel.disabled; };
+    sel.addEventListener("change", sync);
+    new MutationObserver(sync).observe(sel, { childList: true, subtree: true, attributes: true });
+    const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+    Object.defineProperty(sel, "value", { get() { return desc.get.call(this); }, set(v) { desc.set.call(this, v); sync(); } });
+  }
+  document.addEventListener("mousedown", (e) => { if (listaAbierta && !e.target.closest(".sel-lista") && e.target.closest(".sel-btn") !== listaAbierta.btn) cerrarLista(); });
+  window.addEventListener("resize", cerrarLista);
+  document.addEventListener("scroll", (e) => { if (listaAbierta && !e.target.closest?.(".sel-lista")) cerrarLista(); }, true);
+  const mejorar = () => { ponerOjos(document.body); document.querySelectorAll("select:not([data-bonita])").forEach(listaBonita); };
+  new MutationObserver(mejorar).observe(document.body, { childList: true, subtree: true });
 
   window.addEventListener("hashchange", () => { S.ruta = location.hash.slice(1) || "inicio"; document.querySelector(".cajon")?.remove(); window.scrollTo(0, 0); pintar(true); });
   document.addEventListener("keydown", (e) => { if (e.key === "/" && document.activeElement?.tagName !== "INPUT") { e.preventDefault(); $("#bg")?.focus(); } });
