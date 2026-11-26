@@ -1451,3 +1451,56 @@ def test_ceo_edita_datos_y_rol_de_una_cuenta(client):
     assert any(c["direccion"] == "pedro.perez@aha-go.com" and c["persona"] == "Pedro Pérez" for c in correos["correos"])
     assert client.put(f"/ceo/usuarios/{n['id']}", json={"email": "ceo@ahahome.test"}, headers=ceo).status_code == 409
     assert client.put(f"/ceo/usuarios/{n['id']}", json={"email": "no-es-correo"}, headers=ceo).status_code == 422
+
+
+def test_departamento_de_sistemas(client):
+    """Solo el rol Sistemas y el CEO; errores agrupados; accesos; cierre de sesión a distancia; avisos por correo."""
+    from app import correo
+    ceo = login(client, "ceo@ahahome.test")
+    sa = login(client, "superadmin@ahahome.test")
+    assert client.get("/sistemas/estado", headers=sa).status_code == 403  # un superadmin que no es CEO no lo ve
+    n = client.post("/ceo/usuarios", json={"nombre": "Diego Sistemas", "email": "diego.sis@ahahome.test", "rol": "sistemas"}, headers=ceo).json()
+    sis = {"Authorization": "Bearer " + client.post("/auth/login", json={"usuario": "diego.sis@ahahome.test", "password": n["clave"]}).json()["token"]}
+    e = client.get("/sistemas/estado", headers=sis).json()
+    claves = {c["clave"] for c in e["estado"]} | {c["clave"] for c in e["funciones"]}
+    assert {"api", "base", "procesos", "tasa", "disco", "f_entrar", "f_finanzas", "f_fotos"} <= claves and e["nivel"] in ("ok", "pend", "mal")
+    assert all(c["nivel"] == "ok" for c in e["funciones"] if c["clave"] in ("f_entrar", "f_panel", "f_finanzas", "f_qr", "f_fotos"))
+    assert client.get("/finanzas/resumen", headers=sis).status_code == 403  # Sistemas no ve dinero
+    # errores del panel: los iguales se agrupan
+    for i in (1, 2):
+        client.post("/sistemas/errores/panel", json={"mensaje": f"TypeError en la fila {i}", "donde": "Panel · Órdenes"}, headers=sa)
+    errs = client.get("/sistemas/errores", headers=sis).json()
+    err = next(x for x in errs if x["donde"] == "Panel · Órdenes")
+    assert err["veces"] == 2 and err["estado"] == "nuevo"
+    assert client.put(f"/sistemas/errores/{err['id']}", json={"estado": "resuelto", "nota": "Corregido"}, headers=sis).json()["estado"] == "resuelto"
+    # accesos: 5 intentos fallidos seguidos generan alerta
+    for _ in range(5):
+        client.post("/auth/login", json={"usuario": "supervisor@ahahome.test", "password": "mala"})
+    acc = client.get("/sistemas/accesos", headers=sis).json()
+    assert acc["fallidos_24h"] >= 5 and any(a["tipo"] == "intentos_fallidos" for a in acc["alertas"])
+    # cierre de sesión a distancia: el token de esa persona deja de servir
+    r = client.post("/auth/login", json={"usuario": "supervisor@ahahome.test", "password": "aha12345"}).json()
+    hs = {"Authorization": "Bearer " + r["token"]}
+    assert client.get("/yo", headers=hs).status_code == 200
+    assert client.post(f"/sistemas/sesiones/{r['sesion']}/cerrar", headers=sis).status_code == 200
+    assert client.get("/yo", headers=hs).status_code == 401
+    assert client.post("/auth/login", json={"usuario": "supervisor@ahahome.test", "password": "aha12345"}).status_code == 200  # puede volver a entrar
+    # ajustes y resumen por correo a diego@ y soporte@
+    aj = client.get("/sistemas/ajustes", headers=sis).json()
+    assert aj["correos"] == ["diego@aha-go.com", "soporte@aha-go.com"] and aj["retencion"]["errores"] == 90
+    assert client.put("/sistemas/ajustes", json={**aj, "correos": ["no-es-correo"]}, headers=sis).status_code == 422
+    antes = len(correo.outbox)
+    client.post("/sistemas/resumen", headers=sis)
+    enviados = [m["to"] for m in correo.outbox[antes:]]
+    assert "diego@aha-go.com" in enviados and "soporte@aha-go.com" in enviados
+    assert client.get("/sistemas/publicaciones", headers=sis).status_code == 200
+    assert client.get("/sistemas/actividad", headers=sis).status_code == 200
+    assert client.get("/sistemas/procesos", headers=sis).json()["disponible"] is False  # fuera de Windows no hay tareas programadas
+
+
+def test_error_del_servidor_queda_registrado(client):
+    from app.db import SessionLocal
+    from app.sistemas import registrar_error
+    with SessionLocal() as db:
+        e = registrar_error(db, "servidor", "ZeroDivisionError: division by zero", "GET /prueba/#", "")
+        assert e.veces >= 1 and e.origen == "servidor"

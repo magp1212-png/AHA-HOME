@@ -9,6 +9,7 @@ os.environ["AHAHOME_UPLOADS_DIR"] = f"{_tmp}/uploads"
 os.environ["AHAHOME_PUSH"] = "0"
 os.environ["AHAHOME_EMAIL"] = "0"
 os.environ["AHAHOME_PURGA"] = "0"
+os.environ["AHAHOME_MONITOR"] = "0"
 os.environ["AHAHOME_PBKDF2_ITER"] = "1000"
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 

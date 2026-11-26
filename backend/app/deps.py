@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import User, ahora
-from .security import read_token
+from .security import emitido_en, read_token
 
 
 def current_user(authorization: str = Header(default=""), db: Session = Depends(get_db)) -> User:
@@ -12,6 +12,10 @@ def current_user(authorization: str = Header(default=""), db: Session = Depends(
     user = db.get(User, uid) if uid else None
     if not user or not user.activo:
         raise HTTPException(401, "Inicia sesión de nuevo")
+    if user.sesiones_desde:
+        emitido = emitido_en(token)
+        if not emitido or emitido < user.sesiones_desde:
+            raise HTTPException(401, "Tu sesión se cerró. Inicia sesión de nuevo.")
     if not user.email_verificado and user.verificacion_vence and user.verificacion_vence < ahora():
         raise HTTPException(401, "No verificaste tu correo en 24 horas y tu registro venció. Regístrate de nuevo.")
     return user
@@ -57,6 +61,7 @@ PERMISOS_POR_ROL = {
     "tecnico_supervisor": ["ver_tecnicos", "ver_ordenes", "altas_tecnicos"],
     "agente": [],
     "ventas": ["ver_ventas"],
+    "sistemas": [],  # el Departamento de sistemas no ve dinero ni clientes: solo su módulo
 }
 
 

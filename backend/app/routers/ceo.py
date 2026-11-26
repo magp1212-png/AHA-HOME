@@ -66,8 +66,8 @@ from pydantic import BaseModel, Field
 from ..deps import PERMISOS, PERMISOS_POR_ROL, permisos_de
 from ..security import hash_password
 
-ROLES_PERSONAL = {"ceo": "CEO (acceso total)", "superadmin": "Superadministrador", "supervisor": "Centro de control", "tecnico_supervisor": "Técnico supervisor", "agente": "Operador de caja", "ventas": "Departamento de ventas"}
-ROLES_CUENTA = ("superadmin", "supervisor", "tecnico_supervisor", "agente", "ventas")  # roles guardados en la cuenta; «ceo» es un superadmin con es_ceo
+ROLES_PERSONAL = {"ceo": "CEO (acceso total)", "superadmin": "Superadministrador", "supervisor": "Centro de control", "tecnico_supervisor": "Técnico supervisor", "agente": "Operador de caja", "ventas": "Departamento de ventas", "sistemas": "Departamento de sistemas"}
+ROLES_CUENTA = ("superadmin", "supervisor", "tecnico_supervisor", "agente", "ventas", "sistemas")  # roles guardados en la cuenta; «ceo» es un superadmin con es_ceo
 
 
 def _es_principal(u: User) -> bool:

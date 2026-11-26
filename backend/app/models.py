@@ -116,7 +116,8 @@ class User(Base):
     rol: Mapped[str] = mapped_column(String(20), default="cliente")
     cedula: Mapped[str | None] = mapped_column(String(20))
     foto: Mapped[str | None] = mapped_column(String(200))  # foto del cliente al registrarse
-    email_verificado: Mapped[bool] = mapped_column(Boolean, default=True)  # los clientes empiezan sin verificar
+    email_verificado: Mapped[bool] = mapped_column(Boolean, default=True)
+    sesiones_desde: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)  # sesiones abiertas antes de esto quedan cerradas  # los clientes empiezan sin verificar
     verificacion_token: Mapped[str | None] = mapped_column(String(60), index=True)
     verificacion_vence: Mapped[dt.datetime | None] = mapped_column(DateTime)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -740,4 +741,46 @@ class ActividadPanel(Base):
     texto: Mapped[str] = mapped_column(String(200), default="")
     ip: Mapped[str] = mapped_column(String(64), default="")
     dispositivo: Mapped[str] = mapped_column(String(60), default="")
+    duracion_ms: Mapped[int] = mapped_column(Integer, default=0)  # cuánto tardó en abrir la pantalla
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)
+
+
+
+class ErrorSistema(Base):
+    """Errores de la aplicación (servidor, panel o app), agrupados: los iguales suman «veces»."""
+    __tablename__ = "errores_sistema"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    huella: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    origen: Mapped[str] = mapped_column(String(12), default="servidor")  # servidor | panel | app
+    mensaje: Mapped[str] = mapped_column(String(300), default="")
+    donde: Mapped[str] = mapped_column(String(200), default="")
+    usuario: Mapped[str] = mapped_column(String(120), default="")
+    veces: Mapped[int] = mapped_column(Integer, default=1)
+    veces_hora: Mapped[int] = mapped_column(Integer, default=1)  # cuántas en la hora en curso (para avisar si se repite mucho)
+    hora: Mapped[str] = mapped_column(String(13), default="")
+    estado: Mapped[str] = mapped_column(String(12), default="nuevo")  # nuevo | revision | resuelto
+    nota: Mapped[str] = mapped_column(String(300), default="")
+    atendido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    primera: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+    ultima: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)
+
+
+class ChequeoSistema(Base):
+    """Último resultado de cada revisión automática (estado de la app y funciones)."""
+    __tablename__ = "chequeos_sistema"
+    clave: Mapped[str] = mapped_column(String(30), primary_key=True)
+    grupo: Mapped[str] = mapped_column(String(10), default="estado")  # estado | funcion
+    nombre: Mapped[str] = mapped_column(String(80), default="")
+    nivel: Mapped[str] = mapped_column(String(6), default="ok")  # ok | pend | mal
+    valor: Mapped[str] = mapped_column(String(80), default="")
+    detalle: Mapped[str] = mapped_column(String(250), default="")
+    ms: Mapped[int] = mapped_column(Integer, default=0)
+    en: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+    desde: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())  # desde cuándo está en este nivel
+
+
+class ConfigSistema(Base):
+    """Ajustes y marcas del departamento de sistemas (texto largo o JSON)."""
+    __tablename__ = "config_sistema"
+    clave: Mapped[str] = mapped_column(String(60), primary_key=True)
+    valor: Mapped[str] = mapped_column(Text, default="")

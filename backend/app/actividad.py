@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from .models import ActividadPanel, SesionPanel, User, ahora
 
-ROLES = ("superadmin", "supervisor", "ventas")  # quienes usan el panel
+ROLES = ("superadmin", "supervisor", "ventas", "sistemas")  # quienes usan el panel
 TIPOS = {"ingreso": "Ingreso", "ingreso_fallido": "Ingreso fallido", "consulta": "Consulta", "cambio": "Cambio", "descarga": "Descarga",
          "cierre_sesion": "Cierre de sesión"}
 
@@ -27,11 +27,11 @@ def abrir_sesion(db: Session, user: User, ip: str, ua: str) -> str:
     return sid
 
 
-def anotar(db: Session, sid: str, user: User | None, tipo: str, texto: str, ip: str, ua: str) -> None:
+def anotar(db: Session, sid: str, user: User | None, tipo: str, texto: str, ip: str, ua: str, ms: int = 0) -> None:
     if user is not None and user.rol not in ROLES:
         return
     db.add(ActividadPanel(sesion_id=sid or "", user_id=user.id if user else None, rol=user.rol if user else "", tipo=tipo, texto=texto[:200],
-                          ip=ip[:64], dispositivo=dispositivo(ua)))
+                          ip=ip[:64], dispositivo=dispositivo(ua), duracion_ms=ms))
     s = db.get(SesionPanel, sid) if sid else None
     if s and (user is None or s.user_id == user.id):
         s.ultima, s.actividades = ahora(), s.actividades + 1

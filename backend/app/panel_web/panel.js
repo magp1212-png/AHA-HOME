@@ -13,7 +13,7 @@
       body: opts.body ? JSON.stringify(opts.body) : undefined });
     if (r.status === 401) { salir(); throw new Error("Inicia sesión de nuevo"); }
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : j.detail?.mensaje || "No se pudo completar");
+    if (!r.ok) { const e = new Error(typeof j.detail === "string" ? j.detail : j.detail?.mensaje || "No se pudo completar"); e.api = true; throw e; }
     return j;
   }
   function salir(voluntario) {
@@ -27,7 +27,7 @@
     if (!t || clave === S.consultaVista || S.ruta === "sinpermisos") return;
     S.consultaVista = clave;
     const texto = S.ruta === "finanzas" ? `Abrió Finanzas: ${(FIN_TABS.find((x) => x[0] === S.finTab) || [, "resumen"])[1].toLowerCase()}` : `Abrió ${t}`;
-    api("/panel-api/actividad", { body: { tipo: "consulta", texto } }).catch(() => {});
+    api("/panel-api/actividad", { body: { tipo: "consulta", texto, ms: Math.round(performance.now() - (S.t0 || performance.now())) } }).catch(() => {});
   }
 
   // ---------- Menú ----------
@@ -53,6 +53,7 @@
     { k: "diseno", t: "Diseño de la app", i: "🎨" },
     { sec: "ADMINISTRACIÓN AHA HOME" },
     { g: "Personal interno", i: "🛡", hijos: [["administradores", "Superadministradores"], ["control", "Centro de control"], ["caja", "Operadores de caja"]] },
+    { k: "sistemas", t: "Departamento de sistemas", i: "🖥", sis: true },
     { k: "usuarios", t: "Usuarios y permisos", i: "🔑", ceo: true },
     { k: "correos", t: "Correos corporativos", i: "✉", ceo: true },
     { k: "auditoria", t: "Auditoría del equipo", i: "🔍", ceo: true },
@@ -61,7 +62,7 @@
   const TITULOS = { inicio: ["Tableros", "Panel principal"], tecnicos: ["Técnicos", "Técnicos y ayudantes"], empresas: ["Registros", "Empresas aliadas"], clientes: ["Registros", "Clientes"],
     equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Operación", "Órdenes"], transacciones: ["Finanzas", "Transacciones"],
     mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Finanzas", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
-    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Administración", "Auditoría del equipo"], usuarios: ["Administración", "Usuarios y permisos"], correos: ["Administración", "Correos corporativos"], historial: ["Administración", "Historial de actividad"],
+    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Administración", "Auditoría del equipo"], usuarios: ["Administración", "Usuarios y permisos"], correos: ["Administración", "Correos corporativos"], historial: ["Administración", "Historial de actividad"], sistemas: ["Administración", "Departamento de sistemas"],
     finanzas: ["Finanzas", "Finanzas y contabilidad"], diseno: ["Diseño", "Diseño de la app"], ventas: ["Ventas", "Departamento de ventas"], tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
 
   // Permiso que necesita cada pantalla (el CEO lo asigna a cada usuario)
@@ -75,7 +76,7 @@
     const it = (k, t, i) => `<a class="it ${S.ruta === k ? "on" : ""}" href="#${k}"><span class="i">${i}</span>${t}</a>`;
     let h = "";
     const vis = MENU.map((m) => (m.hijos ? { ...m, hijos: m.hijos.filter(([k]) => puede(k)) } : m))
-      .filter((m) => m.sec || (m.ceo ? S.yo?.es_ceo : m.k ? puede(m.k) : m.hijos.length));
+      .filter((m) => m.sec || (m.ceo ? S.yo?.es_ceo : m.sis ? S.yo?.es_ceo || S.yo?.rol === "sistemas" : S.yo?.rol === "sistemas" ? false : m.k ? puede(m.k) : m.hijos.length));
     const lim = vis.filter((m, i) => !m.sec || (vis[i + 1] && !vis[i + 1].sec));
     for (const m of lim) {
       if (m.sec) { h += `<div style="margin:14px 12px 4px;font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--suave)">${m.sec}</div>`; continue; }
@@ -400,6 +401,114 @@
       const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv" })); a.download = `aha-home-historial-${S.hTab}-${S.finDesde}-a-${S.finHasta}.csv`; a.click();
       api("/panel-api/actividad", { body: { tipo: "descarga", texto: `Descargó el historial de ${S.hTab}` } }).catch(() => {});
     };
+  }
+  const LUZ = { ok: "#1FB57F", pend: "#F0B43C", mal: "#F2555A" };
+  const ICO_SIS = { api: "🖥", base: "🗄", procesos: "⚙", tunel: "☁", correo: "✉", push: "📱", tasa: "💱", disco: "💽", publicador: "⇪", respaldo: "🗂" };
+  const hace = (iso) => { if (!iso) return "—"; const s = Math.max(0, (Date.now() - new Date(iso)) / 1000); return s < 60 ? `hace ${Math.round(s)} s` : s < 3600 ? `hace ${Math.round(s / 60)} min` : fmt("", iso); };
+  async function pagSistemas(main) {
+    S.sisTab = S.sisTab || "estado";
+    const e = await api("/sistemas/estado");
+    main.querySelector("h1").insertAdjacentHTML("afterend", `<p class="total" style="margin-top:-8px">Estado de toda la aplicación, errores, funciones que no responden, accesos, publicaciones y respaldos. Se revisa solo cada 5 minutos y avisa cuando algo falla.</p>`);
+    const TABS = [["estado", "Estado"], ["errores", `Errores${e.errores_abiertos ? ` (${e.errores_abiertos})` : ""}`], ["funciones", "Funciones"], ["accesos", `Accesos${e.accesos_alertas ? ` (${e.accesos_alertas})` : ""}`],
+      ["publicaciones", "Publicaciones y respaldos"], ["actividad", "Actividad"], ["avisos", "Avisos y ajustes"]];
+    main.innerHTML += `<div class="sis-banda ${e.nivel}"><span class="sis-luz" style="background:${LUZ[e.nivel]}"></span><b>${esc(e.texto)}</b><span class="total">${e.avisos.map(esc).join(" · ")}</span><span style="flex:1"></span><span class="total">Revisado ${hace(e.revisado_en)}</span></div>
+      <div class="fin-barra"><div class="tabs">${TABS.map(([k, t]) => `<button class="${S.sisTab === k ? "on" : ""}" data-st="${k}">${t}</button>`).join("")}</div></div><div id="sis"></div>`;
+    main.querySelectorAll("[data-st]").forEach((b) => (b.onclick = () => { S.sisTab = b.dataset.st; pintar(true); }));
+    const d = $("#sis"), t = S.sisTab;
+    const kpi = (ic, ti, v, n) => `<div class="fin-kpi"><div class="fk-t"><span class="fk-ic">${ic}</span>${ti}</div><div class="fk-v">${v}</div><div class="fk-n">${n}</div></div>`;
+    const tabla = (cab, filas, vacio) => `<div class="tabla"><table><thead><tr>${cab.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${filas.length ? filas.join("") : `<tr><td colspan="${cab.length}" class="total" style="text-align:center;padding:22px">${vacio}</td></tr>`}</tbody></table></div>`;
+    if (t === "estado") {
+      d.innerHTML = `<div class="sis-grid">${e.estado.map((c) => `<div class="card sis-card quieta"><div class="sis-top"><span class="fk-ic">${ICO_SIS[c.clave] || "•"}</span><b>${esc(c.nombre)}</b><span class="sis-luz" style="background:${LUZ[c.nivel]}"></span></div>
+          <div class="sis-v">${esc(c.valor)}</div><div class="total">${esc(c.detalle)}</div><div class="total sis-mini">${c.nivel !== "ok" ? `Así desde ${hace(c.desde)}` : `Revisado ${hace(c.en)}`}</div></div>`).join("")}</div>
+        <div class="fin-sec-t">Procesos del servidor <small><button class="btn sec chico" id="sproc">⟳ Consultar al servidor</button></small></div><div id="sprocs"><div class="fin-vacio">Consultando…</div></div>`;
+      const verProcesos = async () => {
+        const box = $("#sprocs"); box.innerHTML = `<div class="fin-vacio">Consultando al servidor…</div>`;
+        try {
+          const p = await api("/sistemas/procesos");
+          const seg = (ms) => (ms == null ? "—" : `${Math.round(ms / 1000)} s`);
+          box.innerHTML = `<div class="fin-kpis tres">${kpi("⏱", "Panel en marcha desde", fmt("", p.en_marcha_desde), `Arrancó en ${seg(p.arranque_ms)}${p.arranque_lento ? " · lento" : ""}`)}
+              ${kpi("↻", "Arranques hoy", p.arranques_hoy, "Veces que el panel se encendió")}${kpi("⚠", "Caídas hoy", p.caidas_hoy, p.caidas_hoy ? "Se detuvo y volvió a arrancar solo" : "Sin caídas")}</div>` +
+            (p.disponible ? tabla(["", "Proceso", "Estado", "Corre con la cuenta", "Última vez que corrió", "Último resultado"], p.procesos.map((x) => `<tr><td><span class="sis-luz" style="background:${LUZ[x.nivel]}"></span></td>
+                <td><b>${esc(x.nombre)}</b></td><td>${esc(x.estado)}</td><td>${esc(x.cuenta || "—")}</td><td>${x.ultima ? fmt("", x.ultima) : "—"}</td><td>${x.resultado === 0 ? "Correcto" : x.resultado == null ? "—" : "Código " + x.resultado}</td></tr>`), "Sin procesos.")
+              : `<div class="fin-vacio">El estado de los procesos solo se puede leer en el servidor Windows (AHASERVER).</div>`);
+        } catch (er) { box.innerHTML = `<p class="error">${esc(er.message)}</p>`; }
+      };
+      $("#sproc").onclick = verProcesos; verProcesos();
+    } else if (t === "errores") {
+      const es = await api("/sistemas/errores"), F = (S.sisFil = S.sisFil || {});
+      const q = (F.q || "").toLowerCase();
+      const fil = es.filter((x) => (!F.estado || x.estado === F.estado) && (!F.origen || x.origen === F.origen) && (!q || (x.mensaje + x.donde + x.usuario).toLowerCase().includes(q)));
+      const ET = { nuevo: ["mal", "Nuevo"], revision: ["pend", "En revisión"], resuelto: ["ok", "Resuelto"] };
+      d.innerHTML = `<div class="fin-filtros"><input class="finp fbus" id="sq" placeholder="⌕ Buscar error" value="${esc(F.q || "")}">
+          <select class="sel" data-sf="estado"><option value="">Todos los estados</option>${Object.entries(ET).map(([k, [, tx]]) => `<option value="${k}" ${F.estado === k ? "selected" : ""}>${tx}</option>`).join("")}</select>
+          <select class="sel" data-sf="origen"><option value="">Todas las partes</option>${[["servidor", "Servidor"], ["panel", "Panel"], ["app", "App"]].map(([k, tx]) => `<option value="${k}" ${F.origen === k ? "selected" : ""}>${tx}</option>`).join("")}</select></div>` +
+        tabla(["Última vez", "Error", "Dónde", "Usuario", "Veces", "Estado", ""], fil.map((x) => `<tr><td>${fmt("", x.ultima)}</td><td><b>${esc(x.mensaje)}</b>${x.nota ? `<br><small class="total">${esc(x.nota)}${x.atendido_por ? " · " + esc(x.atendido_por) : ""}</small>` : ""}</td>
+          <td>${esc(x.donde || x.origen)}</td><td>${esc(x.usuario)}</td><td style="text-align:center"><b>${x.veces}</b></td><td><span class="est ${ET[x.estado][0]}">${ET[x.estado][1]}</span></td>
+          <td><button class="btn sec chico" data-ate="${x.id}">Atender</button></td></tr>`), "No hay errores registrados. 🎉") +
+        `<p class="total">Los errores iguales se agrupan. Cada uno guarda la pantalla, el usuario y lo que estaba haciendo; nunca claves ni lo que escribió.</p>`;
+      d.querySelectorAll("[data-sf]").forEach((x) => (x.onchange = () => { F[x.dataset.sf] = x.value; pintar(true); }));
+      let rl; $("#sq").oninput = (ev) => { clearTimeout(rl); rl = setTimeout(() => { F.q = ev.target.value; pintar(true); }, 400); };
+      d.querySelectorAll("[data-ate]").forEach((b) => (b.onclick = () => { const x = es.find((y) => y.id === Number(b.dataset.ate));
+        cajonFin("Atender error", `<div class="card" style="min-height:0;margin-top:10px"><b>${esc(x.mensaje)}</b><div class="total">${esc(x.donde)} · ${x.veces} vez/veces · primera: ${fmt("", x.primera)}</div></div>` +
+          finSel("aes", "Estado", Object.entries(ET).map(([k, [, tx]]) => [k, tx]), x.estado) + `<label class="flab">Nota</label><textarea id="ano" class="finp" rows="3" placeholder="Qué se hizo o qué falta">${esc(x.nota || "")}</textarea>`,
+          () => api(`/sistemas/errores/${x.id}`, { method: "PUT", body: { estado: $("#aes").value, nota: $("#ano").value } }), "Departamento de sistemas"); }));
+    } else if (t === "funciones") {
+      const ok = e.funciones.filter((c) => c.nivel === "ok").length;
+      d.innerHTML = `<div class="tabla"><div class="fl-cab"><span>Prueba automática cada 5 minutos · ${ok} de ${e.funciones.length} operativas</span><button class="btn sec chico" id="sprobar">Probar ahora</button></div>
+        <table><thead><tr><th></th><th>Función</th><th>Estado</th><th>Detalle</th><th>Última prueba</th><th>Tardó</th></tr></thead><tbody>${e.funciones.map((c) => `<tr><td><span class="sis-luz" style="background:${LUZ[c.nivel]}"></span></td>
+          <td><b>${esc(c.nombre)}</b></td><td><span class="est ${c.nivel}">${c.nivel === "ok" ? "Operativa" : "No operativa"}</span></td><td>${esc(c.detalle)}</td><td>${hace(c.en)}</td><td>${(c.ms / 1000).toFixed(1)} s</td></tr>`).join("")}</tbody></table></div>
+        <p class="total">Las pruebas solo leen: no crean órdenes ni cobros de prueba.</p>`;
+      $("#sprobar").onclick = async () => { $("#sprobar").textContent = "Probando…"; await api("/sistemas/probar", { body: {} }); pintar(true); };
+    } else if (t === "accesos") {
+      const a = await api("/sistemas/accesos");
+      const TN = { mal: "mal", pend: "pend", info: "info", neutro: "neutro" };
+      d.innerHTML = `<div class="fin-kpis tres">${kpi("●", "En línea ahora", a.en_linea, `de ${a.total} cuentas del equipo`)}${kpi("!", "Intentos fallidos (24 h)", a.fallidos_24h, a.fallidos_seguidos ? `${a.fallidos_seguidos} cuenta(s) con 5 seguidos` : "Ninguna cuenta con 5 seguidos")}
+          ${kpi("⌂", "Equipos nuevos (7 días)", a.equipos_nuevos, "Primera entrada desde ese equipo")}${kpi("☾", "Entradas fuera de horario", a.fuera_horario, "Entre 10 p. m. y 6 a. m. (7 días)")}
+          ${kpi("⏸", "Cuentas inactivas +30 días", a.inactivas, "Conviene pausarlas")}${kpi("🔑", "Claves temporales sin cambiar", a.claves_temporales, "Desde hace más de 1 día")}</div>
+        <div class="fin-sec-t">Alertas de acceso</div>` + tabla(["Tipo", "Cuenta", "Detalle", "Cuándo", ""], a.alertas.map((x) => `<tr><td><span class="est ${TN[x.nivel]}">${esc(x.tipo_texto)}</span></td><td class="nombre">${esc(x.cuenta)}</td>
+          <td>${esc(x.detalle)}</td><td>${fmt("", x.en)}</td><td>${x.accion === "pausar" && a.puede_pausar ? `<button class="btn sec chico" data-pau="${x.user_id}">Pausar cuenta</button>` : ""}</td></tr>`), "Sin alertas de acceso.") +
+        `<div class="fin-sec-t">Quién está dentro ahora</div>` + tabla(["Persona", "Rol", "Equipo", "IP", "Última actividad", ""], a.dentro.map((x) => `<tr><td><span class="sis-luz" style="background:#1FB57F"></span> <b class="nombre">${esc(x.nombre)}</b>${x.soy_yo ? ' <span class="est neutro">Tú</span>' : ""}</td>
+          <td>${esc(x.rol)}</td><td>${esc(x.dispositivo)}</td><td>${esc(x.ip)}</td><td>${hace(x.ultima)}</td><td>${x.soy_yo || x.principal ? "" : `<button class="btn rojo chico" data-ces="${x.sesion}" data-nom="${esc(x.nombre)}">Cerrar sesión</button>`}</td></tr>`), "Nadie del panel está dentro en este momento.") +
+        `<p class="total">Los cambios sensibles (cuentas creadas, roles, permisos, claves restablecidas) se ven en Auditoría del equipo y en el Historial de actividad.</p>`;
+      d.querySelectorAll("[data-ces]").forEach((b) => (b.onclick = () => cajonFin("Cerrar sesión a distancia", `<p class="total">Se cierran todas las sesiones abiertas de <b>${b.dataset.nom}</b>. Podrá volver a entrar con su clave.</p>`,
+        () => api(`/sistemas/sesiones/${b.dataset.ces}/cerrar`, { body: {} }), "Departamento de sistemas")));
+      d.querySelectorAll("[data-pau]").forEach((b) => (b.onclick = () => cajonFin("Pausar cuenta", `<p class="total">La persona no podrá entrar hasta que el CEO la vuelva a activar en Usuarios y permisos.</p>`,
+        () => api(`/ceo/usuarios/${b.dataset.pau}`, { method: "PUT", body: { activo: false } }), "Departamento de sistemas")));
+    } else if (t === "publicaciones") {
+      const p = await api("/sistemas/publicaciones");
+      d.innerHTML = `<div class="fin-kpis tres">${kpi("⇪", "Versión instalada", esc(p.version || "—"), p.publicaciones[0] ? `Última: ${esc(p.publicaciones[0].en)}` : "Sin registro")}
+          ${kpi("⟳", "Revisa cambios", "Cada 5 min", "Rama produccion de GitHub")}${kpi("🗄", "Último respaldo", p.ultimo_respaldo ? esc(p.ultimo_respaldo.en) : "—", p.ultimo_respaldo ? `${p.ultimo_respaldo.tamano_kb} KB · ${p.ultimo_respaldo.tipo.toLowerCase()}` : "Sin respaldos")}</div>
+        <div class="sis-dos"><div><div class="fin-sec-t">Publicaciones</div>${tabla(["Cuándo", "Versión", "Pruebas", "Resultado"], p.publicaciones.map((x) => `<tr><td>${esc(x.en)}</td><td><b>${esc(x.version)}</b></td><td>${esc(x.pruebas)}</td><td><span class="est ${x.nivel}">${esc(x.resultado)}</span></td></tr>`), "Sin publicaciones registradas.")}</div>
+        <div><div class="fin-sec-t">Respaldos</div>${tabla(["Cuándo", "Tipo", "Tamaño", "Resultado"], p.respaldos.map((x) => `<tr><td>${esc(x.en)}</td><td>${esc(x.tipo)}</td><td>${x.tamano_kb} KB</td><td><span class="est ok">OK</span></td></tr>`)
+          .concat(p.copia_externa ? [] : [`<tr><td>—</td><td>Copia externa (R2)</td><td>—</td><td><span class="est pend">Sin configurar</span></td></tr>`]), "Sin respaldos.")}</div></div>`;
+    } else if (t === "actividad") {
+      const a = await api("/sistemas/actividad"), mx = Math.max(1, ...a.por_hora);
+      d.innerHTML = `<div class="fin-kpis tres">${kpi("👥", "Personas hoy", a.personas, "En el panel y la caja")}${kpi("▤", "Pantallas abiertas hoy", a.pantallas, a.pico != null ? `Pico a las ${a.pico}:00` : "Sin actividad todavía")}${kpi("🛒", "Órdenes hoy", a.ordenes, "Registradas en caja")}</div>
+        <div class="sis-dos"><div class="card quieta"><div class="tit"><span>Uso por hora · hoy</span></div><div class="sis-barras">${a.por_hora.map((v, h) => `<div class="sis-bar" title="${h}:00 · ${v}"><i style="height:${Math.max(3, (v / mx) * 100)}%"></i><span>${h}</span></div>`).join("")}</div></div>
+        <div class="card quieta"><div class="tit"><span>Pantallas más lentas</span></div>${a.lentas.length ? a.lentas.map((x) => `<div class="fm-fila"><span>${esc(x.pantalla)}</span><b>${(x.ms / 1000).toFixed(1)} s</b></div>`).join("") : `<div class="fin-vacio">Todavía no hay mediciones.</div>`}
+          <p class="total">Promedio de carga de los últimos 7 días.</p></div></div>`;
+    } else {
+      const a = await api("/sistemas/ajustes");
+      const chk = (id, on, txt) => `<label class="sis-regla"><input type="checkbox" id="${id}" ${on ? "checked" : ""}> ${txt}</label>`;
+      d.innerHTML = `<div class="sis-dos"><div class="card quieta"><div class="tit"><span>A dónde llegan los avisos</span></div>
+          ${chk("cc", a.canales.campanita, "Campanita del panel (rol Sistemas y CEO)")}${chk("ce", a.canales.correo, "Correo a las direcciones de abajo")}${chk("cr", a.canales.resumen, "Resumen diario por correo")}
+          <label class="flab">Correos que reciben los avisos (uno por línea)</label><textarea id="scor" class="finp" rows="3">${esc(a.correos.join("\n"))}</textarea>
+          <label class="flab">Hora del resumen diario</label><select class="sel" id="shora">${Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${h === a.hora_resumen ? "selected" : ""}>${h}:00</option>`).join("")}</select>
+          <div style="margin-top:10px"><button class="btn sec chico" id="sres">Enviar el resumen ahora (prueba)</button> <span class="total" id="sresok"></span></div></div>
+        <div class="card quieta"><div class="tit"><span>Cuándo avisar</span></div>${Object.entries(a.reglas_texto).map(([k, tx]) => chk("r-" + k, a.reglas[k], tx)).join("")}</div></div>
+        <div class="card quieta" style="margin-top:14px;min-height:0"><div class="tit"><span>Cuánto tiempo se guarda</span></div><div class="fin-filtros" style="margin:8px 0 0">
+          ${[["errores", "Errores"], ["accesos", "Accesos"], ["actividad", "Actividad"]].map(([k, tx]) => `<label class="total">${tx} <select class="sel" id="ret-${k}">${[30, 60, 90, 180, 365].map((n) => `<option value="${n}" ${n === a.retencion[k] ? "selected" : ""}>${n} días</option>`).join("")}</select></label>`).join("")}</div>
+          <p class="total">Lo más viejo se borra solo una vez al día.</p><button class="btn pri" id="sguar">Guardar</button> <span class="total" id="sguarok"></span><p class="error" id="serr"></p></div>`;
+      $("#sres").onclick = async () => { try { const r = await api("/sistemas/resumen", { body: {} }); $("#sresok").textContent = `Enviado a ${r.a.join(", ")}`; } catch (er) { $("#sresok").textContent = er.message; } };
+      $("#sguar").onclick = async () => {
+        try {
+          await api("/sistemas/ajustes", { method: "PUT", body: { correos: $("#scor").value.split(/[\n,;]+/), canales: { campanita: $("#cc").checked, correo: $("#ce").checked, resumen: $("#cr").checked },
+            hora_resumen: Number($("#shora").value), reglas: Object.fromEntries(Object.keys(a.reglas_texto).map((k) => [k, $("#r-" + k).checked])),
+            retencion: { errores: Number($("#ret-errores").value), accesos: Number($("#ret-accesos").value), actividad: Number($("#ret-actividad").value) } } });
+          $("#sguarok").textContent = "✓ Guardado"; $("#serr").textContent = "";
+        } catch (er) { $("#serr").textContent = er.message; }
+      };
+    }
   }
   async function cargarQR(img, id) {
     // el servidor genera la imagen del QR
@@ -1069,17 +1178,18 @@
 
   // ---------- Armado ----------
   async function pintar(soloContenido) {
+    S.t0 = performance.now();
     const app = $("#app");
     const tokenClave = new URLSearchParams(location.search).get("restablecer");
     if (tokenClave) return restablecer(app, tokenClave);
     if (!S.token) return login(app);
     if (!S.yo) {
       try { S.yo = await api("/yo"); } catch { return; }
-      if (!["supervisor", "superadmin", "ventas"].includes(S.yo.rol)) { salir(); alert("El panel es solo para el equipo de oficina (superadmin, centro de control y ventas). La caja usa la app."); return; }
+      if (!["supervisor", "superadmin", "ventas", "sistemas"].includes(S.yo.rol)) { salir(); alert("El panel es solo para el equipo de oficina (superadmin, centro de control y ventas). La caja usa la app."); return; }
     }
     if (S.yo.clave_temporal) return cambioObligatorio(app);
     if (!puede(S.ruta) && !(S.ruta === "usuarios" && S.yo.es_ceo) && !(S.ruta === "auditoria" && S.yo.es_ceo) && !(S.ruta === "correos" && S.yo.es_ceo) && !(S.ruta === "historial" && S.yo.es_ceo)) {
-      const primera = Object.keys(PERM_RUTA).find((k) => puede(k)); S.ruta = primera || "sinpermisos"; location.hash = S.ruta;
+      const primera = Object.keys(PERM_RUTA).find((k) => puede(k)); S.ruta = S.yo.rol === "sistemas" ? "sistemas" : primera || "sinpermisos"; location.hash = S.ruta;
     }
     if (puedeHacer("ver_tablero")) try { const r = await datos(30); S.cuentas = { verif: r.verificaciones_pendientes, rep: r.reportes_abiertos }; S.notif = r.verificaciones_pendientes + r.reportes_abiertos; } catch { /* sin datos */ }
     const [g, t] = TITULOS[S.ruta] || ["", S.ruta];
@@ -1125,6 +1235,7 @@
       else if (S.ruta === "precios") await pagPrecios(main);
       else if (S.ruta === "qrs") await pagQrs(main);
       else if (S.ruta === "historial") await historial(main);
+      else if (S.ruta === "sistemas") await pagSistemas(main);
       else await tabla(main, S.ruta);
     } catch (e) { main.innerHTML += `<p class="error">${esc(e.message)}</p>`; }
     anotarConsulta(main);
@@ -1217,6 +1328,15 @@
       caja.appendChild(b);
     });
   }
+  // Errores del panel: se avisan solos al Departamento de sistemas (máximo 5 por minuto)
+  let erroresMin = 0; setInterval(() => (erroresMin = 0), 60000);
+  function reportarError(msg) {
+    if (!S.token || erroresMin++ >= 5 || !msg) return;
+    const donde = "Panel · " + ((TITULOS[S.ruta] || [, S.ruta])[1] || "");
+    fetch("/sistemas/errores/panel", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + S.token }, body: JSON.stringify({ mensaje: String(msg).slice(0, 480), donde }) }).catch(() => {});
+  }
+  window.addEventListener("error", (e) => reportarError(e.message + (e.lineno ? ` (línea ${e.lineno})` : "")));
+  window.addEventListener("unhandledrejection", (e) => { if (!e.reason?.api) reportarError(e.reason?.message || String(e.reason)); });
   // Menú del usuario: se cierra al tocar fuera
   document.addEventListener("click", (e) => { const m = document.getElementById("umm"); if (m && m.style.display !== "none" && !e.target.closest(".usuario")) { m.style.display = "none"; document.getElementById("um")?.classList.remove("abierto"); } });
   // Menú: abrir y cerrar grupos
