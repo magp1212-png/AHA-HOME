@@ -32,6 +32,7 @@
 
   // ---------- Menú ----------
   // Cada tipo de registro va en su propia sección; el personal interno (superadmin, control, caja) va aparte.
+  const CHEV = '<svg class="chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
   const MENU = [
     { k: "inicio", t: "Panel principal", i: "⌂" },
     { sec: "REGISTROS" },
@@ -76,7 +77,7 @@
       if (m.k) { h += it(m.k, m.t, m.i); continue; }
       const abierto = S.gAbiertos.has(m.g) || m.hijos.some(([k]) => k === S.ruta);
       const pend = m.hijos.reduce((n, [, , c]) => n + (c && S.cuentas?.[c] ? S.cuentas[c] : 0), 0);
-      h += `<button type="button" class="grupo ${abierto ? "abierto" : ""}" data-grupo="${esc(m.g)}" aria-expanded="${abierto}"><span style="display:flex;gap:12px;align-items:center"><span class="i" style="width:22px;text-align:center">${m.i}</span>${m.g}</span><span class="g-der">${!abierto && pend ? `<span class="cuenta">${pend}</span>` : ""}<span class="flecha">⌄</span></span></button>`;
+      h += `<button type="button" class="grupo ${abierto ? "abierto" : ""}" data-grupo="${esc(m.g)}" aria-expanded="${abierto}"><span style="display:flex;gap:12px;align-items:center"><span class="i" style="width:22px;text-align:center">${m.i}</span>${m.g}</span><span class="g-der">${!abierto && pend ? `<span class="cuenta">${pend}</span>` : ""}<span class="flecha">${CHEV}</span></span></button>`;
       if (m.cap) h += `<div class="cap" ${abierto ? "" : "hidden"}>${m.cap}</div>`;
       h += `<div class="sub" ${abierto ? "" : "hidden"}>${m.hijos.map(([k, t, c]) => `<a href="#${k}" class="${S.ruta === k ? "on" : ""}">${t}${c && S.cuentas?.[c] ? `<span class="cuenta">${S.cuentas[c]}</span>` : ""}</a>`).join("")}</div>`;
     }
@@ -161,7 +162,7 @@
         <h2>${saludo}, ${esc((S.yo?.nombre || "").split(" ")[0])}</h2><div class="total" style="font-size:15px">AHA HOME · Hacemos todo por ti. Así va el negocio hoy.</div>
         <div class="chips" id="chips"></div></div>
         <div class="escenario" aria-hidden="true"><div class="orbita"><i></i><i></i><i></i></div>${logo3D(130)}<div class="pedestal"></div></div></section>
-      <button class="ocultar" id="ocu">${S.verOcultar ? "LISTO ⌃" : "OCULTAR TARJETAS ⌄"}</button>
+      <button class="ocultar" id="ocu">${S.verOcultar ? `LISTO <span class="chev-arriba">${CHEV}</span>` : `OCULTAR TARJETAS ${CHEV}`}</button>
       ${S.verOcultar ? `<div class="card" style="min-height:0;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:10px">${TARJETAS.map((c) => `<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-oc="${c.id}" ${S.ocultas.includes(c.id) ? "" : "checked"}>${c.t}</label>`).join("")}</div>` : ""}
       <div class="grid">${vis.map((c) => `<div class="card ${c.ancho === 2 ? "ancho2" : ""}" id="c-${c.id}"><div class="tit"><span>${c.t}</span>${c.sinDias ? `<span class="total" data-tot="${c.id}"></span>` : `<span style="display:flex;gap:8px;align-items:center"><span class="total" data-tot="${c.id}"></span><select class="sel" data-dias="${c.id}">${[7, 30, 90, 365].map((d) => `<option value="${d}" ${(S.dias[c.id] || 30) === d ? "selected" : ""}>${d === 365 ? "1 año" : d + " días"}</option>`).join("")}</select></span>`}</div><div class="cont">…</div></div>`).join("")}</div>
       <div class="pie-app">AHA HOME — Hacemos todo por ti · Onyxa LLC © 2026</div>`;
@@ -1084,7 +1085,7 @@
         <div class="buscar"><input id="bg" placeholder="Presiona / para buscar"><div class="resultados" id="rg" style="display:none"></div></div><div class="esp"></div>
         <button class="ico-btn" id="tema" title="Tema claro u oscuro">${document.documentElement.dataset.tema === "oscuro" ? "☀" : "☾"}</button>
         <div class="campana"><button class="ico-btn" id="cam" title="Notificaciones">🔔<span class="badge" id="camn" hidden></span></button><div class="cam-menu" id="camm" hidden></div></div>
-        <div class="usuario"><button class="ico-btn usr-btn" id="um" title="${esc(S.yo.nombre)}" aria-haspopup="menu" aria-expanded="false"><span class="usr-ini">${esc(String(S.yo.nombre || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase())}</span><span class="usr-nom">${esc(S.yo.nombre)}</span><span class="usr-fl">⌄</span></button><div class="menu" id="umm" style="display:none"><button disabled>${S.yo.es_ceo ? "CEO" : S.yo.rol === "superadmin" ? "Superadministrador" : S.yo.rol === "ventas" ? "Departamento de ventas" : "Centro de control"}</button><button id="mic">🔑 Cambiar mi clave</button><button id="sal">Cerrar sesión</button></div></div></div>
+        <div class="usuario"><button class="ico-btn usr-btn" id="um" title="${esc(S.yo.nombre)}" aria-haspopup="menu" aria-expanded="false"><span class="usr-ini">${esc(String(S.yo.nombre || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase())}</span><span class="usr-nom">${esc(S.yo.nombre)}</span><span class="usr-fl">${CHEV}</span></button><div class="menu" id="umm" style="display:none"><button disabled>${S.yo.es_ceo ? "CEO" : S.yo.rol === "superadmin" ? "Superadministrador" : S.yo.rol === "ventas" ? "Departamento de ventas" : "Centro de control"}</button><button id="mic">🔑 Cambiar mi clave</button><button id="sal">Cerrar sesión</button></div></div></div>
         <div class="cuerpo"><nav class="lat ${S.latOculta ? "oculto" : ""}">${menuHTML()}</nav><main class="main"></main></div>`;
       $("#hamb").onclick = () => { S.latOculta = !S.latOculta; $(".lat").classList.toggle("oculto"); };
       $("#tema").onclick = () => { const n = document.documentElement.dataset.tema === "oscuro" ? "claro" : "oscuro"; document.documentElement.dataset.tema = n; localStorage.setItem("ahahome.panel.tema", n); pintar(); };
@@ -1266,7 +1267,7 @@
     const btn = document.createElement("button"); btn.type = "button"; btn.className = "sel-btn " + sel.className;
     btn.style.cssText = sel.style.cssText; btn.setAttribute("aria-haspopup", "listbox"); btn.setAttribute("aria-expanded", "false");
     const lab = sel.id && document.querySelector(`label[for="${sel.id}"]`); if (lab) btn.setAttribute("aria-label", lab.textContent.trim());
-    btn.innerHTML = `<span class="sel-txt"></span><span class="sel-flecha" aria-hidden="true">⌄</span>`;
+    btn.innerHTML = `<span class="sel-txt"></span><span class="sel-flecha" aria-hidden="true">${CHEV}</span>`;
     btn.querySelector(".sel-txt").textContent = textoSel(sel);
     btn.disabled = sel.disabled;
     sel.classList.add("sel-oculto"); sel.tabIndex = -1; sel.setAttribute("aria-hidden", "true");

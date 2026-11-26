@@ -274,8 +274,6 @@ tr:hover td{background:rgba(255,255,255,.05)}
 .lat .grupo{width:100%;background:none;border:0;color:var(--texto);font:inherit;text-align:left;border-radius:12px}
 .lat .grupo:hover{background:var(--vidrio2)}
 .lat .grupo .g-der{display:flex;align-items:center;gap:8px}
-.lat .grupo .flecha{transition:transform .15s;transform:rotate(-90deg)}
-.lat .grupo.abierto .flecha{transform:none}
 @media (min-width:761px){
   .top{height:52px;top:8px;margin:8px 12px 0;border-radius:26px}
   .cuerpo{gap:12px}
@@ -375,3 +373,11 @@ b.acento,.acento{color:var(--acento)}
 ::-webkit-scrollbar-thumb:hover{background:rgba(207,215,42,.55);background-clip:padding-box}
 [data-tema="claro"] ::-webkit-scrollbar-thumb{background:rgba(33,36,77,.22);background-clip:padding-box}
 [data-tema="claro"] ::-webkit-scrollbar-thumb:hover{background:rgba(126,132,16,.6);background-clip:padding-box}
+
+/* ===== Flechitas dibujadas (no un carácter de texto): centradas con el nombre en Windows, Mac y teléfono ===== */
+.chev{display:block;flex:none;opacity:.75}
+.usr-fl,.sel-flecha,.lat .grupo .flecha{display:inline-flex;align-items:center;justify-content:center;line-height:0}
+.lat .grupo .flecha{transform:none}
+.lat .grupo.abierto .flecha{transform:rotate(180deg)}
+.ocultar{display:inline-flex;align-items:center;gap:4px}
+.chev-arriba{display:inline-flex}.chev-arriba .chev{transform:rotate(180deg)}
