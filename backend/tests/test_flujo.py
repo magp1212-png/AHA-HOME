@@ -1435,3 +1435,18 @@ def test_historial_de_actividad(client):
     assert any(s["id"] == r["sesion"] and s["actividades"] >= 2 for s in ses)
     sup = login(client, "supervisor@ahahome.test")
     assert client.get("/ceo/historial", headers=sup).status_code == 403
+
+
+def test_ceo_edita_datos_y_rol_de_una_cuenta(client):
+    ceo = login(client, "ceo@ahahome.test")
+    n = client.post("/ceo/usuarios", json={"nombre": "Pedro Prueba", "email": "pedro@ahahome.test", "rol": "supervisor"}, headers=ceo).json()
+    r = client.put(f"/ceo/usuarios/{n['id']}", json={"nombre": "Pedro Pérez", "email": "pedro.perez@aha-go.com", "telefono": "04141112233", "rol": "superadmin"}, headers=ceo)
+    assert r.status_code == 200
+    v = r.json()
+    assert (v["nombre"], v["email"], v["rol"]) == ("Pedro Pérez", "pedro.perez@aha-go.com", "superadmin") and v["telefono"]
+    assert client.post("/auth/login", json={"usuario": "pedro.perez@aha-go.com", "password": n["clave"]}).status_code == 200
+    assert client.post("/auth/login", json={"usuario": "pedro@ahahome.test", "password": n["clave"]}).status_code == 401
+    correos = client.get("/ceo/correos", headers=ceo).json()
+    assert any(c["direccion"] == "pedro.perez@aha-go.com" and c["persona"] == "Pedro Pérez" for c in correos["correos"])
+    assert client.put(f"/ceo/usuarios/{n['id']}", json={"email": "ceo@ahahome.test"}, headers=ceo).status_code == 409
+    assert client.put(f"/ceo/usuarios/{n['id']}", json={"email": "no-es-correo"}, headers=ceo).status_code == 422

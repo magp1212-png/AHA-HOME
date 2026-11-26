@@ -216,7 +216,15 @@
     const fe = $("#fe"); if (fe) fe.onchange = () => { st.estado = fe.value; st.pagina = 1; pintar(); };
     $("#ant").onclick = () => { st.pagina--; pintar(); }; $("#sig").onclick = () => { st.pagina++; pintar(); };
     $("#tb").querySelectorAll("[data-ver]").forEach((b) => (b.onclick = () => cajon(nombre, r.columnas, r.filas[b.dataset.ver], false)));
-    $("#tb").querySelectorAll("[data-ed]").forEach((b) => (b.onclick = () => cajon(nombre, r.columnas, r.filas[b.dataset.ed], true)));
+    $("#tb").querySelectorAll("[data-ed]").forEach((b) => (b.onclick = async () => {
+      if (S.yo?.es_ceo && ["administradores", "control", "caja"].includes(nombre)) {
+        const [cat, us, ts, cc] = await Promise.all([api("/ceo/permisos"), api("/ceo/usuarios"), api("/admin/tiendas"), api("/ceo/correos")]);
+        S.dominio = cc.dominio;
+        const u = us.find((x) => x.id === r.filas[b.dataset.ed].id);
+        if (u && !(u.principal && !u.soy_yo)) return fichaUsuario(cat, ts, u);
+      }
+      cajon(nombre, r.columnas, r.filas[b.dataset.ed], true);
+    }));
   }
 
   async function cajon(nombre, cols, f, editar) {
@@ -945,7 +953,7 @@
       ${us.map((u, i) => `<tr><td class="nombre">${esc(u.nombre)}${u.soy_yo ? ' <span class="est neutro">Tú</span>' : ""}</td><td>${esc(u.rol_texto)}${u.principal ? ' <span class="est ok">Principal</span>' : ""}</td><td>${esc(u.email || "—")}</td><td>${esc(u.tienda || "—")}</td>
         <td>${u.es_ceo ? "Todos" : `${u.permisos.length} de ${cat.permisos.length}${u.personalizados ? " · personalizados" : " · los del rol"}`}</td>
         <td>${u.clave_temporal ? '<span class="est pend">Temporal</span>' : '<span class="est ok">Propia</span>'}</td><td>${fmt("", u.ultimo_acceso)}</td>
-        <td><span class="est ${u.activo ? "ok" : "mal"}">${u.activo ? "Activo" : "Inactivo"}</span></td><td>${u.soy_yo || u.principal ? "" : `<div class="acc"><button title="Editar" data-u="${i}">✎</button></div>`}</td></tr>`).join("")}</tbody></table></div>`;
+        <td><span class="est ${u.activo ? "ok" : "mal"}">${u.activo ? "Activo" : "Inactivo"}</span></td><td>${u.principal && !u.soy_yo ? "" : `<div class="acc"><button title="Editar" data-u="${i}">✎</button></div>`}</td></tr>`).join("")}</tbody></table></div>`;
     $("#nu").onclick = () => fichaUsuario(cat, ts, null);
     $("#nceo").onclick = () => fichaUsuario(cat, ts, null, "ceo");
     main.querySelectorAll("[data-u]").forEach((b) => (b.onclick = () => fichaUsuario(cat, ts, us[b.dataset.u])));
@@ -956,10 +964,10 @@
     const rolIni = u?.rol_panel || rolPedido || "supervisor";
     const marcados = new Set(u ? u.permisos : cat.por_rol[rolIni]);
     const grupos = ["Ver", "Editar"];
-    const campo = (id, l, v = "", t = "text") => `<label style="display:block;font-size:13px;font-weight:700;margin-top:10px">${l}</label><input id="${id}" type="${t}" value="${esc(v)}" ${u && id === "fe" ? "disabled" : ""} style="width:100%;height:40px;border-radius:10px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 12px">`;
+    const campo = (id, l, v = "", t = "text") => `<label style="display:block;font-size:13px;font-weight:700;margin-top:10px">${l}</label><input id="${id}" type="${t}" value="${esc(v)}" ${u && id === "fe" && u.principal ? "disabled" : ""} style="width:100%;height:40px;border-radius:10px;border:1px solid var(--borde);background:var(--panel2);color:var(--texto);padding:0 12px">`;
     c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="total">Centro de mando · Usuarios</span><button class="btn sec" id="cer">✕</button></div>
       <h2 style="margin-top:8px">${u ? esc(u.nombre) : rolPedido === "ceo" ? "Nuevo CEO" : "Nuevo usuario"}</h2>
-      ${campo("fn", "Nombre y apellido", u?.nombre)}${campo("fe", "Usuario (correo)", u?.email)}${u ? "" : campo("ft", "Teléfono (opcional)")}
+      ${campo("fn", "Nombre y apellido", u?.nombre)}${campo("fe", "Usuario (correo)", u?.email)}${u?.principal ? `<div class="total">El correo de la cuenta principal no se cambia desde el panel.</div>` : u ? `<div class="total">Es el usuario con el que entra. Si lo cambias, avísale: desde ahora entra con el correo nuevo.</div>` : ""}${campo("ft", "Teléfono (opcional)", u?.telefono || "")}
       <label style="display:block;font-size:13px;font-weight:700;margin-top:10px">Rol</label><select id="fr" class="sel" style="width:100%;height:40px">${Object.entries(cat.roles).map(([k, t]) => `<option value="${k}" ${k === rolIni ? "selected" : ""}>${t}</option>`).join("")}</select>
       <div id="ftw"><label style="display:block;font-size:13px;font-weight:700;margin-top:10px">Tienda</label><select id="fti" class="sel" style="width:100%;height:40px"><option value="">—</option>${ts.map((t) => `<option value="${t.id}" ${u?.tienda_id === t.id ? "selected" : ""}>${esc(t.nombre)}</option>`).join("")}</select></div>
       ${u ? "" : `${campo("fc", "Clave (vacía = la genera el sistema)")}<div class="total">Mínimo 8 caracteres, una letra y un número. La persona deberá cambiarla al entrar.</div>`}
@@ -973,6 +981,7 @@
     const verTienda = () => { $("#ftw").style.display = ["agente", "tecnico_supervisor"].includes($("#fr").value) ? "block" : "none";
       const esCeo = $("#fr").value === "ceo"; $("#avceo").style.display = esCeo ? "block" : "none"; $("#lims").style.display = esCeo ? "none" : "block"; };
     verTienda();
+    if (u?.soy_yo) { $("#fr").disabled = true; $("#ac")?.remove(); }
     if (!u) {  // sugiere el correo corporativo nombre.apellido@aha-go.com
       let tocado = false;
       $("#fe").placeholder = `nombre.apellido@${S.dominio}`;
@@ -991,7 +1000,8 @@
     $("#gu").onclick = async () => {
       const tienda = $("#fti").value ? Number($("#fti").value) : null;
       try {
-        if (u) { await api(`/ceo/usuarios/${u.id}`, { method: "PUT", body: { nombre: $("#fn").value, rol: $("#fr").value, tienda_id: tienda, ...(delRol ? { usar_permisos_del_rol: true } : { permisos: permisos() }) } }); c.remove(); pintar(); }
+        if (u) { await api(`/ceo/usuarios/${u.id}`, { method: "PUT", body: { nombre: $("#fn").value, email: $("#fe").value, telefono: $("#ft").value, rol: $("#fr").value, tienda_id: tienda,
+            ...(delRol ? { usar_permisos_del_rol: true } : { permisos: permisos() }) } }); c.remove(); if (u.soy_yo) S.yo = null; pintar(); }
         else { const r = await api("/ceo/usuarios", { body: { nombre: $("#fn").value, email: $("#fe").value, telefono: $("#ft").value, rol: $("#fr").value, tienda_id: tienda, clave: $("#fc").value, permisos: delRol ? null : permisos() } });
           mostrarClave(r.clave, r.nombre); $("#gu").remove(); pintar(true); }
       } catch (e) { err(e); }
