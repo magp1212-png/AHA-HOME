@@ -15,7 +15,7 @@ router = APIRouter(prefix="/ceo", tags=["centro de mando"])
 
 def solo_ceo(user: User = Depends(current_user)) -> User:
     if not (user.rol == "superadmin" and user.es_ceo):
-        raise HTTPException(403, "Solo el CEO puede ver el centro de mando")
+        raise HTTPException(403, "Solo el CEO puede ver esta parte de Administración AHA HOME")
     return user
 
 

@@ -53,11 +53,15 @@
     { k: "diseno", t: "Diseño de la app", i: "🎨" },
     { sec: "ADMINISTRACIÓN AHA HOME" },
     { g: "Personal interno", i: "🛡", hijos: [["administradores", "Superadministradores"], ["control", "Centro de control"], ["caja", "Operadores de caja"]] },
+    { k: "usuarios", t: "Usuarios y permisos", i: "🔑", ceo: true },
+    { k: "correos", t: "Correos corporativos", i: "✉", ceo: true },
+    { k: "auditoria", t: "Auditoría del equipo", i: "🔍", ceo: true },
+    { k: "historial", t: "Historial de actividad", i: "📒", ceo: true },
   ];
   const TITULOS = { inicio: ["Tableros", "Panel principal"], tecnicos: ["Técnicos", "Técnicos y ayudantes"], empresas: ["Registros", "Empresas aliadas"], clientes: ["Registros", "Clientes"],
     equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Operación", "Órdenes"], transacciones: ["Finanzas", "Transacciones"],
     mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Finanzas", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
-    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Centro de mando", "Auditoría del equipo"], usuarios: ["Centro de mando", "Usuarios y permisos"], correos: ["Centro de mando", "Correos corporativos"], historial: ["Centro de mando", "Historial de actividad"],
+    resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Administración", "Auditoría del equipo"], usuarios: ["Administración", "Usuarios y permisos"], correos: ["Administración", "Correos corporativos"], historial: ["Administración", "Historial de actividad"],
     finanzas: ["Finanzas", "Finanzas y contabilidad"], diseno: ["Diseño", "Diseño de la app"], ventas: ["Ventas", "Departamento de ventas"], tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
 
   // Permiso que necesita cada pantalla (el CEO lo asigna a cada usuario)
@@ -70,7 +74,8 @@
   function menuHTML() {
     const it = (k, t, i) => `<a class="it ${S.ruta === k ? "on" : ""}" href="#${k}"><span class="i">${i}</span>${t}</a>`;
     let h = "";
-    const vis = MENU.map((m) => (m.hijos ? { ...m, hijos: m.hijos.filter(([k]) => puede(k)) } : m)).filter((m) => m.sec || (m.k ? puede(m.k) : m.hijos.length));
+    const vis = MENU.map((m) => (m.hijos ? { ...m, hijos: m.hijos.filter(([k]) => puede(k)) } : m))
+      .filter((m) => m.sec || (m.ceo ? S.yo?.es_ceo : m.k ? puede(m.k) : m.hijos.length));
     const lim = vis.filter((m, i) => !m.sec || (vis[i + 1] && !vis[i + 1].sec));
     for (const m of lim) {
       if (m.sec) { h += `<div style="margin:14px 12px 4px;font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--suave)">${m.sec}</div>`; continue; }
@@ -81,8 +86,6 @@
       if (m.cap) h += `<div class="cap" ${abierto ? "" : "hidden"}>${m.cap}</div>`;
       h += `<div class="sub" ${abierto ? "" : "hidden"}>${m.hijos.map(([k, t, c]) => `<a href="#${k}" class="${S.ruta === k ? "on" : ""}">${t}${c && S.cuentas?.[c] ? `<span class="cuenta">${S.cuentas[c]}</span>` : ""}</a>`).join("")}</div>`;
     }
-    if (S.yo?.es_ceo) h += `<div style="margin:14px 12px 4px;font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--suave)">CENTRO DE MANDO (CEO)</div>`
-      + it("usuarios", "Usuarios y permisos", "🔑") + it("correos", "Correos corporativos", "✉") + it("auditoria", "Auditoría del equipo", "🛡") + it("historial", "Historial de actividad", "📒");
     return h;
   }
 
