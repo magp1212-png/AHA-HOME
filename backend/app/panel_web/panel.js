@@ -3,7 +3,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const S = {
-    token: localStorage.getItem("ahahome.panel.token"), sesion: localStorage.getItem("ahahome.panel.sesion") || "", gAbiertos: new Set(), yo: null, ruta: location.hash.slice(1) || "inicio",
+    token: localStorage.getItem("ahahome.panel.token"), sesion: localStorage.getItem("ahahome.panel.sesion") || "", gAbiertos: new Set((() => { try { return JSON.parse(localStorage.getItem("ahahome.panel.grupos") || "[]"); } catch { return []; } })()), yo: null, ruta: location.hash.slice(1) || "inicio",
     ocultas: JSON.parse(localStorage.getItem("ahahome.panel.ocultas") || "[]"), dias: {}, cache: {}, tabla: {}, notif: 0,
   };
   document.documentElement.dataset.tema = localStorage.getItem("ahahome.panel.tema") || "claro";  // como en el catálogo de pantallas: claro de entrada
@@ -19,7 +19,7 @@
   function salir(voluntario) {
     if (voluntario === true && S.token) fetch("/panel-api/actividad", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", Authorization: "Bearer " + S.token, "X-Sesion": S.sesion },
       body: JSON.stringify({ tipo: "cierre_sesion", texto: "Cerró sesión" }) }).catch(() => {});
-    localStorage.removeItem("ahahome.panel.token"); localStorage.removeItem("ahahome.panel.sesion"); S.token = null; S.sesion = ""; S.yo = null; pintar();
+    localStorage.removeItem("ahahome.panel.token"); localStorage.removeItem("ahahome.panel.sesion"); localStorage.removeItem("ahahome.panel.grupos"); S.gAbiertos = new Set(); S.token = null; S.sesion = ""; S.yo = null; pintar();
   }
   function anotarConsulta(main) {
     // Historial de actividad: qué pantalla se abrió (una vez por pantalla o pestaña)
@@ -1074,13 +1074,13 @@
         <div class="buscar"><input id="bg" placeholder="Presiona / para buscar"><div class="resultados" id="rg" style="display:none"></div></div><div class="esp"></div>
         <button class="ico-btn" id="tema" title="Tema claro u oscuro">${document.documentElement.dataset.tema === "oscuro" ? "☀" : "☾"}</button>
         <div class="campana"><button class="ico-btn" id="cam" title="Notificaciones">🔔<span class="badge" id="camn" hidden></span></button><div class="cam-menu" id="camm" hidden></div></div>
-        <div class="usuario"><button class="ico-btn" style="width:auto;padding:0 12px;border-radius:19px" id="um">${esc(S.yo.nombre)} ⌄</button><div class="menu" id="umm" style="display:none"><button disabled>${S.yo.es_ceo ? "CEO" : S.yo.rol === "superadmin" ? "Superadministrador" : S.yo.rol === "ventas" ? "Departamento de ventas" : "Centro de control"}</button><button id="mic">🔑 Cambiar mi clave</button><button id="sal">Cerrar sesión</button></div></div></div>
+        <div class="usuario"><button class="ico-btn usr-btn" id="um" title="${esc(S.yo.nombre)}" aria-haspopup="menu" aria-expanded="false"><span class="usr-ini">${esc(String(S.yo.nombre || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase())}</span><span class="usr-nom">${esc(S.yo.nombre)}</span><span class="usr-fl">⌄</span></button><div class="menu" id="umm" style="display:none"><button disabled>${S.yo.es_ceo ? "CEO" : S.yo.rol === "superadmin" ? "Superadministrador" : S.yo.rol === "ventas" ? "Departamento de ventas" : "Centro de control"}</button><button id="mic">🔑 Cambiar mi clave</button><button id="sal">Cerrar sesión</button></div></div></div>
         <div class="cuerpo"><nav class="lat ${S.latOculta ? "oculto" : ""}">${menuHTML()}</nav><main class="main"></main></div>`;
       $("#hamb").onclick = () => { S.latOculta = !S.latOculta; $(".lat").classList.toggle("oculto"); };
       $("#tema").onclick = () => { const n = document.documentElement.dataset.tema === "oscuro" ? "claro" : "oscuro"; document.documentElement.dataset.tema = n; localStorage.setItem("ahahome.panel.tema", n); pintar(); };
       $("#cam").onclick = (e) => { e.stopPropagation(); const m = $("#camm"); m.hidden = !m.hidden; if (!m.hidden) pintarCampana(); };
       revisarCampana(true);
-      $("#um").onclick = () => { const m = $("#umm"); m.style.display = m.style.display === "none" ? "block" : "none"; };
+      $("#um").onclick = (e) => { e.stopPropagation(); const m = $("#umm"), abre = m.style.display === "none"; m.style.display = abre ? "block" : "none"; $("#um").setAttribute("aria-expanded", abre); $("#um").classList.toggle("abierto", abre); };
       $("#sal").onclick = () => salir(true);
       $("#mic").onclick = () => { $("#umm").style.display = "none"; miClave(); };
       const bg = $("#bg"), rg = $("#rg"); let tm;
@@ -1203,10 +1203,13 @@
       caja.appendChild(b);
     });
   }
+  // Menú del usuario: se cierra al tocar fuera
+  document.addEventListener("click", (e) => { const m = document.getElementById("umm"); if (m && m.style.display !== "none" && !e.target.closest(".usuario")) { m.style.display = "none"; document.getElementById("um")?.classList.remove("abierto"); } });
   // Menú: abrir y cerrar grupos
   document.addEventListener("click", (e) => {
     const g = e.target.closest(".lat .grupo"); if (!g) return;
     const k = g.dataset.grupo; S.gAbiertos.has(k) ? S.gAbiertos.delete(k) : S.gAbiertos.add(k);
+    try { localStorage.setItem("ahahome.panel.grupos", JSON.stringify([...S.gAbiertos])); } catch { /* sin almacenamiento */ }
     const ab = S.gAbiertos.has(k); g.classList.toggle("abierto", ab); g.setAttribute("aria-expanded", ab);
     let s = g.nextElementSibling; while (s && (s.classList.contains("cap") || s.classList.contains("sub"))) { s.hidden = !ab; if (s.classList.contains("sub")) break; s = s.nextElementSibling; }
   });

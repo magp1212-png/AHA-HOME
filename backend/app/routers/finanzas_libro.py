@@ -170,7 +170,7 @@ def _pendientes(db: Session) -> dict:
     for o in db.scalars(select(Orden).where(Orden.estado == "cancelado", Orden.pagado_en.is_not(None))):
         if o.codigo not in reembolsadas:
             pagar.append({"clave": f"c{o.id}", "concepto": "Reembolso por orden cancelada", "orden": o.codigo, "quien": o.cliente_nombre,
-                          "dias": dias(o.pagado_en), "monto_usd": _d(o.monto_instalacion_centavos + o.inspeccion_centavos), "_c": o.monto_instalacion_centavos + o.inspeccion_centavos})
+                          "dias": dias(o.pagado_en), "monto_usd": _d(o.monto_instalacion_centavos), "_c": o.monto_instalacion_centavos})  # sin la inspección
     for m in db.scalars(select(MovimientoFinanciero).where(MovimientoFinanciero.estado == "por_pagar")):
         pagar.append({"clave": f"v{m.id}", "concepto": CATEGORIAS_GASTO.get(m.categoria, m.categoria), "orden": m.orden_codigo or "—", "quien": m.beneficiario or "—",
                       "dias": (hoy - dt.date.fromisoformat(m.fecha)).days, "monto_usd": _d(m.monto_usd_centavos), "_c": m.monto_usd_centavos})
@@ -220,7 +220,7 @@ def pagar_pendiente(body: PagarPendiente, user: User = Depends(editar), db: Sess
         o = db.get(Orden, num)
         if not o or o.estado != "cancelado" or not o.pagado_en:
             raise HTTPException(409, "Esta orden no tiene un reembolso pendiente")
-        usd = o.monto_instalacion_centavos + o.inspeccion_centavos
+        usd = o.monto_instalacion_centavos  # el reembolso es del servicio; la inspección no se devuelve
         db.add(MovimientoFinanciero(fecha=dia_caracas(), tipo="gasto", categoria="reembolsos", descripcion=f"Reembolso por orden cancelada {o.codigo}",
                                     monto_centavos=usd, moneda="USD", monto_usd_centavos=usd, medio_id=medio.id, cuenta_id=body.cuenta_id, referencia=ref,
                                     orden_codigo=o.codigo, beneficiario=o.cliente_nombre, creado_por=user.id))

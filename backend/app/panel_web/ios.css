@@ -356,3 +356,22 @@ b.acento,.acento{color:var(--acento)}
 
 .fin-barra .tabs{flex-wrap:nowrap;overflow-x:auto;max-width:100%}
 .fin-barra .tabs button{padding:6px 11px;font-size:12.5px;white-space:nowrap}
+
+/* ===== SIS-002 · Menú del usuario ===== */
+.usr-btn{display:inline-flex!important;align-items:center;gap:8px;width:auto!important;max-width:260px;padding:0 12px 0 5px!important;border-radius:19px!important}
+.usr-ini{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(150deg,#5BE3B4,#13A57A)}
+.usr-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;font-weight:700}
+.usr-fl{flex:none;transition:transform .15s;line-height:1}
+.usr-btn.abierto .usr-fl{transform:rotate(180deg)}
+
+/* ===== Barras de desplazamiento con el diseño del panel (sin fondo blanco) ===== */
+:root{color-scheme:dark}
+[data-tema="claro"]{color-scheme:light}
+*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}
+[data-tema="claro"] *{scrollbar-color:rgba(33,36,77,.22) transparent}
+::-webkit-scrollbar{width:10px;height:10px;background:transparent}
+::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:10px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(207,215,42,.55);background-clip:padding-box}
+[data-tema="claro"] ::-webkit-scrollbar-thumb{background:rgba(33,36,77,.22);background-clip:padding-box}
+[data-tema="claro"] ::-webkit-scrollbar-thumb:hover{background:rgba(126,132,16,.6);background-clip:padding-box}

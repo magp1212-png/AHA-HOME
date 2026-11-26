@@ -71,8 +71,8 @@ def crear(body: NuevoQR, user: User = Depends(_ver), db: Session = Depends(get_d
     if not t:
         raise HTTPException(404, "Tienda no encontrada")
     nombre = body.nombre.strip()
-    if db.scalar(select(TiendaQR).where(TiendaQR.tienda_id == t.id, TiendaQR.nombre == nombre, TiendaQR.en_papelera.is_(False))):
-        raise HTTPException(409, "Ya hay un QR con ese nombre en esta tienda")
+    if db.scalar(select(TiendaQR).where(TiendaQR.tienda_id == t.id, TiendaQR.nombre == nombre)):
+        raise HTTPException(409, "Ya hay un QR con ese nombre en esta tienda (los de la papelera también lo reservan)")
     principal = not db.scalar(select(TiendaQR).where(TiendaQR.tienda_id == t.id, TiendaQR.en_papelera.is_(False)))
     q = TiendaQR(tienda_id=t.id, nombre=nombre, token=secrets.token_urlsafe(12), principal=principal, creado_por=user.id)
     db.add(q)
@@ -91,7 +91,10 @@ def renombrar(qid: int, body: Renombrar, user: User = Depends(_ver), db: Session
     q = db.get(TiendaQR, qid)
     if not q:
         raise HTTPException(404, "QR no encontrado")
-    q.nombre = body.nombre.strip()
+    nombre = body.nombre.strip()
+    if db.scalar(select(TiendaQR).where(TiendaQR.tienda_id == q.tienda_id, TiendaQR.nombre == nombre, TiendaQR.id != q.id)):
+        raise HTTPException(409, "Ya hay un QR con ese nombre en esta tienda (los de la papelera también lo reservan)")
+    q.nombre = nombre
     db.commit()
     return _vista(db, q)
 

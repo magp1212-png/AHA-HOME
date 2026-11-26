@@ -1407,6 +1407,7 @@ def test_qr_con_nombre_y_papelera(client):
     assert client.post("/admin/qrs", json={"tienda_id": t, "nombre": "Caja 1"}, headers=sa).status_code == 409
     assert client.put(f"/admin/qrs/{q['id']}", json={"nombre": "Caja 2"}, headers=sa).json()["nombre"] == "Caja 2"
     client.post(f"/admin/qrs/{q['id']}/papelera", json={}, headers=sa)
+    assert client.post("/admin/qrs", json={"tienda_id": t, "nombre": "Caja 2"}, headers=sa).status_code == 409  # nombre reservado
     lista = client.get("/admin/qrs", headers=sa).json()
     assert any(x["id"] == q["id"] for x in lista["papelera"]) and not any(x["id"] == q["id"] for x in lista["activos"])
     from app.db import SessionLocal
