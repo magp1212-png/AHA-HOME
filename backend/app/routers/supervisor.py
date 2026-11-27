@@ -203,7 +203,7 @@ def _permiso_documentos(user: User) -> None:
 
 
 @router.post("/tecnicos/{tec_id}/documentos")
-def agregar_documento(tec_id: int, body: NuevoDocumento, user: User = Depends(control), db: Session = Depends(get_db)):
+def agregar_documento(tec_id: int, body: NuevoDocumento, user: User = Depends(require("tecnico_supervisor", "supervisor", "sistemas")), db: Session = Depends(get_db)):
     """En la oficina: foto de perfil, cédula, licencia, documentos del vehículo y otros."""
     _permiso_documentos(user)
     t = tecnico_controlado(db, user, tec_id)
@@ -220,7 +220,7 @@ def agregar_documento(tec_id: int, body: NuevoDocumento, user: User = Depends(co
 
 
 @router.delete("/tecnicos/{tec_id}/documentos/{doc_id}")
-def borrar_documento(tec_id: int, doc_id: int, user: User = Depends(control), db: Session = Depends(get_db)):
+def borrar_documento(tec_id: int, doc_id: int, user: User = Depends(require("tecnico_supervisor", "supervisor", "sistemas")), db: Session = Depends(get_db)):
     _permiso_documentos(user)
     t = tecnico_controlado(db, user, tec_id)
     d = db.get(Documento, doc_id)

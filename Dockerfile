@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/descargar_modelos.py ./
 RUN python descargar_modelos.py
 COPY backend/app ./app
+COPY VERSION ./VERSION
 COPY backend/seed.py backend/crear_superadmin.py backend/crear_ceo.py ./
 COPY --from=web /app/mobile/dist-web /srv/web
 ENV AHAHOME_DATABASE_URL=sqlite:////datos/ahahome.db \

@@ -4,7 +4,9 @@ import pathlib
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
 
-APP_VERSION = "0.1.0"
+# Versión de AHA HOME: el archivo VERSION en la raíz del proyecto. Se sube en cada actualización (1.0.1, 1.0.2, …).
+_vfile = next((f for f in (BASE_DIR.parent / "VERSION", BASE_DIR / "VERSION") if f.exists()), BASE_DIR / "VERSION")
+APP_VERSION = _vfile.read_text().strip() if _vfile.exists() else "1.0.1"
 
 DATABASE_URL = os.environ.get("AHAHOME_DATABASE_URL", f"sqlite:///{BASE_DIR / 'ahahome.db'}")
 

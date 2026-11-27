@@ -152,17 +152,7 @@ def mis_ayudantes(user: User = Depends(solo_tecnico), db: Session = Depends(get_
 @router.delete("/ayudantes/{aid}")
 def quitar_ayudante(aid: int, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
     """El profesional saca a un ayudante de su equipo. Su historial de servicios se conserva."""
-    from ..models import PerfilCambio
-    t = mi_tecnico(user)
-    a = db.get(Tecnico, aid)
-    if not a or not a.es_ayudante or a.jefe_id != t.id or a.retirado_en:
-        raise HTTPException(404, "Ese ayudante no está en tu equipo")
-    a.retirado_en, a.disponible, a.user.activo = ahora(), False, False
-    db.add(PerfilCambio(tecnico_id=a.id, user_id=user.id, texto="fue retirado del equipo por su profesional"))
-    db.add(PerfilCambio(tecnico_id=t.id, user_id=user.id, texto=f"retiró a {a.user.nombre} de su equipo"))
-    for s_ in db.scalars(select(User).where(User.rol.in_(("tecnico_supervisor", "supervisor")), User.activo.is_(True))):
-        if s_.rol == "supervisor" or s_.tienda_id == t.tienda_id:
-            notificar(db, s_.id, "Ayudante retirado", f"{user.nombre} retiró a {a.user.nombre} de su equipo.")
+    retirar_ayudante(db, mi_tecnico(user), aid, user)
     db.commit()
     return {"ok": True}
 
@@ -175,25 +165,60 @@ def anotar_ayudante(body: NuevoAyudante, user: User = Depends(solo_tecnico), db:
         raise HTTPException(403, "Solo el profesional registra a sus ayudantes")
     if not body.acepta_clausula:
         raise HTTPException(422, "Para registrar a un ayudante debes aceptar que queda bajo tu responsabilidad")
-    cedula = normalizar_cedula(body.cedula) if body.cedula and body.cedula.strip() else None
-    tel = limpiar_tel(body.telefono)
-    email = body.email.strip().lower()
+    a = crear_ayudante(db, t, body.nombre, body.telefono, body.email, body.foto, body.cedula, user,
+                       f"{user.nombre} registró a {body.nombre.strip()} como su ayudante (bajo su responsabilidad). Completa su verificación en la oficina.")
+    db.commit()
+    return svc.ficha(a) | {"alta": False}
+
+
+def crear_ayudante(db: Session, t: Tecnico, nombre: str, telefono: str, email: str, foto: str | None, cedula: str | None, quien: User, aviso: str) -> Tecnico:
+    """Ayudante anexado al profesional t (sin acceso a la app)."""
+    from ..models import PerfilCambio
+    if t.es_ayudante:
+        raise HTTPException(422, "Un ayudante no puede tener ayudantes")
+    cedula = normalizar_cedula(cedula) if cedula and cedula.strip() else None
+    tel = limpiar_tel(telefono)
+    email = (email or "").strip().lower()
     if "@" not in email:
         raise HTTPException(422, "Escribe un correo válido")
     if any(x.retirado_en is None and (x.contacto_telefono == tel or x.contacto_email == email) for x in t.ayudantes):
-        raise HTTPException(409, "Ese ayudante ya está en tu equipo")
-    u = User(nombre=body.nombre.strip(), cedula=cedula, rol="ayudante", tienda_id=t.tienda_id)  # sin acceso a la app
+        raise HTTPException(409, "Ese ayudante ya está en el equipo")
+    u = User(nombre=nombre.strip(), cedula=cedula, rol="ayudante", tienda_id=t.tienda_id)  # sin acceso a la app
     db.add(u)
     db.flush()
-    a = Tecnico(user_id=u.id, tienda_id=t.tienda_id, grupo=t.grupo, es_ayudante=True, jefe_id=t.id, foto_perfil=body.foto,
-                conduce=False, instala=True, clausula_aceptada_en=ahora(), contacto_telefono=tel, contacto_email=email)
+    a = Tecnico(user_id=u.id, tienda_id=t.tienda_id, grupo=t.grupo, es_ayudante=True, jefe=t, foto_perfil=foto or None,
+                conduce=False, instala=True, clausula_aceptada_en=ahora() if quien.id == t.user_id else None, contacto_telefono=tel, contacto_email=email)
     db.add(a)
-    for s in db.scalars(select(User).where(User.activo.is_(True), or_(
-            User.rol.in_(("supervisor", "superadmin")),
-            (User.rol == "tecnico_supervisor") & (User.tienda_id == t.tienda_id)))):
-        notificar(db, s.id, "Ayudante por registrar", f"{user.nombre} registró a {u.nombre} como su ayudante (bajo su responsabilidad). Completa su verificación en la oficina.")
-    db.commit()
-    return svc.ficha(a) | {"alta": False}
+    db.flush()
+    por_oficina = quien.id != t.user_id
+    db.add(PerfilCambio(tecnico_id=t.id, user_id=quien.id, texto=f"agregó a {u.nombre} a su equipo" if not por_oficina else f"agregó a {u.nombre} a su equipo de ayudantes"))
+    db.add(PerfilCambio(tecnico_id=a.id, user_id=quien.id, texto=f"lo registró como ayudante de {t.user.nombre}"))
+    if por_oficina:
+        notificar(db, t.user_id, "Nuevo ayudante en tu equipo", f"La oficina agregó a {u.nombre} a tu equipo. Queda bajo tu responsabilidad mientras te acompañe.")
+    else:
+        for s_ in db.scalars(select(User).where(User.activo.is_(True), or_(
+                User.rol.in_(("supervisor", "superadmin")),
+                (User.rol == "tecnico_supervisor") & (User.tienda_id == t.tienda_id)))):
+            notificar(db, s_.id, "Ayudante por registrar", aviso)
+    return a
+
+
+def retirar_ayudante(db: Session, t: Tecnico, aid: int, quien: User) -> Tecnico:
+    from ..models import PerfilCambio
+    a = db.get(Tecnico, aid)
+    if not a or not a.es_ayudante or a.jefe_id != t.id or a.retirado_en:
+        raise HTTPException(404, "Ese ayudante no está en el equipo")
+    a.retirado_en, a.disponible, a.user.activo = ahora(), False, False
+    por_oficina = quien.id != t.user_id
+    db.add(PerfilCambio(tecnico_id=a.id, user_id=quien.id, texto="lo retiró del equipo" + ("" if por_oficina else " (su profesional)")))
+    db.add(PerfilCambio(tecnico_id=t.id, user_id=quien.id, texto=f"retiró a {a.user.nombre} de su equipo"))
+    if por_oficina:
+        notificar(db, t.user_id, "Ayudante retirado de tu equipo", f"La oficina retiró a {a.user.nombre} de tu equipo.")
+    else:
+        for s_ in db.scalars(select(User).where(User.rol.in_(("tecnico_supervisor", "supervisor")), User.activo.is_(True))):
+            if s_.rol == "supervisor" or s_.tienda_id == t.tienda_id:
+                notificar(db, s_.id, "Ayudante retirado", f"{quien.nombre} retiró a {a.user.nombre} de su equipo.")
+    return a
 
 
 class Onboarding(BaseModel):

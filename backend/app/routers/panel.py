@@ -18,7 +18,7 @@ from ..models import (ESTADO_TEXTO, METODO_PAGO_TEXTO, TIPO_EQUIPO_TEXTO, TIPO_S
                       SoporteMensaje, Tecnico, Tienda, User, ahora, documentos_pendientes)
 
 router = APIRouter(prefix="/panel-api", tags=["panel"])
-panel = require("supervisor")  # supervisor y superadmin (el superadmin pasa siempre)
+panel = require("supervisor", "sistemas")  # supervisor y superadmin (el superadmin pasa siempre)
 ROL_TEXTO = {"cliente": "Cliente", "tecnico": "Técnico", "ayudante": "Ayudante", "agente": "Caja", "tecnico_supervisor": "Técnico supervisor",
              "supervisor": "Centro de control", "superadmin": "Superadmin"}
 

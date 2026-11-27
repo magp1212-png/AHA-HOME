@@ -161,7 +161,9 @@ def publicaciones(user: User = Depends(solo_sistemas)):
             m = re.search(r"(\d+) passed", x)
             pruebas = f"{m.group(1)} correctas" if m else "Correctas"
         elif "PUBLICADO" in x:
-            pubs.append({"en": x[:16], "version": x.split()[-1][:8], "pruebas": pruebas or "—", "resultado": "Publicado", "nivel": "ok"})
+            m = re.search(r"PUBLICADO (\w+)(?: v([\d.]+))?", x)
+            ver = (f"{m.group(2)} ({m.group(1)[:8]})" if m.group(2) else m.group(1)[:8]) if m else "—"
+            pubs.append({"en": x[:16], "version": ver, "pruebas": pruebas or "—", "resultado": "Publicado", "nivel": "ok"})
             pruebas = None
         elif re.search(r"VUELTA ATR|REVERTIDO|rollback", x, re.I):
             pubs.append({"en": x[:16], "version": "—", "pruebas": pruebas or "—", "resultado": "Volvió a la versión anterior", "nivel": "mal"})

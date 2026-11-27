@@ -1594,3 +1594,20 @@ def test_el_ayudante_no_se_registra_solo(client):
     r = client.post("/tecnico/registro", json={"nombre": "Ayudante Suelto", "cedula": "28999111", "telefono": "04129998877", "email": "suelto@correo.com",
                                                "password": "clave123", "pin": "5555", "rol": "ayudante", "tienda_id": tienda_id})
     assert r.status_code == 403 and "profesional" in r.json()["detail"]
+
+
+def test_la_oficina_agrega_y_quita_ayudantes(client):
+    control = login(client, "supervisor@ahahome.test")
+    tecsup = login(client, "tecsup@ahahome.test")
+    tecnico = login_pin(client, "04242000000")
+    with SessionLocal() as db:
+        jid = db.scalar(select(Tecnico).where(Tecnico.es_ayudante.is_(False)).order_by(Tecnico.id)).id
+    datos = {"nombre": "Marcos Díaz", "telefono": "04126660000", "email": "marcos@correo.com"}
+    assert client.post(f"/profesionales/{jid}/ayudantes", json=datos, headers=tecsup).status_code == 403  # sin «Editar perfiles»
+    p = client.post(f"/profesionales/{jid}/ayudantes", json=datos, headers=control).json()
+    nuevo = next(a for a in p["ayudantes"] if a["nombre"] == "Marcos Díaz")
+    assert nuevo["codigo"].startswith("AYU-") and "Nuevo ayudante en tu equipo" in titulos(client, tecnico)
+    assert client.post(f"/profesionales/{jid}/ayudantes", json=datos, headers=control).status_code == 409
+    p = client.delete(f"/profesionales/{jid}/ayudantes/{nuevo['id']}", headers=control).json()
+    assert all(a["id"] != nuevo["id"] for a in p["ayudantes"]) and "Ayudante retirado de tu equipo" in titulos(client, tecnico)
+    assert any("retiró a Marcos Díaz" in c["texto"] for c in p["cambios"])

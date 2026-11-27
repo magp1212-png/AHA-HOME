@@ -22,7 +22,7 @@ from ..security import hash_password
 from .presupuestos import cuenta_tecnico
 
 router = APIRouter(prefix="/profesionales", tags=["profesionales"])
-_EQUIPO = require("tecnico_supervisor", "supervisor")
+_EQUIPO = require("tecnico_supervisor", "supervisor", "sistemas")  # además, cada acción pide su permiso
 
 
 def _ver(user: User = Depends(_EQUIPO)) -> User:
@@ -285,6 +285,35 @@ def quitar_formacion(tid: int, fid: int, user: User = Depends(_EQUIPO), db: Sess
     exigir_permiso(user, "editar_profesionales")
     t = _tec(db, user, tid)
     formacion.quitar(db, t, fid, user)
+    db.commit()
+    return vista(db, t, user)
+
+
+class AyudanteOficina(BaseModel):
+    nombre: str = Field(min_length=3, max_length=120)
+    telefono: str = Field(min_length=7, max_length=30)
+    email: str = Field(min_length=5, max_length=160)
+    cedula: str | None = Field(default=None, max_length=20)
+    foto: str | None = Field(default=None, max_length=200)
+
+
+@router.post("/{tid}/ayudantes")
+def agregar_ayudante(tid: int, body: AyudanteOficina, user: User = Depends(_EQUIPO), db: Session = Depends(get_db)):
+    """Soporte, sistemas o quien tenga «Editar perfiles» agrega un ayudante al equipo del profesional."""
+    from .tecnico import crear_ayudante
+    exigir_permiso(user, "editar_profesionales")
+    t = _tec(db, user, tid)
+    crear_ayudante(db, t, body.nombre, body.telefono, body.email, body.foto, body.cedula, user, "")
+    db.commit()
+    return vista(db, t, user)
+
+
+@router.delete("/{tid}/ayudantes/{aid}")
+def quitar_ayudante(tid: int, aid: int, user: User = Depends(_EQUIPO), db: Session = Depends(get_db)):
+    from .tecnico import retirar_ayudante
+    exigir_permiso(user, "editar_profesionales")
+    t = _tec(db, user, tid)
+    retirar_ayudante(db, t, aid, user)
     db.commit()
     return vista(db, t, user)
 
