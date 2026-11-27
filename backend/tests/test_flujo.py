@@ -1496,7 +1496,11 @@ def test_departamento_de_sistemas(client):
     assert "diego@aha-go.com" in enviados and "soporte@aha-go.com" in enviados
     assert client.get("/sistemas/publicaciones", headers=sis).status_code == 200
     assert client.get("/sistemas/actividad", headers=sis).status_code == 200
-    assert client.get("/sistemas/procesos", headers=sis).json()["disponible"] is False  # fuera de Windows no hay tareas programadas
+    import sys
+    procs = client.get("/sistemas/procesos", headers=sis)
+    assert procs.status_code == 200
+    if sys.platform != "win32":  # fuera de Windows no hay tareas programadas; en AHASERVER sí
+        assert procs.json()["disponible"] is False
 
 
 def test_error_del_servidor_queda_registrado(client):
