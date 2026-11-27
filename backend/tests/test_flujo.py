@@ -1628,3 +1628,31 @@ def test_perfil_del_cliente(client):
     assert r["nombre"] == "María González Pérez" and {c["texto"] for c in r["cambios"]} == {"cambió el nombre", "cambió la cédula"}
     assert client.get(f"/clientes/{cli['id']}", headers=login(client, "tecsup@ahahome.test")).status_code == 403
     assert client.post(f"/clientes/{cli['id']}/cerrar-sesiones", headers=control).json()["cambios"][0]["texto"].startswith("cerró su sesión")
+
+
+def test_soporte_monitorea_e_interviene_en_el_chat(client):
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente)
+    cliente = login(client, "maria@ahahome.test")
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    sup = login(client, "supervisor@ahahome.test")
+    client.post(f"/ordenes/{o['id']}/chat", json={"texto": "¿Ya vienen?"}, headers=cliente)
+    lista = client.get("/soporte/chats", headers=sup).json()
+    assert lista[0]["orden_id"] == o["id"] and lista[0]["ultimo"]["de"] == "cliente" and lista[0]["monitoreado_por"] == []
+    # abrirla en el panel la monitorea: aviso en el chat (una sola vez) y a los dos en su app
+    v = client.get(f"/soporte/chats/{o['id']}", headers=sup).json()
+    assert v["monitoreo"][0]["yo"] and v["mensajes"][-1]["de"] == "sistema" and "monitoreando" in v["mensajes"][-1]["texto"]
+    ultimo = v["mensajes"][-1]["id"]
+    assert client.get(f"/soporte/chats/{o['id']}?desde={ultimo}", headers=sup).json()["mensajes"] == []  # el latido no repite el aviso
+    assert "Soporte está acompañando tu chat" in titulos(client, cliente) and "Soporte está acompañando tu chat" in titulos(client, tecnico)
+    chat = client.get(f"/ordenes/{o['id']}/chat", headers=cliente).json()
+    assert chat["monitoreo"]["activo"] and any("monitoreando" in m["texto"] for m in chat["mensajes"] if m["sistema"])
+    # interviene: sale como soporte
+    client.post(f"/soporte/chats/{o['id']}/mensaje", json={"texto": "Hola María, el técnico llega a las 10:40"}, headers=sup)
+    ms = client.get(f"/soporte/chats/{o['id']}?desde={ultimo}", headers=sup).json()["mensajes"]
+    assert [m["de"] for m in ms] == ["sistema", "soporte"] and "intervino" in ms[0]["texto"]
+    # termina el monitoreo: queda el aviso y ya no se ve como monitoreado
+    client.post(f"/soporte/chats/{o['id']}/terminar?avisar=1", headers=sup)
+    chat = client.get(f"/ordenes/{o['id']}/chat", headers=cliente).json()
+    assert not chat["monitoreo"]["activo"] and "terminó el monitoreo" in chat["mensajes"][-1]["texto"]
+    assert client.get("/soporte/chats", headers=login(client, "tecsup@ahahome.test")).status_code == 403

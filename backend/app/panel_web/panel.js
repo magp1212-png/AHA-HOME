@@ -500,6 +500,96 @@
     $("#cl-ses").onclick = () => confirm("¿Cerrar su sesión en todos sus teléfonos? Tendrá que volver a entrar.") && api(`/clientes/${id}/cerrar-sesiones`, { body: {} }).then(() => pintar(true)).catch(err);
   }
 
+
+  // ---------- Centro de soporte › Mensajería: chats cliente ↔ profesional en vivo ----------
+  S.ch = S.ch || { filtro: "activos", q: "", sel: null, ultimo: 0, msgs: [], info: null };
+  function soltarChat(alCerrar, avisar) {
+    clearInterval(S.chTimer); S.chTimer = null;
+    const id = S.ch.sel; if (!id || !S.token) return;
+    S.ch.sel = null;
+    fetch(`/soporte/chats/${id}/terminar${avisar ? "?avisar=1" : ""}`, { method: "POST", keepalive: !!alCerrar, headers: { Authorization: "Bearer " + S.token, ...(S.sesion ? { "X-Sesion": S.sesion } : {}) } }).catch(() => {});
+  }
+  const hhmm = (x) => x ? new Date(x).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" }) : "";
+  const DE_TXT = { cliente: "Cliente", profesional: "Profesional", ayudante: "Ayudante", soporte: "Soporte AHA HOME", sistema: "" };
+  async function mensajeria(main) {
+    S.msgTab = S.msgTab || "vivo";
+    main.innerHTML += `<div class="tabs ch-tabs">${[["vivo", "🟢 Chats en vivo · cliente ↔ profesional"], ["directos", "Mensajes directos con soporte"]].map(([k, t]) => `<button data-mt="${k}" class="${S.msgTab === k ? "on" : ""}">${t}</button>`).join("")}</div>`;
+    main.querySelectorAll("[data-mt]").forEach((b) => (b.onclick = () => { if (b.dataset.mt !== "vivo") soltarChat(); S.msgTab = b.dataset.mt; pintar(true); }));
+    if (S.msgTab === "directos") return tabla(main, "mensajeria");
+    main.innerHTML += `<div class="ch-wrap"><div class="card quieta ch-lista"><div class="ch-fil">${[["activos", "En curso"], ["todos", "Todos"]].map(([k, t]) => `<button data-cf="${k}" class="${S.ch.filtro === k ? "on" : ""}">${t}</button>`).join("")}
+        <input id="ch-q" placeholder="⌕ Orden, cliente o profesional" value="${esc(S.ch.q)}"></div><div id="ch-items"><div class="total" style="padding:14px">Cargando…</div></div></div>
+      <div class="card quieta ch-conv" id="ch-conv"><div class="ch-vacio"><div style="font-size:34px">💬</div><b>Elige una conversación</b><span class="total">Al abrirla, el cliente y el profesional ven en su chat que el equipo de soporte la está monitoreando.</span></div></div></div>`;
+    main.querySelectorAll("[data-cf]").forEach((b) => (b.onclick = () => { S.ch.filtro = b.dataset.cf; main.querySelectorAll("[data-cf]").forEach((x) => x.classList.toggle("on", x === b)); lista(); }));
+    let tq; $("#ch-q").oninput = (e) => { clearTimeout(tq); tq = setTimeout(() => { S.ch.q = e.target.value; lista(); }, 250); };
+
+    async function lista() {
+      const box = $("#ch-items"); if (!box) return;
+      const ls = await api(`/soporte/chats?filtro=${S.ch.filtro}&q=${encodeURIComponent(S.ch.q)}`).catch(() => null);
+      if (!ls || !$("#ch-items")) return;
+      box.innerHTML = ls.map((c) => `<button class="ch-item ${S.ch.sel === c.orden_id ? "on" : ""}" data-ch="${c.orden_id}">
+          <div class="ch-it1"><b>${esc(c.codigo)}</b>${c.monitoreado_por.length ? `<span class="ch-vivo" title="Monitoreando: ${esc(c.monitoreado_por.join(", "))}">● En vivo</span>` : ""}<span class="total">${hhmm(c.ultimo.en)}</span></div>
+          <div class="ch-it2">${esc(c.cliente)} <span class="total">↔</span> ${esc(c.profesional)}</div>
+          <div class="ch-it3"><span>${c.ultimo.de && c.ultimo.de !== "sistema" ? `<b>${DE_TXT[c.ultimo.de]}:</b> ` : ""}${esc(c.ultimo.texto)}</span>${c.no_leidos ? `<span class="cuenta">${c.no_leidos}</span>` : ""}</div>
+          <div class="ch-it4"><span class="est ${ESTADO_TONO(c.estado)}">${esc(c.estado)}</span><span class="total">${esc(c.servicio)} · ${c.mensajes} msj</span></div></button>`).join("")
+        || `<div class="total" style="padding:18px;text-align:center">${S.ch.filtro === "activos" ? "No hay conversaciones en curso." : "Todavía no hay conversaciones."}</div>`;
+      box.querySelectorAll("[data-ch]").forEach((b) => (b.onclick = () => abrir(Number(b.dataset.ch))));
+    }
+
+    const burbuja = (m) => m.de === "sistema" ? `<div class="ch-sis">${esc(m.texto)}<small>${hhmm(m.en)}</small></div>`
+      : `<div class="ch-b ${m.de}"><div class="ch-de">${esc(m.autor || DE_TXT[m.de])} · ${DE_TXT[m.de]}${m.mio ? " (tú)" : ""}</div>${m.foto ? `<a href="${esc(m.foto)}" target="_blank"><img src="${esc(m.foto)}" alt=""></a>` : ""}${m.texto ? `<div>${esc(m.texto)}</div>` : ""}<small>${hhmm(m.en)}</small></div>`;
+
+    function pintarConv() {
+      const v = S.ch.info, conv = $("#ch-conv"); if (!v || !conv) return;
+      const otros = v.monitoreo.filter((x) => !x.yo).map((x) => x.quien);
+      conv.innerHTML = `<div class="ch-cab"><div style="flex:1;min-width:0"><div class="ch-t"><b>${esc(v.orden.codigo)}</b> <span class="est ${ESTADO_TONO(v.orden.estado)}">${esc(v.orden.estado)}</span> <span class="total">${esc(v.orden.servicio)} · ${fmt("", v.orden.fecha)} ${esc(v.orden.franja || "")}</span></div>
+          <div class="ch-part"><span>🙋 <b>${esc(v.cliente.nombre)}</b> <span class="total">${esc(v.cliente.telefono || "")}</span>${v.cliente.id ? ` <a href="#cliente-${v.cliente.id}">perfil ›</a>` : ""}</span>
+          <span>🔧 ${v.profesional ? `<b>${esc(v.profesional.nombre)}</b> <span class="pf-id chico">${esc(v.profesional.codigo)}</span> <a href="#profesional-${v.profesional.id}">perfil ›</a>` : "<b>Sin asignar</b>"}${v.ayudantes.length ? ` <span class="total">+ ${esc(v.ayudantes.join(", "))}</span>` : ""}</span></div>
+          <div class="total" style="font-size:12px">📍 ${esc(v.orden.direccion)} · ${esc(v.orden.tienda)}</div></div>
+          <div class="ch-acc"><span class="ch-vivo grande">● Monitoreando en vivo</span><button class="btn sec chico" id="ch-fin">Terminar monitoreo</button></div></div>
+        <div class="ch-aviso">🛡 El cliente y el profesional ven en su chat que el equipo de soporte está monitoreando.${otros.length ? ` También está aquí: <b>${esc(otros.join(", "))}</b>.` : ""}</div>
+        <div class="ch-msgs" id="ch-msgs">${S.ch.msgs.map(burbuja).join("") || `<div class="total" style="text-align:center;margin-top:20px">Sin mensajes todavía.</div>`}</div>
+        ${v.orden.abierto ? `<div class="ch-rap">${["Estamos revisando tu caso", "El profesional va en camino", "Por favor, mantengan el respeto en el chat", "Te llamamos en un momento"].map((t) => `<button data-rap="${esc(t)}">${esc(t)}</button>`).join("")}</div>
+        <div class="ch-pie"><textarea id="ch-txt" rows="1" placeholder="Intervenir como soporte de AHA HOME… (lo ven el cliente y el profesional)"></textarea><button class="btn pri" id="ch-env">Enviar</button></div><p class="error" id="ch-err"></p>`
+        : `<div class="ch-cerrado">Esta orden terminó: el chat quedó de solo lectura.</div>`}`;
+      const box = $("#ch-msgs"); box.scrollTop = box.scrollHeight;
+      $("#ch-fin").onclick = () => { soltarChat(false, true); S.ch.info = null; S.ch.msgs = []; pintar(true); };
+      const env = async (texto) => {
+        texto = (texto || "").trim(); if (!texto) return;
+        try { await api(`/soporte/chats/${v.orden.id}/mensaje`, { body: { texto } }); const t = $("#ch-txt"); if (t) t.value = ""; await refrescar(); } catch (e) { $("#ch-err").textContent = e.message; }
+      };
+      const txt = $("#ch-txt");
+      if (txt) {
+        $("#ch-env").onclick = () => env(txt.value);
+        txt.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); env(txt.value); } };
+        conv.querySelectorAll("[data-rap]").forEach((b) => (b.onclick = () => env(b.dataset.rap)));
+      }
+    }
+
+    async function refrescar() {
+      if (!S.ch.sel) return;
+      const v = await api(`/soporte/chats/${S.ch.sel}?desde=${S.ch.ultimo}`).catch(() => null);
+      if (!v || !$("#ch-conv")) return;
+      const nuevos = v.mensajes.length, borrador = $("#ch-txt")?.value || "";
+      S.ch.msgs = S.ch.msgs.concat(v.mensajes); if (nuevos) S.ch.ultimo = v.mensajes[nuevos - 1].id;
+      const cambio = !S.ch.info || nuevos || JSON.stringify(S.ch.info.monitoreo.map((x) => x.quien)) !== JSON.stringify(v.monitoreo.map((x) => x.quien)) || S.ch.info.orden.estado !== v.orden.estado;
+      S.ch.info = v;
+      if (cambio) { pintarConv(); const t = $("#ch-txt"); if (t && borrador) { t.value = borrador; t.focus(); } }
+    }
+
+    async function abrir(id) {
+      if (S.ch.sel && S.ch.sel !== id) soltarChat();
+      S.ch = { ...S.ch, sel: id, ultimo: 0, msgs: [], info: null };
+      $("#ch-items")?.querySelectorAll("[data-ch]").forEach((b) => b.classList.toggle("on", Number(b.dataset.ch) === id));
+      await refrescar(); lista();
+      clearInterval(S.chTimer);
+      S.chTimer = setInterval(() => { if (location.hash !== "#mensajeria" || S.msgTab !== "vivo") return soltarChat(); refrescar(); lista(); }, 4000);
+    }
+
+    await lista();
+    if (S.ch.sel) { const id = S.ch.sel; S.ch.sel = null; await abrir(id); }
+    else { clearInterval(S.chTimer); S.chTimer = setInterval(() => { if (location.hash !== "#mensajeria" || S.msgTab !== "vivo") { clearInterval(S.chTimer); return; } lista(); }, 6000); }
+  }
+
   async function anuncios(main) {
     const bs = await api("/admin/banners");
     main.innerHTML += `<div class="tabla"><div class="barra"><span style="flex:1;color:var(--suave)">${bs.length} banner(s) · se editan en la app (Banners y aliados)</span></div>
@@ -1476,6 +1566,7 @@
       else if (S.ruta === "sistemas") await pagSistemas(main);
       else if (/^profesional-\d+$/.test(S.ruta)) await perfilProfesional(main, Number(S.ruta.split("-")[1]));
       else if (/^cliente-\d+$/.test(S.ruta)) await perfilCliente(main, Number(S.ruta.split("-")[1]));
+      else if (S.ruta === "mensajeria") await mensajeria(main);
       else await tabla(main, S.ruta);
     } catch (e) { main.innerHTML += `<p class="error">${esc(e.message)}</p>`; }
     anotarConsulta(main);
@@ -1650,6 +1741,8 @@
   const mejorar = () => { ponerOjos(document.body); document.querySelectorAll("select:not([data-bonita])").forEach(listaBonita); };
   new MutationObserver(mejorar).observe(document.body, { childList: true, subtree: true });
 
+  window.addEventListener("hashchange", () => { if (S.ruta === "mensajeria" && location.hash !== "#mensajeria") soltarChat(); });
+  window.addEventListener("beforeunload", () => soltarChat(true));
   window.addEventListener("hashchange", () => { S.ruta = location.hash.slice(1) || "inicio"; document.querySelector(".cajon")?.remove(); window.scrollTo(0, 0); pintar(true); });
   document.addEventListener("keydown", (e) => { if (e.key === "/" && document.activeElement?.tagName !== "INPUT") { e.preventDefault(); $("#bg")?.focus(); } });
   pintar();

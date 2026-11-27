@@ -873,3 +873,14 @@ class ClienteCambio(Base):
     antes: Mapped[str] = mapped_column(String(160), default="")
     despues: Mapped[str] = mapped_column(String(160), default="")
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)
+
+
+class ChatMonitoreo(Base):
+    """Soporte siguiendo en vivo el chat de una orden (cliente ↔ profesional). Activo mientras el panel lo tenga abierto."""
+    __tablename__ = "chat_monitoreos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    inicio: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+    visto_en: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())  # último latido del panel
+    fin: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
