@@ -53,6 +53,7 @@ Te va a pedir:
 - **El token del túnel.** Pégalo con clic derecho y luego presiona Enter. No se ve mientras lo pegas.
 - **Tu nombre.**
 - **La clave del CEO.** Presiona Enter sin escribir nada: aparece una **clave provisional**. Anótala en papel.
+- **La cuenta de administrador del servidor** (una ventana de Windows pide usuario y clave, p. ej. `AHAGROUP\Administrador`). Con esa cuenta corren la API, la publicación y el respaldo. **No** corren como SYSTEM: como SYSTEM Windows bloquea el puerto de la API (error 10013, la web muestra 502) y git no puede actualizar el código. El túnel sí sigue como SYSTEM. La clave se escribe solo en esa ventana del servidor; no se guarda en ningún archivo ni se envía a nadie.
 
 La primera vez tarda entre 10 y 15 minutos, porque arma la web.
 
@@ -87,10 +88,13 @@ Stop-ScheduledTask -TaskName "aha home tunel"; Start-ScheduledTask -TaskName "ah
 - **Actualizaciones:** cada 5 minutos el servidor publica solo lo que llegue a la rama `produccion`. Antes de cambiar nada, corre las pruebas y hace un respaldo; si algo falla, vuelve a la versión anterior.
 - **Respaldos:** se hacen todos los días a las 3:15.
 - **Reinicio:** AHA HOME y el túnel arrancan solos cuando el servidor se reinicia.
-- **Ver el estado de las tareas:**
+- **Ver el estado de las tareas y con qué cuenta corren:**
   ```powershell
-  Get-ScheduledTask -TaskName "aha home*" | Select-Object TaskName, State
+  Get-ScheduledTask -TaskName "aha home*" | Select-Object TaskName, State, @{n="Cuenta";e={$_.Principal.UserId}}
   ```
+  La API, publicar y respaldo deben decir la cuenta de administrador; el túnel, SYSTEM.
+- **Si cambias la clave de la cuenta de administrador**, vuelve a ejecutar el instalador (paso 4) para que las tareas sigan arrancando.
+- **Un solo servidor:** el túnel, la API y la base de datos corren todos en AHASERVER. No hay segunda estación unida.
 - **Registro de AHA HOME:**
   ```powershell
   Get-Content "C:\Users\Administrator\APP AHA HOME\backend\logs\api.log" -Tail 25

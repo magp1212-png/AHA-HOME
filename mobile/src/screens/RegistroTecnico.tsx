@@ -19,7 +19,7 @@ export default function RegistroTecnico() {
   const { entrar } = useSession();
   const [paso, setPaso] = useState(1);
   const [tiendas, setTiendas] = useState<Tienda[]>([]);
-  const [f, setF] = useState({ nombre: "", cedula: "", telefono: "", email: "", password: "", pin: "", rol: "tecnico", tienda_id: 0 });
+  const [f, setF] = useState({ nombre: "", cedula: "", telefono: "", email: "", password: "", pin: "", rol: "tecnico", tienda_id: 0, conduce: false, instala: true });
   const [cuenta, setCuenta] = useState<{ token: string; usuario: Perfil } | null>(null);
   const [rostro, setRostro] = useState<{ uri: string; url: string } | null>(null);
   const [selfie, setSelfie] = useState<{ uri: string; url: string } | null>(null);
@@ -91,6 +91,17 @@ export default function RegistroTecnico() {
           <Seccion>TUS DATOS</Seccion>
           <Fila><Opcion texto="Técnico" activo={f.rol === "tecnico"} onPress={() => set("rol")("tecnico")} />
             <Opcion texto="Ayudante" activo={f.rol === "ayudante"} onPress={() => set("rol")("ayudante")} /></Fila>
+          {f.rol === "tecnico" ? (
+            <>
+              <Seccion>¿QUÉ HACES?</Seccion>
+              <Texto gris size={13}>Elige una o las dos. Tendrás un solo perfil.</Texto>
+              <Fila wrap>
+                <Opcion texto="🚚 Conductor" activo={f.conduce && !f.instala} onPress={() => setF({ ...f, conduce: true, instala: false })} />
+                <Opcion texto="🔧 Instalador" activo={f.instala && !f.conduce} onPress={() => setF({ ...f, conduce: false, instala: true })} />
+                <Opcion texto="Ambas" activo={f.conduce && f.instala} onPress={() => setF({ ...f, conduce: true, instala: true })} />
+              </Fila>
+            </>
+          ) : <Texto gris size={13}>Si tu profesional ya te registró como su ayudante, usa el mismo teléfono o correo que le diste.</Texto>}
           <Campo etiqueta="Nombre y apellido" value={f.nombre} onChangeText={set("nombre")} />
           <Campo etiqueta="Número de cédula" value={f.cedula} onChangeText={set("cedula")} placeholder="V-12.345.678" autoCapitalize="characters" />
           <Campo etiqueta="Teléfono" value={f.telefono} onChangeText={set("telefono")} keyboardType="phone-pad" />
@@ -168,7 +179,7 @@ export default function RegistroTecnico() {
           ) : <Aviso tono="info" texto="Este teléfono no tiene huella ni rostro configurado. Actívalo en los ajustes del teléfono y vuelve a este paso." />}
           <Aviso texto={error} />
           <Boton titulo="Enviar mi registro" tipo="exito" onPress={terminar} cargando={cargando} deshabilitado={!huella} />
-          <Texto gris size={13}>Después pasa por la oficina: te tomarán la foto de perfil, copia de tu cédula, licencia y documentos del vehículo, y te darán el alta con tu grupo.</Texto>
+          <Texto gris size={13}>{f.conduce ? "Después pasa por la oficina: te tomarán la foto de perfil, copia de tu cédula, licencia y documentos del vehículo, y te darán el alta con tu grupo." : "Después pasa por la oficina: te tomarán la foto de perfil y copia de tu cédula, y te darán el alta con tu grupo."}</Texto>
         </Tarjeta>
       ) : null}
       <View style={{ height: 1, backgroundColor: C.linea }} />

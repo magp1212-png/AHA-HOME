@@ -51,13 +51,14 @@ PERMISOS = [
     ("activar_cuentas", "Editar", "Activar o desactivar cuentas"),
     ("finanzas", "Editar", "Finanzas: pagos, gastos, reclamos, bancos y tipos de pago"),
     ("diseno", "Editar", "Diseño de la app: colores, textos, menús y avisos"),
+    ("editar_profesionales", "Editar", "Editar perfiles de técnicos, transportistas y ayudantes"),
 ]
 CLAVES_PERMISO = [p[0] for p in PERMISOS]
 TEXTO_PERMISO = {p[0]: p[2] for p in PERMISOS}
 _VER = [p[0] for p in PERMISOS if p[1] == "Ver"]
 PERMISOS_POR_ROL = {
     "superadmin": CLAVES_PERMISO,
-    "supervisor": _VER + ["altas_tecnicos"],
+    "supervisor": _VER + ["altas_tecnicos", "editar_profesionales"],  # el centro de control también es el soporte
     "tecnico_supervisor": ["ver_tecnicos", "ver_ordenes", "altas_tecnicos"],
     "agente": [],
     "ventas": ["ver_ventas"],

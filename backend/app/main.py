@@ -13,7 +13,7 @@ from sqlalchemy import text
 from . import config, sistemas  # sistemas primero: mide cuánto tarda en arrancar
 from .db import Base, engine
 from .routers import sistemas as sistemas_rutas
-from .routers import admin, archivos, auth, banners, chat, legal, ordenes, ceo, conformidad, panel, penalidad, precios, finanzas, finanzas_libro, qr_tiendas, historial, interfaz, ventas, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
+from .routers import admin, archivos, auth, banners, chat, legal, ordenes, ceo, profesionales, conformidad, panel, penalidad, precios, finanzas, finanzas_libro, qr_tiendas, historial, interfaz, ventas, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
 
 log = logging.getLogger("ahahome")
 app = FastAPI(title="AHA HOME API", version=config.APP_VERSION)
@@ -99,7 +99,7 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router, ceo.router, panel.router, precios.router, finanzas.router, finanzas_libro.router, qr_tiendas.router, historial.router, sistemas_rutas.router, interfaz.router, ventas.router):
+for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router, ceo.router, panel.router, precios.router, finanzas.router, finanzas_libro.router, qr_tiendas.router, historial.router, sistemas_rutas.router, interfaz.router, ventas.router, profesionales.router):
     app.include_router(r)
 
 
@@ -133,6 +133,12 @@ def crear_tablas() -> None:
     nuevas = agregar_columnas_nuevas(engine)
     if nuevas:
         log.info("columnas nuevas agregadas: %s", ", ".join(nuevas))
+    if "tecnicos.conduce" in nuevas:
+        # Los profesionales que ya existían hacen traslado e instalación en el piloto: quedan con ambas actividades
+        # (la oficina lo ajusta en su perfil si alguno solo conduce o solo instala).
+        from sqlalchemy import text
+        with engine.begin() as c:
+            c.execute(text("UPDATE tecnicos SET conduce = :si WHERE es_ayudante = :no"), {"si": True, "no": False})
     # cuentas CEO por configuración (AHAHOME_CEO_EMAILS)
     from . import config
     if config.CEO_EMAILS:

@@ -287,8 +287,9 @@ def test_subir_foto_y_salud(client):
 
 def test_tecnico_anota_sus_ayudantes(client):
     tecnico = login_pin(client, "04242000000")  # José Hernández, Grupo A
-    r = client.post("/tecnico/ayudantes", json={"nombre": "Pedro Ayala", "cedula": "V-27.111.222", "foto": "/archivos/pedro.jpg"},
-                    headers=tecnico)
+    datos = {"nombre": "Pedro Ayala", "telefono": "04125550000", "email": "pedro@correo.com", "foto": "/archivos/pedro.jpg"}
+    assert client.post("/tecnico/ayudantes", json=datos, headers=tecnico).status_code == 422  # sin aceptar la cláusula de responsabilidad
+    r = client.post("/tecnico/ayudantes", json=datos | {"acepta_clausula": True}, headers=tecnico)
     assert r.status_code == 200 and r.json()["alta"] is False and r.json()["foto"] == "/archivos/pedro.jpg"
     nuevo_id = r.json()["id"]
     assert len(client.get("/tecnico/ayudantes", headers=tecnico).json()) == 2
@@ -1504,3 +1505,45 @@ def test_error_del_servidor_queda_registrado(client):
     with SessionLocal() as db:
         e = registrar_error(db, "servidor", "ZeroDivisionError: division by zero", "GET /prueba/#", "")
         assert e.veces >= 1 and e.origen == "servidor"
+
+
+def test_perfil_de_profesionales_y_modulos(client):
+    from app.models import Documento
+    from app.routers.profesionales import avisar_vencimientos
+    control = login(client, "supervisor@ahahome.test")
+    tecsup = login(client, "tecsup@ahahome.test")
+    with SessionLocal() as db:
+        jose = db.scalar(select(Tecnico).where(Tecnico.es_ayudante.is_(False)).order_by(Tecnico.id))
+        jid, ayudante_id = jose.id, jose.ayudantes[0].id
+    p = client.get(f"/profesionales/{jid}", headers=control).json()
+    assert p["codigo"] == f"PRO-{jid:04d}" and p["actividad"] == "Conduce e instala" and p["puede_editar"] is True
+    assert p["ayudantes"][0]["codigo"] == f"AYU-{ayudante_id:04d}" and p["verificacion_codigo"] == f"VER-{jid:04d}"
+    # aparece en ambos módulos, con la marca de la otra actividad
+    tec = client.get("/panel-api/tabla/tecnicos?q=" + p["codigo"], headers=control).json()["filas"]
+    tra = client.get("/panel-api/tabla/transportistas?q=" + p["codigo"], headers=control).json()["filas"]
+    assert tec[0]["rol"] == "Técnico + Conduce" and tra[0]["rol"] == "Transportista + Instala"
+    # el técnico supervisor ve el perfil pero no lo edita (no tiene el permiso)
+    assert client.get(f"/profesionales/{jid}", headers=tecsup).json()["puede_editar"] is False
+    assert client.put(f"/profesionales/{jid}", json={"direccion": "x"}, headers=tecsup).status_code == 403
+    # deja de conducir: su código pasa a TEC, sale de Transportistas y el cambio queda en el historial
+    assert client.put(f"/profesionales/{jid}", json={"conduce": False, "instala": False}, headers=control).status_code == 422
+    r = client.put(f"/profesionales/{jid}", json={"conduce": False, "direccion": "Av. Sucre, casa 4", "especialidades": ["Campanas", "Inventada"],
+                                                  "vehiculo": {"placa": "ab-12 cd"}}, headers=control).json()
+    assert r["codigo"] == f"TEC-{jid:04d}" and r["especialidades"] == ["Campanas"] and r["vehiculo"]["placa"] == "AB12CD"
+    assert {c["texto"] for c in r["cambios"]} >= {"cambió las actividades", "cambió la dirección", "cambió las especialidades"}
+    assert not client.get("/panel-api/tabla/transportistas?q=" + p["codigo"][4:], headers=control).json()["filas"]
+    # PIN nuevo y pedido de reescaneo
+    assert len(client.post(f"/profesionales/{jid}/pin", json={}, headers=control).json()["pin"]) == 4
+    assert client.post(f"/profesionales/{jid}/reescaneo", json={}, headers=control).json()["identidad"]["resultado"] == ""
+    # clientes con su código CLI
+    cli = client.get("/panel-api/tabla/clientes", headers=control).json()["filas"]
+    assert cli and all(f["codigo"].startswith("CLI-") for f in cli)
+    # documento por vencer: avisa una sola vez al profesional y al soporte
+    pronto = (dt.date.today() + dt.timedelta(days=10)).isoformat()
+    client.put(f"/profesionales/{jid}", json={"conduce": True}, headers=control)
+    assert client.post(f"/supervisor/tecnicos/{jid}/documentos", json={"tipo": "licencia", "url": "/archivos/lic.jpg", "vence": pronto}, headers=control).status_code == 200
+    with SessionLocal() as db:
+        assert avisar_vencimientos(db) == 1 and avisar_vencimientos(db) == 0
+        assert db.scalar(select(Documento).where(Documento.tipo == "licencia", Documento.tecnico_id == jid)).aviso_vence == "30d"
+    assert "Documento por vencer" in titulos(client, control)
+    assert client.get(f"/profesionales/{jid}", headers=control).json()["licencia"]["nivel"] == "pend"

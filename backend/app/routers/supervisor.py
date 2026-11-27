@@ -10,7 +10,7 @@ from .. import asignacion
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import require, exigir_permiso
-from ..models import (DOCUMENTOS_OBLIGATORIOS, GRUPOS, ROLES, TIPOS_DOCUMENTO, Documento, Incidencia, Orden, Tecnico, Tienda,
+from ..models import (DOCUMENTOS_OBLIGATORIOS, GRUPOS, ROLES, TIPOS_DOCUMENTO, Documento, Incidencia, Orden, PerfilCambio, Tecnico, Tienda,
                       User, ahora)
 from ..notificar import notificar
 from ..security import hash_password
@@ -196,16 +196,23 @@ class NuevoDocumento(BaseModel):
     vence: str = Field(default="", max_length=10)
 
 
+def _permiso_documentos(user: User) -> None:
+    from ..deps import permisos_de
+    if not ({"altas_tecnicos", "editar_profesionales"} & set(permisos_de(user))):
+        exigir_permiso(user, "editar_profesionales")
+
+
 @router.post("/tecnicos/{tec_id}/documentos")
 def agregar_documento(tec_id: int, body: NuevoDocumento, user: User = Depends(control), db: Session = Depends(get_db)):
     """En la oficina: foto de perfil, cédula, licencia, documentos del vehículo y otros."""
-    exigir_permiso(user, "altas_tecnicos")
+    _permiso_documentos(user)
     t = tecnico_controlado(db, user, tec_id)
     if body.tipo not in TIPOS_DOCUMENTO:
         raise HTTPException(422, "Tipo de documento inválido")
     d = Documento(tecnico_id=t.id, tipo=body.tipo, url=body.url, descripcion=body.descripcion.strip(), vence=body.vence,
                   subido_por=user.id)
     db.add(d)
+    db.add(PerfilCambio(tecnico_id=t.id, user_id=user.id, texto=f"agregó el documento «{TIPOS_DOCUMENTO[body.tipo]}»", despues=body.vence and f"vence {body.vence}" or ""))
     if body.tipo == "foto_perfil":
         t.foto_perfil = body.url
     db.commit()
@@ -214,12 +221,14 @@ def agregar_documento(tec_id: int, body: NuevoDocumento, user: User = Depends(co
 
 @router.delete("/tecnicos/{tec_id}/documentos/{doc_id}")
 def borrar_documento(tec_id: int, doc_id: int, user: User = Depends(control), db: Session = Depends(get_db)):
+    _permiso_documentos(user)
     t = tecnico_controlado(db, user, tec_id)
     d = db.get(Documento, doc_id)
     if not d or d.tecnico_id != t.id:
         raise HTTPException(404)
     if d.tipo == "foto_perfil" and t.foto_perfil == d.url:
         t.foto_perfil = None
+    db.add(PerfilCambio(tecnico_id=t.id, user_id=user.id, texto=f"quitó el documento «{TIPOS_DOCUMENTO.get(d.tipo, d.tipo)}»"))
     db.delete(d)
     db.commit()
     return {"ok": True}

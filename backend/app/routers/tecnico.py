@@ -46,6 +46,8 @@ class RegistroCampo(BaseModel):
     pin: str = Field(min_length=4, max_length=8, pattern=r"^\d+$")
     rol: str = "tecnico"  # tecnico o ayudante
     tienda_id: int
+    conduce: bool = False  # al registrarse elige: conductor, instalador o ambas
+    instala: bool = True
 
 
 def normalizar_cedula(c: str) -> str:
@@ -64,12 +66,17 @@ def registro_campo(body: RegistroCampo, db: Session = Depends(get_db)):
         raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
     if body.rol not in ("tecnico", "ayudante"):
         raise HTTPException(422, "Rol inválido")
+    if body.rol == "tecnico" and not (body.conduce or body.instala):
+        raise HTTPException(422, "Elige qué haces: conducir, instalar o ambas")
     if not db.get(Tienda, body.tienda_id):
         raise HTTPException(422, "Tienda no válida")
     tel = limpiar_tel(body.telefono)
     email = body.email.strip().lower()
     cedula = normalizar_cedula(body.cedula)
     previo = db.scalar(select(User).where(User.cedula == cedula))
+    if not previo and body.rol == "ayudante":  # su profesional ya lo registró con teléfono y correo (sin cédula)
+        previo = db.scalar(select(User).where(User.rol == "ayudante", User.password_hash.is_(None),
+                                              or_(User.telefono == limpiar_tel(body.telefono), User.email == body.email.strip().lower())))
     # Ayudante que su técnico ya anotó desde su perfil: al registrarse completa su propia cuenta
     reclamar = previo if previo and previo.rol == "ayudante" and body.rol == "ayudante" and not previo.password_hash else None
     otro_tel = db.scalar(select(User).where(User.telefono == tel))
@@ -81,7 +88,7 @@ def registro_campo(body: RegistroCampo, db: Session = Depends(get_db)):
     if previo and not reclamar:
         raise HTTPException(409, "Esa cédula ya está registrada")
     if reclamar:
-        reclamar.nombre, reclamar.telefono, reclamar.email = body.nombre.strip(), tel, email
+        reclamar.nombre, reclamar.telefono, reclamar.email, reclamar.cedula = body.nombre.strip(), tel, email, cedula
         reclamar.password_hash = hash_password(body.password)
         reclamar.tecnico.pin_hash = hash_password(body.pin)
         db.commit()
@@ -92,17 +99,23 @@ def registro_campo(body: RegistroCampo, db: Session = Depends(get_db)):
     db.add(u)
     db.flush()
     db.add(Tecnico(user_id=u.id, tienda_id=body.tienda_id, grupo=None, es_ayudante=body.rol == "ayudante",
-                   pin_hash=hash_password(body.pin)))
+                   pin_hash=hash_password(body.pin), conduce=body.conduce and body.rol == "tecnico", instala=body.instala or body.rol == "ayudante"))
     db.commit()
     db.refresh(u)
     return {"token": make_token(u.id), "usuario": perfil(u)}
 
 
+CLAUSULA_AYUDANTE = ("Declaro que esta persona es parte de mi equipo de trabajo y que queda bajo mi responsabilidad mientras me acompaña "
+                     "en los servicios de AHA HOME: su conducta, el trato con los clientes y el cuidado de los artículos.")
+
+
 class NuevoAyudante(BaseModel):
-    nombre: str = Field(min_length=3, max_length=120)
-    cedula: str = Field(min_length=5, max_length=20)
-    foto: str = Field(min_length=5, max_length=200)  # subida antes con POST /archivos
-    telefono: str | None = Field(default=None, max_length=30)
+    nombre: str = Field(min_length=3, max_length=120)          # nombre completo
+    telefono: str = Field(min_length=7, max_length=30)
+    email: str = Field(min_length=5, max_length=160)
+    foto: str = Field(min_length=5, max_length=200)            # foto de perfil, subida antes con POST /archivos
+    cedula: str | None = Field(default=None, max_length=20)    # opcional: se completa en la oficina
+    acepta_clausula: bool = False                             # «queda bajo mi responsabilidad»
 
 
 @router.get("/ayudantes")
@@ -115,21 +128,29 @@ def mis_ayudantes(user: User = Depends(solo_tecnico), db: Session = Depends(get_
 def anotar_ayudante(body: NuevoAyudante, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
     """El técnico anota a su ayudante con foto y nombre. Sale en órdenes solo después del registro completo en la oficina."""
     t = mi_tecnico(user)
-    cedula = normalizar_cedula(body.cedula)
-    if db.scalar(select(User).where(User.cedula == cedula)):
+    if t.es_ayudante:
+        raise HTTPException(403, "Solo el profesional registra a sus ayudantes")
+    if not body.acepta_clausula:
+        raise HTTPException(422, "Para registrar a un ayudante debes aceptar que queda bajo tu responsabilidad")
+    cedula = normalizar_cedula(body.cedula) if body.cedula and body.cedula.strip() else None
+    if cedula and db.scalar(select(User).where(User.cedula == cedula)):
         raise HTTPException(409, "Esa cédula ya está registrada")
     tel = limpiar_tel(body.telefono)
-    if tel and db.scalar(select(User).where(User.telefono == tel)):
+    if db.scalar(select(User).where(User.telefono == tel)):
         raise HTTPException(409, "Ese teléfono ya está registrado")
-    u = User(nombre=body.nombre.strip(), cedula=cedula, telefono=tel, rol="ayudante", tienda_id=t.tienda_id)
+    email = body.email.strip().lower()
+    if "@" not in email or db.scalar(select(User).where(User.email == email)):
+        raise HTTPException(409, "Ese correo ya está registrado o no es válido")
+    u = User(nombre=body.nombre.strip(), cedula=cedula, telefono=tel, email=email, rol="ayudante", tienda_id=t.tienda_id)
     db.add(u)
     db.flush()
-    a = Tecnico(user_id=u.id, tienda_id=t.tienda_id, grupo=t.grupo, es_ayudante=True, jefe_id=t.id, foto_perfil=body.foto)
+    a = Tecnico(user_id=u.id, tienda_id=t.tienda_id, grupo=t.grupo, es_ayudante=True, jefe_id=t.id, foto_perfil=body.foto,
+                conduce=False, instala=True, clausula_aceptada_en=ahora())
     db.add(a)
     for s in db.scalars(select(User).where(User.activo.is_(True), or_(
             User.rol.in_(("supervisor", "superadmin")),
             (User.rol == "tecnico_supervisor") & (User.tienda_id == t.tienda_id)))):
-        notificar(db, s.id, "Ayudante por registrar", f"{user.nombre} anotó a {u.nombre} ({cedula}). Completa su registro en la oficina.")
+        notificar(db, s.id, "Ayudante por registrar", f"{user.nombre} registró a {u.nombre} como su ayudante (bajo su responsabilidad). Completa su verificación en la oficina.")
     db.commit()
     return svc.ficha(a) | {"alta": False}
 

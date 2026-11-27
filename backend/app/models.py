@@ -206,6 +206,23 @@ class Tecnico(Base):
     lat_actual: Mapped[float | None] = mapped_column(Float)
     lng_actual: Mapped[float | None] = mapped_column(Float)
     ubicacion_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    # Actividades: lo elige al registrarse en la app (conductor, instalador o ambas). Un solo perfil.
+    conduce: Mapped[bool] = mapped_column(Boolean, default=False)
+    instala: Mapped[bool] = mapped_column(Boolean, default=True)
+    fecha_nacimiento: Mapped[str] = mapped_column(String(10), default="")
+    direccion: Mapped[str] = mapped_column(String(250), default="")
+    vehiculo_tipo: Mapped[str] = mapped_column(String(40), default="")
+    vehiculo_placa: Mapped[str] = mapped_column(String(12), default="")
+    vehiculo_marca: Mapped[str] = mapped_column(String(40), default="")
+    vehiculo_modelo: Mapped[str] = mapped_column(String(40), default="")
+    vehiculo_anio: Mapped[str] = mapped_column(String(4), default="")
+    vehiculo_color: Mapped[str] = mapped_column(String(30), default="")
+    vehiculo_capacidad: Mapped[str] = mapped_column(String(30), default="")
+    licencia_grado: Mapped[str] = mapped_column(String(10), default="")
+    especialidades: Mapped[list] = mapped_column(JSON, default=list)
+    herramientas: Mapped[str] = mapped_column(String(250), default="")
+    certificaciones: Mapped[str] = mapped_column(String(250), default="")
+    clausula_aceptada_en: Mapped[dt.datetime | None] = mapped_column(DateTime)  # ayudante: su profesional aceptó responder por él
     es_ayudante: Mapped[bool] = mapped_column(Boolean, default=False)
     jefe_id: Mapped[int | None] = mapped_column(ForeignKey("tecnicos.id"))  # técnico con el que sale el ayudante
 
@@ -363,6 +380,7 @@ class Documento(Base):
     url: Mapped[str] = mapped_column(String(200))
     descripcion: Mapped[str] = mapped_column(String(200), default="")
     vence: Mapped[str] = mapped_column(String(10), default="")  # AAAA-MM-DD (licencia, seguro)
+    aviso_vence: Mapped[str] = mapped_column(String(10), default="")  # ya avisado: «30d» o «vencido»
     subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
 
@@ -784,3 +802,21 @@ class ConfigSistema(Base):
     __tablename__ = "config_sistema"
     clave: Mapped[str] = mapped_column(String(60), primary_key=True)
     valor: Mapped[str] = mapped_column(Text, default="")
+
+
+
+ESPECIALIDADES = ("Aires acondicionados", "Refrigeración", "Lavado y secado", "Cocinas y hornos", "Calentadores de agua", "Campanas", "Televisores", "Otros de línea blanca")
+TIPOS_VEHICULO = ("NPR (camión 3/4)", "Pick-up de batea larga", "Furgoneta", "Camioneta", "Otro")
+DOCS_CONDUCIR = ("licencia", "vehiculo_titulo", "vehiculo_rcv", "vehiculo_rotc", "vehiculo_seguro", "vehiculo_foto")
+
+
+class PerfilCambio(Base):
+    """Historial de cambios del perfil de un profesional o ayudante (quién cambió qué)."""
+    __tablename__ = "perfil_cambios"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tecnico_id: Mapped[int] = mapped_column(ForeignKey("tecnicos.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    texto: Mapped[str] = mapped_column(String(200), default="")
+    antes: Mapped[str] = mapped_column(String(160), default="")
+    despues: Mapped[str] = mapped_column(String(160), default="")
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)

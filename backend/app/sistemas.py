@@ -466,6 +466,8 @@ def bucle() -> None:
                 resumen_diario(db)
                 if _cfg(db, "limpieza") != dia_caracas():
                     limpiar(db)
+                    from .routers.profesionales import avisar_vencimientos
+                    avisar_vencimientos(db)  # documentos por vencer (30 días) o vencidos: al profesional y al soporte
                     _guardar_cfg(db, "limpieza", dia_caracas())
                     db.commit()
         except Exception:  # noqa: BLE001
