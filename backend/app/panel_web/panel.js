@@ -269,7 +269,7 @@
 
 
   // ---------- Perfil del profesional (conduce, instala o ambas) y del ayudante ----------
-  const DOCS_CONDUCIR = ["licencia", "vehiculo_titulo", "vehiculo_rcv", "vehiculo_rotc", "vehiculo_seguro", "vehiculo_foto"];
+  const DOCS_CONDUCIR = ["certificado_medico", "licencia", "vehiculo_titulo", "vehiculo_rcv", "vehiculo_rotc", "vehiculo_seguro", "vehiculo_foto"];
   async function subirArchivo(archivo) {
     const fd = new FormData(); fd.append("archivo", archivo);
     const r = await fetch("/archivos", { method: "POST", headers: { Authorization: "Bearer " + S.token, ...(S.sesion ? { "X-Sesion": S.sesion } : {}) }, body: fd });
@@ -312,11 +312,16 @@
     const fdoc = (d) => `<div class="pf-doc"><span class="pf-dic">${d.tipo === "foto_perfil" || d.tipo === "vehiculo_foto" ? "🖼" : "📄"}</span><div><b>${esc(d.tipo_texto)}</b><small><span class="pf-id chico">${esc(d.codigo)}</span> · subido ${fecha(d.subido)}${d.vence ? ` · vence ${fmt("", d.vence)}` : ""}${d.descripcion ? " · " + esc(d.descripcion) : ""}</small></div>
       ${d.vence ? chip(d.nivel, d.estado) : ""}<a class="btn sec chico" href="${esc(d.url)}" target="_blank">Ver</a>${ed ? `<button class="btn rojo chico" data-qd="${d.id}">Quitar</button>` : ""}</div>`;
     const comunes = p.documentos.filter((d) => d.para === "comun"), conducir = p.documentos.filter((d) => d.para === "conducir");
+    const oblig = (para) => {
+      const l = p.obligatorios.filter((o) => o.para === para);
+      return l.length ? `<div class="pf-oblig">${l.map((o) => `<span class="pf-tag ${o.estado}">${o.estado === "ok" ? "✓" : o.estado === "vencido" ? "⚠" : "○"} ${esc(o.texto)}${o.estado === "vencido" ? " · vencido" : o.estado === "falta" ? " · falta" : ""}</span>`).join("")}</div>` : "";
+    };
+    const pendientes = p.obligatorios.filter((o) => o.estado !== "ok").length;
     const vehiculo = p.conduce && !p.es_ayudante ? bloque("🚚 Módulo conductor", `<div class="pf-sub">Vehículo</div>` + lista("Tipo", "v.tipo", v.tipo, p.catalogo.vehiculos.map((x) => [x, x]), { vacio: "Elegir…", ancho: true })
       + campo("Placa", "v.placa", v.placa) + campo("Marca", "v.marca", v.marca) + campo("Modelo", "v.modelo", v.modelo) + campo("Año", "v.anio", v.anio)
       + campo("Color", "v.color", v.color) + campo("Capacidad de carga", "v.capacidad", v.capacidad, { ph: "Ej.: 3.500 kg" }) + campo("Grado de licencia", "v.licencia_grado", v.licencia_grado, { ph: "Ej.: 4.º" })
       + `<div class="pf-mapa">Licencia de conducir: ${chip(p.licencia.nivel, p.licencia.texto)}</div>`
-      + `<div class="pf-sub">Documentos para conducir</div>${conducir.map(fdoc).join("") || `<div class="pf-nota total">Sin licencia ni documentos del vehículo. Se agregan en Expediente.</div>`}`, tipoPerfil === "mixto" ? "perfil mixto" : "") : "";
+      + `<div class="pf-sub">Documentos obligatorios para conducir</div>${oblig("conducir")}${conducir.map(fdoc).join("") || `<div class="pf-nota total">Sin licencia ni documentos del vehículo. Se agregan en Expediente.</div>`}`, tipoPerfil === "mixto" ? "perfil mixto" : "") : "";
 
     const espec = p.instala && !p.es_ayudante ? bloque("🔧 Módulo técnico instalador", `<div class="pf-sub">Especialidades</div>` + `<div class="pf-tags">${p.catalogo.especialidades.map((e) => `<label class="pf-tag"><input type="checkbox" data-esp="${esc(e)}" ${p.especialidades.includes(e) ? "checked" : ""} ${dis}>${esc(e)}</label>`).join("")}</div>`
       + campo("Herramientas propias", "herramientas", p.herramientas, { ancho: true, ph: "Ej.: bomba de vacío, manómetros, taladro" }) + campo("Certificaciones", "certificaciones", p.certificaciones, { ancho: true }), tipoPerfil === "mixto" ? "perfil mixto" : "") : "";
@@ -336,13 +341,13 @@
         ${!p.verificado && puedeHacer("altas_tecnicos") ? `${p.es_ayudante ? "" : `<select class="sel" id="pf-gr" style="height:32px">${p.catalogo.grupos.map((g) => `<option>${g}</option>`).join("")}</select>`}<button class="btn pri chico" id="pf-alta">Aprobar y dar de alta</button>` : ""}</div>` : ""}`);
 
     const tiposDoc = Object.entries(p.catalogo.tipos_documento).filter(([k]) => p.conduce || !DOCS_CONDUCIR.includes(k));
-    const expediente = bloque("Expediente", `<div class="pf-sub">Documentos comunes</div>${comunes.map(fdoc).join("") || `<div class="pf-nota total">Sin documentos.</div>`}
+    const expediente = bloque("Expediente", `<div class="pf-sub">Documentos comunes</div>${oblig("comun")}${comunes.map(fdoc).join("") || `<div class="pf-nota total">Sin documentos.</div>`}
       ${p.conduce && !p.es_ayudante ? `<div class="pf-nota total">Los documentos para conducir se ven en el Módulo conductor.</div>` : ""}
       ${ed ? `<div class="pf-sub">Agregar o reemplazar</div><div class="pf-grupo" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select class="sel" id="pf-dt" style="height:38px;flex:1;min-width:180px">${tiposDoc.map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select>
         <label class="total" style="display:flex;gap:6px;align-items:center">Vence <input class="finp" type="date" id="pf-dv" style="width:150px;min-height:38px"></label>
         <input type="file" id="pf-df" accept="image/*,application/pdf"><button class="btn pri chico" id="pf-ds">Subir</button></div>` : ""}
-      <div class="pf-nota total">Te avisamos (a ti y al profesional en su app) 30 días antes de que venza un documento y el día que vence.</div>`, `${p.documentos.length} documento(s)`);
+      <div class="pf-nota total">Te avisamos (a ti y al profesional en su app) 30 días antes de que venza un documento y el día que vence.</div>`, pendientes ? `${pendientes} obligatorio(s) pendiente(s)` : `${p.documentos.length} documento(s) · completo`);
 
     const ffor = (f) => `<div class="pf-doc"><span class="pf-dic">${f.tipo === "titulo" ? "🎓" : "📜"}</span><div><b>${esc(f.nombre)}</b><small><span class="pf-id chico">${esc(f.codigo)}</span> · ${esc(f.tipo_texto)}${f.institucion ? " · " + esc(f.institucion) : ""}${f.anio ? " · " + esc(f.anio) : ""}</small></div>
       ${chip("neutro", f.area_texto)}${f.url ? `<a class="btn sec chico" href="${esc(f.url)}" target="_blank">Ver</a>` : ""}${ed ? `<button class="btn rojo chico" data-qf="${f.id}">Quitar</button>` : ""}</div>`;
@@ -367,7 +372,7 @@
     main.innerHTML = `<div class="migas"><a href="#${desde}" style="color:inherit">${modulo}</a> › <b>Perfil</b></div>
       <div class="card quieta pf-cab">${p.foto_perfil ? `<img src="${esc(p.foto_perfil)}" alt="" style="width:72px;height:72px;border-radius:22px;object-fit:cover">` : `<span class="pf-av grande" style="background:linear-gradient(135deg,#7AA2FF,#3B5BDB)">${ini(p.nombre)}</span>`}
         <div class="pf-cabt"><h2>${esc(p.nombre)} <span class="pf-id grande">${esc(p.codigo)}</span><button class="pf-copiar" id="pf-cp" title="Copiar el código">⧉</button></h2>
-          <div class="pf-chips">${chip("info", p.actividad)}${chip(tono, p.estado)}${p.conduce && !p.es_ayudante ? chip(p.licencia.nivel, "Licencia: " + p.licencia.texto) : ""}${p.grupo ? chip("neutro", p.grupo === "RETEN" ? "Retén" : "Grupo " + p.grupo) : ""}${sv.calificacion ? `<span class="pf-star">★ ${sv.calificacion}</span>` : ""}<span class="total">· ${esc(p.tienda)}</span></div></div>
+          <div class="pf-chips">${chip("info", p.actividad)}${chip(tono, p.estado)}${p.conduce && !p.es_ayudante ? chip(p.licencia.nivel, "Licencia: " + p.licencia.texto) : ""}${pendientes ? chip("mal", `Faltan ${pendientes} documento(s)`) : chip("ok", "Expediente completo")}${p.grupo ? chip("neutro", p.grupo === "RETEN" ? "Retén" : "Grupo " + p.grupo) : ""}${sv.calificacion ? `<span class="pf-star">★ ${sv.calificacion}</span>` : ""}<span class="total">· ${esc(p.tienda)}</span></div></div>
         <div class="pf-cabacc">${ed ? `<button class="btn ${p.activo ? "rojo" : "sec"}" id="pf-act">${p.activo ? "Desactivar cuenta" : "Activar cuenta"}</button><button class="btn pri" id="pf-gu">Guardar cambios</button>` : `<span class="total">Solo lectura: pídele al CEO el permiso «Editar perfiles».</span>`}</div></div>
       <p class="error" id="pf-err"></p><p class="total" id="pf-ok" style="color:var(--verde)"></p>
       <div class="pf-cols"><div>${actividades}${datos}${trabajo}${vehiculo}${espec}${cuenta}</div><div>${identidad}${formacionB}${expediente}${ayudantes}${servicios}${historial}</div></div>`;

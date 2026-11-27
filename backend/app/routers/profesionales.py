@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from .. import codigos, formacion
 from ..db import get_db
 from ..deps import exigir_permiso, permisos_de, require
-from ..models import (DOCS_CONDUCIR, ESPECIALIDADES, GRUPOS, TIPOS_DOCUMENTO, TIPOS_VEHICULO, Orden, PerfilCambio, Tecnico, Tienda, User, ahora,
+from ..models import (OBLIGATORIOS_CONDUCTOR, documentos_pendientes, obligatorios_de, DOCS_CONDUCIR, ESPECIALIDADES, GRUPOS, TIPOS_DOCUMENTO, TIPOS_VEHICULO, Orden, PerfilCambio, Tecnico, Tienda, User, ahora,
                       dia_caracas)
 from ..notificar import notificar
 from ..security import hash_password
@@ -72,6 +72,12 @@ def _doc(d) -> dict:
             "vence": d.vence, "subido": _iso(d.creado), "nivel": n, "estado": tx, "para": "conducir" if d.tipo in DOCS_CONDUCIR else "comun"}
 
 
+def _obligatorios(t: Tecnico) -> list[dict]:
+    pend = dict(documentos_pendientes(t))
+    return [{"tipo": k, "texto": TIPOS_DOCUMENTO[k], "para": "conducir" if k in OBLIGATORIOS_CONDUCTOR else "comun",
+             "estado": pend.get(k, "ok")} for k in obligatorios_de(t)]
+
+
 def vista(db: Session, t: Tecnico, user: User) -> dict:
     u = t.user
     ords = db.scalars(select(Orden).where(or_(Orden.tecnico_id == t.id, Orden.ayudantes.any(Tecnico.id == t.id)))).all()
@@ -95,6 +101,7 @@ def vista(db: Session, t: Tecnico, user: User) -> dict:
         "identidad": {"foto_rostro": t.foto_rostro, "selfie_cedula": t.selfie_cedula, "resultado": t.rostro_resultado or "", "similitud": round((t.rostro_similitud_cedula or t.rostro_similitud or 0) * 100),
                       "intentos": t.rostro_intentos, "huella": t.huella_registrada, "alta_en": _iso(t.alta_en), "alta_por": alta_por.nombre if alta_por else None},
         "documentos": [_doc(d) for d in sorted(t.documentos, key=lambda d: d.id)], "licencia": estado_licencia(t),
+        "obligatorios": _obligatorios(t),
         "jefe": {"id": jefe.id, "nombre": jefe.user.nombre, "codigo": codigos.profesional(jefe)} if jefe else None,
         "clausula_aceptada_en": _iso(t.clausula_aceptada_en),
         "ayudantes": [{"id": a.id, "nombre": a.user.nombre, "codigo": codigos.profesional(a), "cedula": a.user.cedula or "", "verificado": a.verificado}

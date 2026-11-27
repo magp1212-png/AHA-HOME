@@ -360,9 +360,9 @@ TIPOS_DOCUMENTO = {
     "cedula": "Cédula de identidad",
     "licencia": "Licencia de conducir",
     "certificado_medico": "Certificado médico",
-    "vehiculo_titulo": "Título o carnet de circulación del vehículo",
+    "vehiculo_titulo": "Carnet de circulación del vehículo",
     "vehiculo_rcv": "RCV · Responsabilidad Civil del vehículo",
-    "vehiculo_rotc": "ROTC del INTT (solo NPR, pick-up de batea larga o furgoneta)",
+    "vehiculo_rotc": "ROTC del INTT",
     "vehiculo_seguro": "Seguro del vehículo (otra póliza)",
     "vehiculo_foto": "Foto del vehículo",
     "rif": "RIF",
@@ -370,6 +370,28 @@ TIPOS_DOCUMENTO = {
     "otro": "Otro documento",
 }
 DOCUMENTOS_OBLIGATORIOS = ("foto_perfil", "cedula")
+# Obligatorios para el conductor (y el mixto). Los del técnico instalador están por definir.
+OBLIGATORIOS_CONDUCTOR = ("certificado_medico", "vehiculo_titulo", "licencia", "vehiculo_rcv", "vehiculo_rotc")
+OBLIGATORIOS_INSTALADOR: tuple[str, ...] = ()
+
+
+def obligatorios_de(t) -> tuple[str, ...]:
+    if t.es_ayudante:
+        return DOCUMENTOS_OBLIGATORIOS
+    return DOCUMENTOS_OBLIGATORIOS + (OBLIGATORIOS_CONDUCTOR if t.conduce else ()) + (OBLIGATORIOS_INSTALADOR if t.instala else ())
+
+
+def documentos_pendientes(t) -> list[tuple[str, str]]:
+    """(tipo, motivo) de cada obligatorio que falta o está vencido."""
+    hoy = dia_caracas()
+    out = []
+    for tipo in obligatorios_de(t):
+        docs = sorted((d for d in t.documentos if d.tipo == tipo), key=lambda d: d.id)
+        if not docs:
+            out.append((tipo, "falta"))
+        elif docs[-1].vence and docs[-1].vence < hoy:
+            out.append((tipo, "vencido"))
+    return out
 
 
 class Documento(Base):
@@ -807,7 +829,7 @@ class ConfigSistema(Base):
 
 ESPECIALIDADES = ("Aires acondicionados", "Refrigeración", "Lavado y secado", "Cocinas y hornos", "Calentadores de agua", "Campanas", "Televisores", "Otros de línea blanca")
 TIPOS_VEHICULO = ("NPR (camión 3/4)", "Pick-up de batea larga", "Furgoneta", "Camioneta", "Otro")
-DOCS_CONDUCIR = ("licencia", "vehiculo_titulo", "vehiculo_rcv", "vehiculo_rotc", "vehiculo_seguro", "vehiculo_foto")
+DOCS_CONDUCIR = ("certificado_medico", "licencia", "vehiculo_titulo", "vehiculo_rcv", "vehiculo_rotc", "vehiculo_seguro", "vehiculo_foto")
 
 
 class PerfilCambio(Base):

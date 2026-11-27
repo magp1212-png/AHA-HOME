@@ -446,3 +446,5 @@ b.acento,.acento{color:var(--acento)}
 .pf-b .fila{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:6px 0;border-bottom:1px solid var(--borde);font-size:13.5px}
 .pf-b .fila:last-child{border-bottom:0}.pf-b .fila>span:last-child{text-align:right;white-space:nowrap}
 .pf-verd .fila{grid-column:auto}
+.pf-oblig{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 6px}
+.pf-tag.ok{background:rgba(31,181,127,.14);color:var(--verde)}.pf-tag.falta{background:rgba(242,85,90,.12);color:var(--rojo)}.pf-tag.vencido{background:rgba(242,140,60,.16);color:#D9792B}

@@ -87,6 +87,8 @@ def registro_campo(body: RegistroCampo, db: Session = Depends(get_db)):
     otro_mail = db.scalar(select(User).where(User.email == email))
     if otro_mail and otro_mail is not reclamar:
         raise HTTPException(409, "Ese correo ya está registrado")
+    if body.rol == "ayudante" and not reclamar:
+        raise HTTPException(403, "Los ayudantes no se registran solos: tu profesional te registra desde su app como parte de su equipo")
     if previo and not reclamar:
         raise HTTPException(409, "Esa cédula ya está registrada")
     if reclamar:

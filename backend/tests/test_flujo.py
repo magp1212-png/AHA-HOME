@@ -221,11 +221,16 @@ def test_registro_en_app_y_alta_en_oficina(client, monkeypatch):
     assert "¡Bienvenido a AHA HOME!" in titulos(client, h)
     assert client.post("/auth/login-pin", json={"telefono": "04129990000", "pin": "4321"}).status_code == 200
 
-    # Ayudante: mismo registro, y en la oficina se le asigna el técnico con el que sale
+    # Ayudante: no se registra solo; lo registra su profesional desde su app y luego activa su acceso con el mismo teléfono
+    assert client.post("/tecnico/registro", json=datos | {"nombre": "Luis Ayudante", "cedula": "V-26000000", "telefono": "04129990009",
+                                                          "email": "otro@correo.com", "rol": "ayudante"}).status_code == 403
+    nuevo = client.post("/tecnico/ayudantes", json={"nombre": "Luis Ayudante", "telefono": "04129990001", "email": "luis@correo.com",
+                                                    "foto": "/archivos/luis.jpg", "acepta_clausula": True}, headers=h).json()
     r = client.post("/tecnico/registro", json=datos | {"nombre": "Luis Ayudante", "cedula": "V-26000000", "telefono": "04129990001",
                                                         "email": "luis@correo.com", "rol": "ayudante"})
     ha = {"Authorization": "Bearer " + r.json()["token"]}
     ay_id = r.json()["usuario"]["tecnico"]["id"]
+    assert ay_id == nuevo["id"]
     client.post("/tecnico/verificar-rostro", json=fotos, headers=ha)
     client.post("/tecnico/onboarding", json=fotos | {"huella_registrada": True}, headers=ha)
     for tipo in ("foto_perfil", "cedula"):
@@ -1564,3 +1569,33 @@ def test_titulos_y_cursos_del_profesional(client):
     assert len(client.get("/tecnico/formacion", headers=tecnico).json()) == 2
     assert client.delete(f"/tecnico/formacion/{f['id']}", headers=tecnico).status_code == 200
     assert len(client.get(f"/profesionales/{jid}", headers=control).json()["formacion"]) == 1
+
+
+def test_documentos_obligatorios_del_conductor(client):
+    control = login(client, "supervisor@ahahome.test")
+    with SessionLocal() as db:
+        t = db.scalar(select(Tecnico).where(Tecnico.es_ayudante.is_(False)).order_by(Tecnico.id))
+        t.verificado, tid = False, t.id
+        db.commit()
+    p = client.get(f"/profesionales/{tid}", headers=control).json()
+    falta = {o["tipo"] for o in p["obligatorios"] if o["estado"] != "ok"}
+    assert falta >= {"certificado_medico", "vehiculo_titulo", "licencia", "vehiculo_rcv", "vehiculo_rotc"}
+    r = client.post(f"/supervisor/tecnicos/{tid}/alta", json={"grupo": "A"}, headers=control)
+    assert r.status_code == 422 and "ROTC del INTT" in r.json()["detail"]["faltan"]
+    ayer = (dt.date.today() - dt.timedelta(days=2)).isoformat()
+    for tipo in falta:
+        client.post(f"/supervisor/tecnicos/{tid}/documentos", json={"tipo": tipo, "url": f"/archivos/{tipo}.jpg", "vence": ayer if tipo == "licencia" else ""}, headers=control)
+    r = client.post(f"/supervisor/tecnicos/{tid}/alta", json={"grupo": "A"}, headers=control)
+    assert r.status_code == 422 and r.json()["detail"]["faltan"] == ["Licencia de conducir (vencido)"]
+    client.post(f"/supervisor/tecnicos/{tid}/documentos", json={"tipo": "licencia", "url": "/archivos/lic2.jpg", "vence": "2030-01-01"}, headers=control)
+    assert client.post(f"/supervisor/tecnicos/{tid}/alta", json={"grupo": "A"}, headers=control).status_code == 200
+    # el técnico instalador (sin conducir) no necesita esos documentos
+    client.put(f"/profesionales/{tid}", json={"conduce": False}, headers=control)
+    assert all(o["para"] == "comun" for o in client.get(f"/profesionales/{tid}", headers=control).json()["obligatorios"])
+
+
+def test_el_ayudante_no_se_registra_solo(client):
+    tienda_id = client.get("/tiendas").json()[0]["id"]
+    r = client.post("/tecnico/registro", json={"nombre": "Ayudante Suelto", "cedula": "28999111", "telefono": "04129998877", "email": "suelto@correo.com",
+                                               "password": "clave123", "pin": "5555", "rol": "ayudante", "tienda_id": tienda_id})
+    assert r.status_code == 403 and "profesional" in r.json()["detail"]

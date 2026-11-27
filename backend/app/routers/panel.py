@@ -15,7 +15,7 @@ from .. import ordenes as svc
 from ..db import get_db
 from ..deps import exigir_permiso, permisos_de, require
 from ..models import (ESTADO_TEXTO, METODO_PAGO_TEXTO, TIPO_EQUIPO_TEXTO, TIPO_SERVICIO_TEXTO, Articulo, Incidencia, Orden, Presupuesto,
-                      SoporteMensaje, Tecnico, Tienda, User, ahora)
+                      SoporteMensaje, Tecnico, Tienda, User, ahora, documentos_pendientes)
 
 router = APIRouter(prefix="/panel-api", tags=["panel"])
 panel = require("supervisor")  # supervisor y superadmin (el superadmin pasa siempre)
@@ -258,7 +258,7 @@ def _verificaciones(modulo: str | None):
             tipos = {d.tipo for d in t.documentos}
             filas.append({"id": t.user.id, "tecnico_id": t.id, "solicitud": codigos.verificacion(t), "codigo": codigos.profesional(t), "solicitado": _fecha(t.user.creado),
                           "nombre": t.user.nombre, "rol": codigos.actividad_texto(t), "facial": fac.get(t.rostro_resultado or "", t.rostro_resultado),
-                          "documentos": f"{len(tipos)} cargado(s)" if tipos else "Ninguno", "estado": "Aprobado" if t.verificado else "Pendiente",
+                          "documentos": f"Faltan {len(pend)}" if (pend := documentos_pendientes(t)) else "Completos", "estado": "Aprobado" if t.verificado else "Pendiente",
                           "aprobado": _fecha(t.alta_en) or "—", "_acciones": ["perfil"]})
         return cols, filas
     return f

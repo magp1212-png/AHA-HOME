@@ -10,7 +10,7 @@ from .. import asignacion
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import require, exigir_permiso
-from ..models import (DOCUMENTOS_OBLIGATORIOS, GRUPOS, ROLES, TIPOS_DOCUMENTO, Documento, Incidencia, Orden, PerfilCambio, Tecnico, Tienda,
+from ..models import (DOCUMENTOS_OBLIGATORIOS, GRUPOS, ROLES, TIPOS_DOCUMENTO, Documento, Incidencia, Orden, PerfilCambio, Tecnico, Tienda, documentos_pendientes,
                       User, ahora)
 from ..notificar import notificar
 from ..security import hash_password
@@ -45,7 +45,7 @@ def tecnico_dict(db: Session, t: Tecnico, fecha: str) -> dict:
                                     "similitud_cedula": round(t.rostro_similitud_cedula, 3) if t.rostro_similitud_cedula else None},
             "huella_registrada": t.huella_registrada, "email": t.user.email,
             "registro_app_completo": bool(t.foto_rostro and t.selfie_cedula and t.huella_registrada),
-            "documentos_faltantes": [d for d in DOCUMENTOS_OBLIGATORIOS if d not in {x.tipo for x in t.documentos}],
+            "documentos_faltantes": [d for d, _ in documentos_pendientes(t)],
             "alta_en": t.alta_en.isoformat() + "Z" if t.alta_en else None,
             "jefe": t.jefe.user.nombre if t.jefe else None,
             "ayudantes": [{"id": a.id, "nombre": a.user.nombre, "verificado": a.verificado} for a in t.ayudantes],
@@ -255,7 +255,7 @@ def dar_de_alta(tec_id: int, body: Alta, user: User = Depends(control), db: Sess
         if not cuenta_tecnico(t)["registrada"]:
             falta.append("datos bancarios o de pago móvil (para pagarle sus servicios)")
     tipos = {d.tipo for d in t.documentos}
-    falta += [TIPOS_DOCUMENTO[d] for d in DOCUMENTOS_OBLIGATORIOS if d not in tipos]
+    falta += [TIPOS_DOCUMENTO[d] + (" (vencido)" if motivo == "vencido" else "") for d, motivo in documentos_pendientes(t)]
     if falta:
         raise HTTPException(422, {"mensaje": "Falta completar el registro", "faltan": falta})
     if t.es_ayudante:
