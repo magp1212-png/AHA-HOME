@@ -11,7 +11,7 @@ import { Avatar, C } from "../ui";
 
 type Msg = { id: number; texto: string; foto: string | null; creado: string; mio: boolean; sistema: boolean; autor: string | null; rol: string | null; control: boolean };
 type Llamada = { texto: string; detalle?: string; telefono: string };
-type Chat = { orden_id: number; codigo: string; abierto: boolean; llamar?: Llamada[]; estado_texto: string; con: { nombre: string; foto: string | null; rol: string }; mensajes: Msg[] };
+type Chat = { orden_id: number; codigo: string; abierto: boolean; llamar?: Llamada[]; estado_texto: string; con: { nombre: string; foto: string | null; rol: string }; mensajes: Msg[]; monitoreo?: { activo: boolean; texto: string } };
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" });
 
@@ -96,6 +96,12 @@ export default function ChatOrden({ id }: { id: number }) {
             El centro de control y los supervisores de AHA HOME pueden ver y participar en este chat. No compartas datos bancarios.
           </Text>
         </View>
+        {chat?.monitoreo?.activo ? (
+          <View accessibilityRole="alert" style={{ flexDirection: "row", gap: 8, alignItems: "center", backgroundColor: "#E3F7EF", borderWidth: 1, borderColor: "#8ED9BD", borderRadius: 14, padding: 10 }}>
+            <Ionicons name="eye-outline" size={20} color="#138A62" />
+            <Text style={{ flex: 1, fontSize: 12.5, color: "#0F5C43", fontWeight: "700" }}>{chat.monitoreo.texto}</Text>
+          </View>
+        ) : null}
         {error ? <Text style={{ color: C.error }}>{error}</Text> : null}
         {chat && chat.mensajes.length === 0 ? <Text style={{ alignSelf: "center", color: C.gris, marginTop: 10 }}>Escribe el primer mensaje.</Text> : null}
         {chat?.mensajes.map((m) => m.sistema ? (

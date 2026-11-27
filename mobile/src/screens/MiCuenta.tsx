@@ -101,6 +101,7 @@ export default function MiCuenta() {
       {perfil.rol === "tecnico" ? (
         <>
           <Boton titulo="Mis ayudantes" tipo="secundario" icono="people-outline" onPress={() => nav.push("ayudantes")} />
+          <Boton titulo="Mis títulos y cursos" tipo="secundario" icono="school-outline" onPress={() => nav.push("formacion")} />
           <Boton titulo="Mi cuenta de pago" tipo="secundario" icono="card-outline" onPress={() => nav.push("cuentaPago")} />
         </>
       ) : null}

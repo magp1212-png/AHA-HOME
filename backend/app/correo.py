@@ -51,8 +51,22 @@ def _por_api(cfg: dict, destino: str, asunto: str, html: str, texto: str) -> boo
         return 200 <= r.status < 300
 
 
+ultimo: dict | None = None  # último envío: {ok, a, en} (lo muestra el Departamento de sistemas)
+
+
+def _anotar(ok: bool, destino: str) -> bool:
+    global ultimo
+    import datetime as _dt
+    ultimo = {"ok": ok, "a": destino, "en": _dt.datetime.now().strftime("%d/%m %H:%M")}
+    return ok
+
+
 def enviar(destino: str, asunto: str, html: str, texto: str = "") -> bool:
     """Envía un correo; True si salió (o si quedó en la bandeja de pruebas)."""
+    return _anotar(_enviar(destino, asunto, html, texto), destino) if _settings() else _enviar(destino, asunto, html, texto)
+
+
+def _enviar(destino: str, asunto: str, html: str, texto: str = "") -> bool:
     cfg = _settings()
     if cfg is None:
         outbox.append({"to": destino, "subject": asunto, "html": html, "text": texto})

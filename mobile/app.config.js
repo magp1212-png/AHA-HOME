@@ -6,7 +6,7 @@ module.exports = () => ({
     name: "AHA HOME",
     slug: "aha-home",
     scheme: "ahahome",
-    version: "0.1.0",
+    version: "1.0.1",
     orientation: "portrait",
     userInterfaceStyle: "light",
     icon: "./assets/icon.png",

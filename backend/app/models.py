@@ -116,7 +116,8 @@ class User(Base):
     rol: Mapped[str] = mapped_column(String(20), default="cliente")
     cedula: Mapped[str | None] = mapped_column(String(20))
     foto: Mapped[str | None] = mapped_column(String(200))  # foto del cliente al registrarse
-    email_verificado: Mapped[bool] = mapped_column(Boolean, default=True)  # los clientes empiezan sin verificar
+    email_verificado: Mapped[bool] = mapped_column(Boolean, default=True)
+    sesiones_desde: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)  # sesiones abiertas antes de esto quedan cerradas  # los clientes empiezan sin verificar
     verificacion_token: Mapped[str | None] = mapped_column(String(60), index=True)
     verificacion_vence: Mapped[dt.datetime | None] = mapped_column(DateTime)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -205,6 +206,27 @@ class Tecnico(Base):
     lat_actual: Mapped[float | None] = mapped_column(Float)
     lng_actual: Mapped[float | None] = mapped_column(Float)
     ubicacion_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    # Actividades: lo elige al registrarse en la app (conductor, instalador o ambas). Un solo perfil.
+    conduce: Mapped[bool] = mapped_column(Boolean, default=False)
+    instala: Mapped[bool] = mapped_column(Boolean, default=True)
+    fecha_nacimiento: Mapped[str] = mapped_column(String(10), default="")
+    direccion: Mapped[str] = mapped_column(String(250), default="")
+    vehiculo_tipo: Mapped[str] = mapped_column(String(40), default="")
+    vehiculo_placa: Mapped[str] = mapped_column(String(12), default="")
+    vehiculo_marca: Mapped[str] = mapped_column(String(40), default="")
+    vehiculo_modelo: Mapped[str] = mapped_column(String(40), default="")
+    vehiculo_anio: Mapped[str] = mapped_column(String(4), default="")
+    vehiculo_color: Mapped[str] = mapped_column(String(30), default="")
+    vehiculo_capacidad: Mapped[str] = mapped_column(String(30), default="")
+    licencia_grado: Mapped[str] = mapped_column(String(10), default="")
+    especialidades: Mapped[list] = mapped_column(JSON, default=list)
+    herramientas: Mapped[str] = mapped_column(String(250), default="")
+    certificaciones: Mapped[str] = mapped_column(String(250), default="")
+    clausula_aceptada_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    # Ayudante: no tiene acceso a la app; su teléfono y correo son solo de contacto (así puede registrarse aparte como profesional)
+    contacto_telefono: Mapped[str] = mapped_column(String(30), default="")
+    contacto_email: Mapped[str] = mapped_column(String(160), default="")
+    retirado_en: Mapped[dt.datetime | None] = mapped_column(DateTime)  # su profesional lo quitó de su equipo  # ayudante: su profesional aceptó responder por él
     es_ayudante: Mapped[bool] = mapped_column(Boolean, default=False)
     jefe_id: Mapped[int | None] = mapped_column(ForeignKey("tecnicos.id"))  # técnico con el que sale el ayudante
 
@@ -342,9 +364,9 @@ TIPOS_DOCUMENTO = {
     "cedula": "Cédula de identidad",
     "licencia": "Licencia de conducir",
     "certificado_medico": "Certificado médico",
-    "vehiculo_titulo": "Título o carnet de circulación del vehículo",
+    "vehiculo_titulo": "Carnet de circulación del vehículo",
     "vehiculo_rcv": "RCV · Responsabilidad Civil del vehículo",
-    "vehiculo_rotc": "ROTC del INTT (solo NPR, pick-up de batea larga o furgoneta)",
+    "vehiculo_rotc": "ROTC del INTT",
     "vehiculo_seguro": "Seguro del vehículo (otra póliza)",
     "vehiculo_foto": "Foto del vehículo",
     "rif": "RIF",
@@ -352,6 +374,28 @@ TIPOS_DOCUMENTO = {
     "otro": "Otro documento",
 }
 DOCUMENTOS_OBLIGATORIOS = ("foto_perfil", "cedula")
+# Obligatorios para el conductor (y el mixto). Los del técnico instalador están por definir.
+OBLIGATORIOS_CONDUCTOR = ("certificado_medico", "vehiculo_titulo", "licencia", "vehiculo_rcv", "vehiculo_rotc")
+OBLIGATORIOS_INSTALADOR: tuple[str, ...] = ()
+
+
+def obligatorios_de(t) -> tuple[str, ...]:
+    if t.es_ayudante:
+        return DOCUMENTOS_OBLIGATORIOS
+    return DOCUMENTOS_OBLIGATORIOS + (OBLIGATORIOS_CONDUCTOR if t.conduce else ()) + (OBLIGATORIOS_INSTALADOR if t.instala else ())
+
+
+def documentos_pendientes(t) -> list[tuple[str, str]]:
+    """(tipo, motivo) de cada obligatorio que falta o está vencido."""
+    hoy = dia_caracas()
+    out = []
+    for tipo in obligatorios_de(t):
+        docs = sorted((d for d in t.documentos if d.tipo == tipo), key=lambda d: d.id)
+        if not docs:
+            out.append((tipo, "falta"))
+        elif docs[-1].vence and docs[-1].vence < hoy:
+            out.append((tipo, "vencido"))
+    return out
 
 
 class Documento(Base):
@@ -362,6 +406,7 @@ class Documento(Base):
     url: Mapped[str] = mapped_column(String(200))
     descripcion: Mapped[str] = mapped_column(String(200), default="")
     vence: Mapped[str] = mapped_column(String(10), default="")  # AAAA-MM-DD (licencia, seguro)
+    aviso_vence: Mapped[str] = mapped_column(String(10), default="")  # ya avisado: «30d» o «vencido»
     subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=ahora)
 
@@ -740,4 +785,102 @@ class ActividadPanel(Base):
     texto: Mapped[str] = mapped_column(String(200), default="")
     ip: Mapped[str] = mapped_column(String(64), default="")
     dispositivo: Mapped[str] = mapped_column(String(60), default="")
+    duracion_ms: Mapped[int] = mapped_column(Integer, default=0)  # cuánto tardó en abrir la pantalla
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)
+
+
+
+class ErrorSistema(Base):
+    """Errores de la aplicación (servidor, panel o app), agrupados: los iguales suman «veces»."""
+    __tablename__ = "errores_sistema"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    huella: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    origen: Mapped[str] = mapped_column(String(12), default="servidor")  # servidor | panel | app
+    mensaje: Mapped[str] = mapped_column(String(300), default="")
+    donde: Mapped[str] = mapped_column(String(200), default="")
+    usuario: Mapped[str] = mapped_column(String(120), default="")
+    veces: Mapped[int] = mapped_column(Integer, default=1)
+    veces_hora: Mapped[int] = mapped_column(Integer, default=1)  # cuántas en la hora en curso (para avisar si se repite mucho)
+    hora: Mapped[str] = mapped_column(String(13), default="")
+    estado: Mapped[str] = mapped_column(String(12), default="nuevo")  # nuevo | revision | resuelto
+    nota: Mapped[str] = mapped_column(String(300), default="")
+    atendido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    primera: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+    ultima: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)
+
+
+class ChequeoSistema(Base):
+    """Último resultado de cada revisión automática (estado de la app y funciones)."""
+    __tablename__ = "chequeos_sistema"
+    clave: Mapped[str] = mapped_column(String(30), primary_key=True)
+    grupo: Mapped[str] = mapped_column(String(10), default="estado")  # estado | funcion
+    nombre: Mapped[str] = mapped_column(String(80), default="")
+    nivel: Mapped[str] = mapped_column(String(6), default="ok")  # ok | pend | mal
+    valor: Mapped[str] = mapped_column(String(80), default="")
+    detalle: Mapped[str] = mapped_column(String(250), default="")
+    ms: Mapped[int] = mapped_column(Integer, default=0)
+    en: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+    desde: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())  # desde cuándo está en este nivel
+
+
+class ConfigSistema(Base):
+    """Ajustes y marcas del departamento de sistemas (texto largo o JSON)."""
+    __tablename__ = "config_sistema"
+    clave: Mapped[str] = mapped_column(String(60), primary_key=True)
+    valor: Mapped[str] = mapped_column(Text, default="")
+
+
+
+ESPECIALIDADES = ("Aires acondicionados", "Refrigeración", "Lavado y secado", "Cocinas y hornos", "Calentadores de agua", "Campanas", "Televisores", "Otros de línea blanca")
+TIPOS_VEHICULO = ("NPR (camión 3/4)", "Pick-up de batea larga", "Furgoneta", "Camioneta", "Otro")
+DOCS_CONDUCIR = ("certificado_medico", "licencia", "vehiculo_titulo", "vehiculo_rcv", "vehiculo_rotc", "vehiculo_seguro", "vehiculo_foto")
+
+
+class PerfilCambio(Base):
+    """Historial de cambios del perfil de un profesional o ayudante (quién cambió qué)."""
+    __tablename__ = "perfil_cambios"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tecnico_id: Mapped[int] = mapped_column(ForeignKey("tecnicos.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    texto: Mapped[str] = mapped_column(String(200), default="")
+    antes: Mapped[str] = mapped_column(String(160), default="")
+    despues: Mapped[str] = mapped_column(String(160), default="")
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)
+
+
+class Formacion(Base):
+    """Títulos y cursos del profesional (los sube desde su app o la oficina), para la base interna."""
+    __tablename__ = "formacion"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tecnico_id: Mapped[int] = mapped_column(ForeignKey("tecnicos.id"), index=True)
+    tipo: Mapped[str] = mapped_column(String(10), default="curso")  # titulo | curso
+    nombre: Mapped[str] = mapped_column(String(150))
+    institucion: Mapped[str] = mapped_column(String(150), default="")
+    anio: Mapped[str] = mapped_column(String(4), default="")
+    area: Mapped[str] = mapped_column(String(20), default="general")  # conductor | instalador | general
+    url: Mapped[str] = mapped_column(String(200), default="")  # foto o PDF del título o certificado
+    subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+
+
+class ClienteCambio(Base):
+    """Historial de cambios en los datos de un cliente (quién cambió qué desde el panel)."""
+    __tablename__ = "cliente_cambios"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cliente_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    texto: Mapped[str] = mapped_column(String(200), default="")
+    antes: Mapped[str] = mapped_column(String(160), default="")
+    despues: Mapped[str] = mapped_column(String(160), default="")
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)
+
+
+class ChatMonitoreo(Base):
+    """Soporte siguiendo en vivo el chat de una orden (cliente ↔ profesional). Activo mientras el panel lo tenga abierto."""
+    __tablename__ = "chat_monitoreos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    inicio: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+    visto_en: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())  # último latido del panel
+    fin: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)

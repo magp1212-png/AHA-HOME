@@ -18,6 +18,8 @@ from ..security import hash_password, make_token
 from .auth import limpiar_tel, perfil
 from .ordenes import obtener
 
+from ..formacion import NuevaFormacion as NuevaFormacionApp  # noqa: E402
+
 router = APIRouter(prefix="/tecnico", tags=["tecnico"])
 solo_tecnico = require("tecnico")
 campo = require("tecnico", "ayudante")
@@ -46,6 +48,8 @@ class RegistroCampo(BaseModel):
     pin: str = Field(min_length=4, max_length=8, pattern=r"^\d+$")
     rol: str = "tecnico"  # tecnico o ayudante
     tienda_id: int
+    conduce: bool = False  # al registrarse elige: conductor, instalador o ambas
+    instala: bool = True
 
 
 def normalizar_cedula(c: str) -> str:
@@ -57,81 +61,164 @@ def normalizar_cedula(c: str) -> str:
     return f"{letra}-{int(num):,}".replace(",", ".")
 
 
+def liberar_contacto(u: User) -> None:
+    """El teléfono y el correo del ayudante pasan a su ficha (solo contacto) y quedan libres para otra cuenta."""
+    t = u.tecnico
+    if t:
+        t.contacto_telefono = t.contacto_telefono or (u.telefono or "")
+        t.contacto_email = t.contacto_email or (u.email or "")
+    u.telefono = u.email = None
+
+
 @router.post("/registro")
 def registro_campo(body: RegistroCampo, db: Session = Depends(get_db)):
     from .. import config
     if config.SOLO_EQUIPO:
         raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
-    if body.rol not in ("tecnico", "ayudante"):
-        raise HTTPException(422, "Rol inválido")
+    if body.rol != "tecnico":
+        raise HTTPException(403, "Los ayudantes no se registran solos: tu profesional te agrega a su equipo desde su app. "
+                                 "Si quieres trabajar por tu cuenta, regístrate como profesional.")
+    if not (body.conduce or body.instala):
+        raise HTTPException(422, "Elige tu perfil: conductor, técnico instalador o mixto")
     if not db.get(Tienda, body.tienda_id):
         raise HTTPException(422, "Tienda no válida")
     tel = limpiar_tel(body.telefono)
     email = body.email.strip().lower()
     cedula = normalizar_cedula(body.cedula)
-    previo = db.scalar(select(User).where(User.cedula == cedula))
-    # Ayudante que su técnico ya anotó desde su perfil: al registrarse completa su propia cuenta
-    reclamar = previo if previo and previo.rol == "ayudante" and body.rol == "ayudante" and not previo.password_hash else None
-    otro_tel = db.scalar(select(User).where(User.telefono == tel))
-    if otro_tel and otro_tel is not reclamar:
+    # Si era ayudante de alguien, su ficha de ayudante sigue igual y este es un registro aparte como profesional independiente
+    for viejo in db.scalars(select(User).where(User.rol == "ayudante", or_(User.telefono == tel, User.email == email))):
+        liberar_contacto(viejo)
+    db.flush()
+    if db.scalar(select(User).where(User.telefono == tel)):
         raise HTTPException(409, "Ese teléfono ya está registrado")
-    otro_mail = db.scalar(select(User).where(User.email == email))
-    if otro_mail and otro_mail is not reclamar:
+    if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(409, "Ese correo ya está registrado")
-    if previo and not reclamar:
+    if db.scalar(select(User).where(User.cedula == cedula, User.rol != "ayudante")):
         raise HTTPException(409, "Esa cédula ya está registrada")
-    if reclamar:
-        reclamar.nombre, reclamar.telefono, reclamar.email = body.nombre.strip(), tel, email
-        reclamar.password_hash = hash_password(body.password)
-        reclamar.tecnico.pin_hash = hash_password(body.pin)
-        db.commit()
-        db.refresh(reclamar)
-        return {"token": make_token(reclamar.id), "usuario": perfil(reclamar)}
     u = User(nombre=body.nombre.strip(), cedula=cedula, telefono=tel, email=email, password_hash=hash_password(body.password),
-             rol=body.rol, tienda_id=body.tienda_id)
+             rol="tecnico", tienda_id=body.tienda_id)
     db.add(u)
     db.flush()
-    db.add(Tecnico(user_id=u.id, tienda_id=body.tienda_id, grupo=None, es_ayudante=body.rol == "ayudante",
-                   pin_hash=hash_password(body.pin)))
+    db.add(Tecnico(user_id=u.id, tienda_id=body.tienda_id, grupo=None, es_ayudante=False,
+                   pin_hash=hash_password(body.pin), conduce=body.conduce, instala=body.instala))
     db.commit()
     db.refresh(u)
     return {"token": make_token(u.id), "usuario": perfil(u)}
 
 
+CLAUSULA_AYUDANTE = ("Declaro que esta persona es parte de mi equipo de trabajo y que queda bajo mi responsabilidad mientras me acompaña "
+                     "en los servicios de AHA HOME: su conducta, el trato con los clientes y el cuidado de los artículos.")
+
+
 class NuevoAyudante(BaseModel):
-    nombre: str = Field(min_length=3, max_length=120)
-    cedula: str = Field(min_length=5, max_length=20)
-    foto: str = Field(min_length=5, max_length=200)  # subida antes con POST /archivos
-    telefono: str | None = Field(default=None, max_length=30)
+    nombre: str = Field(min_length=3, max_length=120)          # nombre completo
+    telefono: str = Field(min_length=7, max_length=30)
+    email: str = Field(min_length=5, max_length=160)
+    foto: str = Field(min_length=5, max_length=200)            # foto de perfil, subida antes con POST /archivos
+    cedula: str | None = Field(default=None, max_length=20)    # opcional: se completa en la oficina
+    acepta_clausula: bool = False                             # «queda bajo mi responsabilidad»
+
+
+@router.get("/formacion")
+def mi_formacion(user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    """Mis títulos y cursos."""
+    from .. import formacion
+    return formacion.lista(db, mi_tecnico(user))
+
+
+@router.post("/formacion")
+def subir_formacion(body: NuevaFormacionApp, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    from .. import formacion
+    f = formacion.agregar(db, mi_tecnico(user), body, user)
+    db.commit()
+    return formacion.ficha(f)
+
+
+@router.delete("/formacion/{fid}")
+def quitar_formacion(fid: int, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    from .. import formacion
+    formacion.quitar(db, mi_tecnico(user), fid, user)
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/ayudantes")
 def mis_ayudantes(user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
     t = mi_tecnico(user)
-    return [svc.ficha(a) | {"alta": a.alta_en is not None} for a in t.ayudantes]
+    return [svc.ficha(a) | {"alta": a.alta_en is not None, "telefono": a.contacto_telefono or a.user.telefono, "email": a.contacto_email or a.user.email}
+            for a in t.ayudantes if a.retirado_en is None]
+
+
+@router.delete("/ayudantes/{aid}")
+def quitar_ayudante(aid: int, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    """El profesional saca a un ayudante de su equipo. Su historial de servicios se conserva."""
+    retirar_ayudante(db, mi_tecnico(user), aid, user)
+    db.commit()
+    return {"ok": True}
 
 
 @router.post("/ayudantes")
 def anotar_ayudante(body: NuevoAyudante, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
     """El técnico anota a su ayudante con foto y nombre. Sale en órdenes solo después del registro completo en la oficina."""
     t = mi_tecnico(user)
-    cedula = normalizar_cedula(body.cedula)
-    if db.scalar(select(User).where(User.cedula == cedula)):
-        raise HTTPException(409, "Esa cédula ya está registrada")
-    tel = limpiar_tel(body.telefono)
-    if tel and db.scalar(select(User).where(User.telefono == tel)):
-        raise HTTPException(409, "Ese teléfono ya está registrado")
-    u = User(nombre=body.nombre.strip(), cedula=cedula, telefono=tel, rol="ayudante", tienda_id=t.tienda_id)
-    db.add(u)
-    db.flush()
-    a = Tecnico(user_id=u.id, tienda_id=t.tienda_id, grupo=t.grupo, es_ayudante=True, jefe_id=t.id, foto_perfil=body.foto)
-    db.add(a)
-    for s in db.scalars(select(User).where(User.activo.is_(True), or_(
-            User.rol.in_(("supervisor", "superadmin")),
-            (User.rol == "tecnico_supervisor") & (User.tienda_id == t.tienda_id)))):
-        notificar(db, s.id, "Ayudante por registrar", f"{user.nombre} anotó a {u.nombre} ({cedula}). Completa su registro en la oficina.")
+    if t.es_ayudante:
+        raise HTTPException(403, "Solo el profesional registra a sus ayudantes")
+    if not body.acepta_clausula:
+        raise HTTPException(422, "Para registrar a un ayudante debes aceptar que queda bajo tu responsabilidad")
+    a = crear_ayudante(db, t, body.nombre, body.telefono, body.email, body.foto, body.cedula, user,
+                       f"{user.nombre} registró a {body.nombre.strip()} como su ayudante (bajo su responsabilidad). Completa su verificación en la oficina.")
     db.commit()
     return svc.ficha(a) | {"alta": False}
+
+
+def crear_ayudante(db: Session, t: Tecnico, nombre: str, telefono: str, email: str, foto: str | None, cedula: str | None, quien: User, aviso: str) -> Tecnico:
+    """Ayudante anexado al profesional t (sin acceso a la app)."""
+    from ..models import PerfilCambio
+    if t.es_ayudante:
+        raise HTTPException(422, "Un ayudante no puede tener ayudantes")
+    cedula = normalizar_cedula(cedula) if cedula and cedula.strip() else None
+    tel = limpiar_tel(telefono)
+    email = (email or "").strip().lower()
+    if "@" not in email:
+        raise HTTPException(422, "Escribe un correo válido")
+    if any(x.retirado_en is None and (x.contacto_telefono == tel or x.contacto_email == email) for x in t.ayudantes):
+        raise HTTPException(409, "Ese ayudante ya está en el equipo")
+    u = User(nombre=nombre.strip(), cedula=cedula, rol="ayudante", tienda_id=t.tienda_id)  # sin acceso a la app
+    db.add(u)
+    db.flush()
+    a = Tecnico(user_id=u.id, tienda_id=t.tienda_id, grupo=t.grupo, es_ayudante=True, jefe=t, foto_perfil=foto or None,
+                conduce=False, instala=True, clausula_aceptada_en=ahora() if quien.id == t.user_id else None, contacto_telefono=tel, contacto_email=email)
+    db.add(a)
+    db.flush()
+    por_oficina = quien.id != t.user_id
+    db.add(PerfilCambio(tecnico_id=t.id, user_id=quien.id, texto=f"agregó a {u.nombre} a su equipo" if not por_oficina else f"agregó a {u.nombre} a su equipo de ayudantes"))
+    db.add(PerfilCambio(tecnico_id=a.id, user_id=quien.id, texto=f"lo registró como ayudante de {t.user.nombre}"))
+    if por_oficina:
+        notificar(db, t.user_id, "Nuevo ayudante en tu equipo", f"La oficina agregó a {u.nombre} a tu equipo. Queda bajo tu responsabilidad mientras te acompañe.")
+    else:
+        for s_ in db.scalars(select(User).where(User.activo.is_(True), or_(
+                User.rol.in_(("supervisor", "superadmin")),
+                (User.rol == "tecnico_supervisor") & (User.tienda_id == t.tienda_id)))):
+            notificar(db, s_.id, "Ayudante por registrar", aviso)
+    return a
+
+
+def retirar_ayudante(db: Session, t: Tecnico, aid: int, quien: User) -> Tecnico:
+    from ..models import PerfilCambio
+    a = db.get(Tecnico, aid)
+    if not a or not a.es_ayudante or a.jefe_id != t.id or a.retirado_en:
+        raise HTTPException(404, "Ese ayudante no está en el equipo")
+    a.retirado_en, a.disponible, a.user.activo = ahora(), False, False
+    por_oficina = quien.id != t.user_id
+    db.add(PerfilCambio(tecnico_id=a.id, user_id=quien.id, texto="lo retiró del equipo" + ("" if por_oficina else " (su profesional)")))
+    db.add(PerfilCambio(tecnico_id=t.id, user_id=quien.id, texto=f"retiró a {a.user.nombre} de su equipo"))
+    if por_oficina:
+        notificar(db, t.user_id, "Ayudante retirado de tu equipo", f"La oficina retiró a {a.user.nombre} de tu equipo.")
+    else:
+        for s_ in db.scalars(select(User).where(User.rol.in_(("tecnico_supervisor", "supervisor")), User.activo.is_(True))):
+            if s_.rol == "supervisor" or s_.tienda_id == t.tienda_id:
+                notificar(db, s_.id, "Ayudante retirado", f"{quien.nombre} retiró a {a.user.nombre} de su equipo.")
+    return a
 
 
 class Onboarding(BaseModel):

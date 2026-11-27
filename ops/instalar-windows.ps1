@@ -82,16 +82,32 @@ if (-not (Test-Path $tokenFile)) {
 # 6. Tareas programadas (como anunciate)
 $py = "$Backend\.venv\Scripts\python.exe"
 # Con los cmdlets de Windows (las rutas con espacios, como "APP AHA HOME", no dan problemas)
-$quien = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+# La API, la publicación y el respaldo corren con la cuenta de administrador del servidor (no como SYSTEM):
+# como SYSTEM Windows le bloquea el puerto a la API (WinError 10013) y git no puede actualizar el código.
+# El túnel de Cloudflare sí puede seguir como SYSTEM. La clave se escribe aquí, en la ventana de Windows, y no se guarda en ningún archivo.
+$sistema = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+Write-Host "`nCuenta que correrá la API, la publicación y el respaldo (la del administrador de este servidor, p. ej. AHAGROUP\Administrador)."
+$cred = Get-Credential -UserName "$env:USERDOMAIN\$env:USERNAME" -Message "Cuenta de administrador para las tareas de AHA HOME"
+if (-not $cred) { Write-Host "Sin cuenta no se pueden crear las tareas. Vuelve a ejecutar el instalador." -ForegroundColor Red; exit 1 }
 $sinLimite = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-function Tarea($nombre, $exe, $argumentos, $cuando) {
+function Tarea($nombre, $exe, $argumentos, $cuando, [switch]$ComoSistema) {
   $accion = if ($argumentos) { New-ScheduledTaskAction -Execute $exe -Argument $argumentos -WorkingDirectory $Root } else { New-ScheduledTaskAction -Execute $exe -WorkingDirectory $Root }
-  Register-ScheduledTask -TaskName $nombre -Action $accion -Trigger $cuando -Principal $quien -Settings $sinLimite -Force | Out-Null
+  if ($ComoSistema) {
+    Register-ScheduledTask -TaskName $nombre -Action $accion -Trigger $cuando -Principal $sistema -Settings $sinLimite -Force -ErrorAction Stop | Out-Null
+  } else {
+    Register-ScheduledTask -TaskName $nombre -Action $accion -Trigger $cuando -User $cred.UserName -Password $cred.GetNetworkCredential().Password -RunLevel Highest -Settings $sinLimite -Force -ErrorAction Stop | Out-Null
+  }
 }
+try {
 Tarea "aha home API" "$PSScriptRoot\servidor-ahahome.cmd" $null (New-ScheduledTaskTrigger -AtStartup)
-Tarea "aha home tunel" "$PSScriptRoot\tunel-ahahome.cmd" $null (New-ScheduledTaskTrigger -AtStartup)
+Tarea "aha home tunel" "$PSScriptRoot\tunel-ahahome.cmd" $null (New-ScheduledTaskTrigger -AtStartup) -ComoSistema
 Tarea "aha home publicar" $py "`"$PSScriptRoot\publicar.py`"" (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 9999))
 Tarea "aha home respaldo" $py "`"$PSScriptRoot\respaldo.py`"" (New-ScheduledTaskTrigger -Daily -At "03:15")
+} catch {
+  Write-Host "No se pudieron crear las tareas: $($_.Exception.Message)" -ForegroundColor Red
+  Write-Host "Si dice que el usuario o la clave no son correctos, vuelve a ejecutar el instalador y escríbela de nuevo." -ForegroundColor Yellow
+  exit 1
+} finally { $cred = $null }
 foreach ($t in "aha home API", "aha home tunel") { Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue; Start-ScheduledTask -TaskName $t }
 $faltan = @("aha home API", "aha home tunel", "aha home publicar", "aha home respaldo") | Where-Object { -not (Get-ScheduledTask -TaskName $_ -ErrorAction SilentlyContinue) }
 if ($faltan) { Write-Host "No se pudieron crear: $($faltan -join ', ')" -ForegroundColor Red } else { Write-Host "[OK] Tareas programadas creadas y arrancadas" }

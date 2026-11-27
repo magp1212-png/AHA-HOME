@@ -10,14 +10,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .. import codigos
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import exigir_permiso, permisos_de, require
 from ..models import (ESTADO_TEXTO, METODO_PAGO_TEXTO, TIPO_EQUIPO_TEXTO, TIPO_SERVICIO_TEXTO, Articulo, Incidencia, Orden, Presupuesto,
-                      SoporteMensaje, Tecnico, Tienda, User, ahora)
+                      SoporteMensaje, Tecnico, Tienda, User, ahora, documentos_pendientes)
 
 router = APIRouter(prefix="/panel-api", tags=["panel"])
-panel = require("supervisor")  # supervisor y superadmin (el superadmin pasa siempre)
+panel = require("supervisor", "sistemas")  # supervisor y superadmin (el superadmin pasa siempre)
 ROL_TEXTO = {"cliente": "Cliente", "tecnico": "Técnico", "ayudante": "Ayudante", "agente": "Caja", "tecnico_supervisor": "Técnico supervisor",
              "supervisor": "Centro de control", "superadmin": "Superadmin"}
 
@@ -102,6 +103,8 @@ def resumen(dias: int = 30, user: User = Depends(panel), db: Session = Depends(g
                      "cliente_guarda": sum(1 for o in en_periodo if o.tipo_servicio != "traslado" and o.retirar_residuos is False)},
         "tasa": _tasa(db),
         "verificaciones_pendientes": sum(1 for t in tecs if not t.verificado and t.user.activo),
+        "verif_tecnicos": sum(1 for t in tecs if not t.verificado and t.user.activo and _del_modulo(t, "tecnicos")),
+        "verif_transportistas": sum(1 for t in tecs if not t.verificado and t.user.activo and _del_modulo(t, "transportistas")),
         "reportes_abiertos": db.query(Incidencia).filter(Incidencia.abierta.is_(True)).count(),
     }
 
@@ -123,27 +126,62 @@ def _tasa(db):
 # ---------- Tablas ----------
 
 def _tabla_clientes(db):
-    cols = [("creado", "Registrado el"), ("nombre", "Cliente"), ("telefono", "Teléfono"), ("email", "Correo"), ("ordenes", "Órdenes"), ("estado", "Estado")]
-    n = Counter(o.cliente_id for o in db.scalars(select(Orden)))
-    filas = [{"id": u.id, "creado": _fecha(u.creado), "nombre": u.nombre, "telefono": u.telefono, "email": u.email, "ordenes": n.get(u.id, 0),
-              "estado": "Activo" if u.activo else "Inactivo", "_acciones": ["activo"]}
+    cols = [("codigo", "Código"), ("creado", "Registrado el"), ("nombre", "Cliente"), ("telefono", "Teléfono"), ("email", "Correo"), ("ordenes", "Órdenes"), ("estado", "Estado")]
+    ords = db.scalars(select(Orden)).all()
+    n = Counter(o.cliente_id for o in ords)
+    por_tel = Counter(o.cliente_telefono for o in ords if not o.cliente_id)
+    filas = [{"id": u.id, "codigo": codigos.cliente(u), "creado": _fecha(u.creado), "nombre": u.nombre, "telefono": u.telefono, "email": u.email, "ordenes": n.get(u.id, 0) + (por_tel.get(u.telefono, 0) if u.telefono else 0),
+              "estado": "Activo" if u.activo else "Inactivo", "_acciones": ["perfil_cliente", "activo"]}
              for u in db.scalars(select(User).where(User.rol == "cliente"))]
     return cols, filas
 
 
-def _tabla_tecnicos(db):
-    cols = [("creado", "Registrado el"), ("nombre", "Profesional"), ("rol", "Tipo"), ("cedula", "Cédula"), ("tienda", "Tienda"), ("grupo", "Grupo"),
-            ("calificacion", "Calificación"), ("estado", "Estado")]
-    cal: dict[int, list[int]] = {}
-    for o in db.scalars(select(Orden).where(Orden.calificacion.is_not(None))):
-        cal.setdefault(o.tecnico_id, []).append(o.calificacion)
-    filas = []
-    for t in db.scalars(select(Tecnico)):
-        c = cal.get(t.id)
-        filas.append({"id": t.user.id, "tecnico_id": t.id, "creado": _fecha(t.user.creado), "nombre": t.user.nombre, "rol": "Ayudante" if t.es_ayudante else "Técnico",
-                      "cedula": t.user.cedula, "tienda": t.tienda.nombre, "grupo": t.grupo or "—", "calificacion": round(sum(c) / len(c), 1) if c else None,
-                      "estado": "Validado" if t.verificado else "Pendiente" if t.user.activo else "Suspendido", "_acciones": ["expediente", "activo"]})
-    return cols, filas
+def _del_modulo(t: Tecnico, modulo: str) -> bool:
+    """El ayudante va donde va su profesional."""
+    base = t.jefe if t.es_ayudante and t.jefe else t
+    return bool(base.conduce) if modulo == "transportistas" else bool(base.instala)
+
+
+def _estado_prof(t: Tecnico) -> str:
+    if t.retirado_en:
+        return "Retirado del equipo"
+    return "Validado" if t.verificado else "Pendiente" if t.user.activo else "Suspendido"
+
+
+def _profesionales(modulo: str):
+    def f(db):
+        from .profesionales import estado_licencia
+        conduce = modulo == "transportistas"
+        cols = [("codigo", "Código"), ("creado", "Registrado el"), ("nombre", "Profesional"), ("rol", "Tipo"), ("cedula", "Cédula")]
+        cols += [("vehiculo", "Vehículo"), ("grupo", "Grupo"), ("calificacion", "Calificación"), ("licencia", "Licencia"), ("estado", "Estado")] if conduce else \
+                [("especialidades", "Especialidades"), ("grupo", "Grupo"), ("calificacion", "Calificación"), ("estado", "Estado")]
+        cal: dict[int, list[int]] = {}
+        for o in db.scalars(select(Orden).where(Orden.calificacion.is_not(None))):
+            cal.setdefault(o.tecnico_id, []).append(o.calificacion)
+        filas = []
+        for t in db.scalars(select(Tecnico)):
+            if not _del_modulo(t, modulo):
+                continue
+            c = cal.get(t.id)
+            if t.es_ayudante:
+                tipo = f"Ayudante de {t.jefe.user.nombre.split()[0]}" if t.jefe else "Ayudante"
+            else:
+                tipo = codigos.actividad_texto(t)
+            fila = {"id": t.user.id, "tecnico_id": t.id, "codigo": codigos.profesional(t), "creado": _fecha(t.user.creado), "nombre": t.user.nombre, "rol": tipo,
+                    "cedula": t.user.cedula, "tienda": t.tienda.nombre, "grupo": t.grupo or "—", "calificacion": round(sum(c) / len(c), 1) if c else None,
+                    "estado": _estado_prof(t), "_acciones": ["perfil", "activo"]}
+            if conduce:
+                fila["vehiculo"] = " · ".join(x for x in (t.vehiculo_tipo, t.vehiculo_placa) if x) or "—"
+                fila["licencia"] = estado_licencia(t)["texto"]
+            else:
+                fila["especialidades"] = ", ".join(t.especialidades or []) or "—"
+            filas.append(fila)
+        return cols, filas
+    return f
+
+
+_tabla_tecnicos = _profesionales("tecnicos")
+_tabla_transportistas = _profesionales("transportistas")
 
 
 def _tabla_empresas(db):
@@ -212,12 +250,25 @@ def _tabla_liquidaciones(db):
     return cols, filas
 
 
-def _tabla_verificaciones(db):
-    cols = [("solicitado", "Solicitado el"), ("nombre", "Profesional"), ("rol", "Tipo"), ("facial", "Verificación facial"), ("estado", "Estado"), ("aprobado", "Aprobado el")]
-    fac = {"coincide": "Coincide", "no_coincide": "No coincide", "revision_manual": "Revisar a mano", "": "Pendiente"}
-    return cols, [{"id": t.user.id, "tecnico_id": t.id, "solicitado": _fecha(t.user.creado), "nombre": t.user.nombre, "rol": "Ayudante" if t.es_ayudante else "Técnico",
-                   "facial": fac.get(t.rostro_resultado or "", t.rostro_resultado), "estado": "Aprobado" if t.verificado else "Pendiente",
-                   "aprobado": _fecha(t.alta_en) or "—", "_acciones": ["expediente"]} for t in db.scalars(select(Tecnico))]
+def _verificaciones(modulo: str | None):
+    def f(db):
+        cols = [("solicitud", "Solicitud"), ("solicitado", "Solicitado el"), ("nombre", "Profesional"), ("codigo", "Código"), ("rol", "Tipo"),
+                ("facial", "Verificación facial"), ("documentos", "Documentos"), ("estado", "Estado"), ("aprobado", "Aprobado el")]
+        fac = {"coincide": "Coincide", "no_coincide": "No coincide", "revision_manual": "Revisar a mano", "": "Pendiente"}
+        filas = []
+        for t in db.scalars(select(Tecnico)):
+            if modulo and not _del_modulo(t, modulo):
+                continue
+            tipos = {d.tipo for d in t.documentos}
+            filas.append({"id": t.user.id, "tecnico_id": t.id, "solicitud": codigos.verificacion(t), "codigo": codigos.profesional(t), "solicitado": _fecha(t.user.creado),
+                          "nombre": t.user.nombre, "rol": codigos.actividad_texto(t), "facial": fac.get(t.rostro_resultado or "", t.rostro_resultado),
+                          "documentos": f"Faltan {len(pend)}" if (pend := documentos_pendientes(t)) else "Completos", "estado": "Aprobado" if t.verificado else "Pendiente",
+                          "aprobado": _fecha(t.alta_en) or "—", "_acciones": ["perfil"]})
+        return cols, filas
+    return f
+
+
+_tabla_verificaciones = _verificaciones(None)
 
 
 def _tabla_reportes(db):
@@ -251,15 +302,18 @@ def _tabla_mensajeria(db):
     return cols, list(filas.values())
 
 
-TABLAS = {"clientes": _tabla_clientes, "tecnicos": _tabla_tecnicos, "empresas": _tabla_empresas, "equipo": _tabla_equipo,
+TABLAS = {"clientes": _tabla_clientes, "tecnicos": _tabla_tecnicos, "transportistas": _tabla_transportistas,
+          "verificaciones_tecnicos": _verificaciones("tecnicos"), "verificaciones_transportistas": _verificaciones("transportistas"), "empresas": _tabla_empresas, "equipo": _tabla_equipo,
           "administradores": _tabla_administradores, "control": _tabla_control, "caja": _tabla_caja, "ordenes": _tabla_ordenes,
           "transacciones": _tabla_transacciones, "liquidaciones": _tabla_liquidaciones, "verificaciones": _tabla_verificaciones,
           "reportes": _tabla_reportes, "resenas": _tabla_resenas, "mensajeria": _tabla_mensajeria}
 PERMISO_TABLA = {"clientes": "ver_clientes", "empresas": "ver_empresas", "tecnicos": "ver_tecnicos", "verificaciones": "ver_tecnicos",
+                 "transportistas": "ver_tecnicos", "verificaciones_tecnicos": "ver_tecnicos", "verificaciones_transportistas": "ver_tecnicos",
                  "ordenes": "ver_ordenes", "transacciones": "ver_finanzas", "liquidaciones": "ver_finanzas", "mensajeria": "ver_soporte",
                  "reportes": "ver_soporte", "resenas": "ver_soporte", "equipo": "ver_personal", "administradores": "ver_personal",
                  "control": "ver_personal", "caja": "ver_personal"}
-ORDEN_INICIAL = {"clientes": "creado", "tecnicos": "creado", "ordenes": "creado", "transacciones": "en", "liquidaciones": "en", "verificaciones": "solicitado",
+ORDEN_INICIAL = {"clientes": "creado", "tecnicos": "creado", "transportistas": "creado",
+                 "verificaciones_tecnicos": "solicitado", "verificaciones_transportistas": "solicitado", "ordenes": "creado", "transacciones": "en", "liquidaciones": "en", "verificaciones": "solicitado",
                  "reportes": "creado", "resenas": "fecha", "mensajeria": "ultimo"}
 
 
@@ -292,10 +346,17 @@ def buscar(q: str, user: User = Depends(panel), db: Session = Depends(get_db)):
     """Buscador global de la barra superior: personas, órdenes y tiendas."""
     out = []
     puede = set(permisos_de(user))
-    for nombre, etiqueta in (("ordenes", "Orden"), ("clientes", "Cliente"), ("tecnicos", "Técnico"), ("empresas", "Empresa"), ("equipo", "Personal AHA HOME")):
+    vistos = set()
+    for nombre, etiqueta in (("ordenes", "Orden"), ("clientes", "Cliente"), ("tecnicos", "Técnico instalador"), ("transportistas", "Conductor"), ("empresas", "Empresa"),
+                             ("equipo", "Personal AHA HOME")):
         if PERMISO_TABLA.get(nombre) not in puede:
             continue
         r = tabla(nombre, q=q, por_pagina=5, user=user, db=db)
         for f in r["filas"]:
-            out.append({"tabla": nombre, "tipo": etiqueta, "id": f["id"], "titulo": f.get("codigo") or f.get("nombre"), "sub": f.get("cliente") or f.get("email") or f.get("tienda") or ""})
+            if f.get("tecnico_id") and f["tecnico_id"] in vistos:
+                continue
+            vistos.add(f.get("tecnico_id"))
+            titulo = f.get("codigo") if nombre == "ordenes" else f.get("nombre")
+            sub = f.get("cliente") if nombre == "ordenes" else " · ".join(x for x in (f.get("codigo") if nombre != "ordenes" else "", f.get("email") or f.get("tienda") or "") if x)
+            out.append({"tabla": nombre, "tipo": etiqueta, "id": f["id"], "tecnico_id": f.get("tecnico_id"), "titulo": titulo, "sub": sub})
     return out[:20]
