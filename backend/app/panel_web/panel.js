@@ -514,7 +514,8 @@
   async function mensajeria(main) {
     S.msgTab = S.msgTab || "vivo";
     main.innerHTML += `<div class="tabs ch-tabs">${[["vivo", "🟢 Chats en vivo · cliente ↔ profesional"], ["directos", "Mensajes directos con soporte"]].map(([k, t]) => `<button data-mt="${k}" class="${S.msgTab === k ? "on" : ""}">${t}</button>`).join("")}</div>`;
-    main.querySelectorAll("[data-mt]").forEach((b) => (b.onclick = () => { if (b.dataset.mt !== "vivo") soltarChat(); S.msgTab = b.dataset.mt; pintar(true); }));
+    // por delegación: la pantalla se sigue dibujando debajo (innerHTML +=) y los botones no pierden su acción
+    main.onclick = (e) => { const b = e.target.closest("[data-mt]"); if (!b || b.dataset.mt === S.msgTab) return; if (b.dataset.mt !== "vivo") soltarChat(); S.msgTab = b.dataset.mt; pintar(true); };
     if (S.msgTab === "directos") return tabla(main, "mensajeria");
     main.innerHTML += `<div class="ch-wrap"><div class="card quieta ch-lista"><div class="ch-fil">${[["activos", "En curso"], ["todos", "Todos"]].map(([k, t]) => `<button data-cf="${k}" class="${S.ch.filtro === k ? "on" : ""}">${t}</button>`).join("")}
         <input id="ch-q" placeholder="⌕ Orden, cliente o profesional" value="${esc(S.ch.q)}"></div><div id="ch-items"><div class="total" style="padding:14px">Cargando…</div></div></div>
@@ -1547,6 +1548,7 @@
       $(".lat").innerHTML = menuHTML();
     }
     const main = $(".main");
+    main.onclick = null;
     main.innerHTML = `<div class="migas">${esc(g)} › <b>${esc(t)}</b></div><h1>${esc(t)}</h1>`;
     try {
       if (S.ruta === "sinpermisos") main.innerHTML += `<p class="total">Tu cuenta todavía no tiene permisos. Pídeselos al CEO.</p>`;
