@@ -54,7 +54,10 @@ def run():
         db.flush()
         tec = Tecnico(user_id=u.id, tienda_id=t.id, grupo=grupo, lat=lat + (i - 4) * 0.004, lng=lng + (i % 3 - 1) * 0.004,
                       pin_hash=pin, verificado=True, alta_en=ahora(), pago_movil_banco="Banco de prueba", pago_movil_telefono=u.telefono,
-                      cuenta_cedula=u.cedula, cuenta_titular=nom, **DEMO_FOTOS)
+                      cuenta_cedula=u.cedula, cuenta_titular=nom, **DEMO_FOTOS,
+                      conduce=i % 3 != 2, instala=True, especialidades=["Aires acondicionados", "Refrigeración"] if i % 2 == 0 else ["Lavado y secado", "Cocinas y hornos"],
+                      vehiculo_tipo="NPR (camión 3/4)" if i % 3 == 0 else "Pick-up de batea larga" if i % 3 == 1 else "",
+                      vehiculo_placa=f"A{i}B{i}2C{i}" if i % 3 != 2 else "")
         db.add(tec)
         db.flush()
         a = User(nombre=AYUDANTES[i], telefono=f"04243{i:06d}", cedula=f"V-{20000000 + i * 977}", password_hash=h, rol="ayudante")

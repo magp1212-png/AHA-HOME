@@ -84,12 +84,11 @@ def test_traslado_e_instalacion_completo(client):
         n = client.get("/notificaciones", headers=login(client, quien)).json()[0]
         assert n["titulo"].startswith(f"Nueva orden {o['codigo']}")
         assert o["tecnico"]["nombre"] in n["texto"] and o["ayudantes"][0]["nombre"] in n["texto"]
-    # El técnico y su ayudante también reciben el aviso
+    # El técnico recibe el aviso; el ayudante no usa la app (va con su profesional)
     tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
-    ayudante = login_pin(client, tel_de(o["ayudantes"][0]["id"]))
     assert f"Nueva orden {o['codigo']}" in titulos(client, tecnico)
-    assert f"Nueva orden {o['codigo']}" in titulos(client, ayudante)
-    assert [x["id"] for x in client.get("/ordenes", headers=ayudante).json()] == [o["id"]]
+    r = client.post("/auth/login-pin", json={"telefono": tel_de(o["ayudantes"][0]["id"]), "pin": "1234"})
+    assert r.status_code == 403 and "no usan la app" in r.json()["detail"]
 
     # La clienta no ve la cuadrilla hasta que sale en ruta
     cliente = login(client, "maria@ahahome.test")
@@ -97,8 +96,6 @@ def test_traslado_e_instalacion_completo(client):
     assert v["tecnico"] is None and v["ayudantes"] == [] and "qr" not in v
 
     client.post(f"/tecnico/ordenes/{o['id']}/confirmar", headers=tecnico)
-    # el ayudante no puede retirar ni cerrar
-    assert client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=ayudante).status_code == 403
     r = client.post("/tecnico/retiro", json={"qr": o["qr"], "seriales": {str(o["articulos"][0]["id"]): "0B5R4AAN300125"}}, headers=tecnico)
     assert r.json()["estado"] == "en_ruta"
     v = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
@@ -221,13 +218,11 @@ def test_registro_en_app_y_alta_en_oficina(client, monkeypatch):
     assert "¡Bienvenido a AHA HOME!" in titulos(client, h)
     assert client.post("/auth/login-pin", json={"telefono": "04129990000", "pin": "4321"}).status_code == 200
 
-    # Ayudante: mismo registro, y en la oficina se le asigna el técnico con el que sale
-    r = client.post("/tecnico/registro", json=datos | {"nombre": "Luis Ayudante", "cedula": "V-26000000", "telefono": "04129990001",
-                                                        "email": "luis@correo.com", "rol": "ayudante"})
-    ha = {"Authorization": "Bearer " + r.json()["token"]}
-    ay_id = r.json()["usuario"]["tecnico"]["id"]
-    client.post("/tecnico/verificar-rostro", json=fotos, headers=ha)
-    client.post("/tecnico/onboarding", json=fotos | {"huella_registrada": True}, headers=ha)
+    # Ayudante: no se registra solo ni usa la app; lo registra su profesional desde su app como parte de su equipo
+    assert client.post("/tecnico/registro", json=datos | {"nombre": "Luis Ayudante", "cedula": "V-26000000", "telefono": "04129990009",
+                                                          "email": "otro@correo.com", "rol": "ayudante"}).status_code == 403
+    ay_id = client.post("/tecnico/ayudantes", json={"nombre": "Luis Ayudante", "telefono": "04129990001", "email": "luis@correo.com",
+                                                    "foto": "/archivos/luis.jpg", "acepta_clausula": True}, headers=h).json()["id"]
     for tipo in ("foto_perfil", "cedula"):
         client.post(f"/supervisor/tecnicos/{ay_id}/documentos", json={"tipo": tipo, "url": "/archivos/x.jpg"}, headers=oficina)
     r = client.post(f"/supervisor/tecnicos/{ay_id}/alta", json={"jefe_id": tec_id}, headers=oficina).json()
@@ -287,8 +282,9 @@ def test_subir_foto_y_salud(client):
 
 def test_tecnico_anota_sus_ayudantes(client):
     tecnico = login_pin(client, "04242000000")  # José Hernández, Grupo A
-    r = client.post("/tecnico/ayudantes", json={"nombre": "Pedro Ayala", "cedula": "V-27.111.222", "foto": "/archivos/pedro.jpg"},
-                    headers=tecnico)
+    datos = {"nombre": "Pedro Ayala", "telefono": "04125550000", "email": "pedro@correo.com", "foto": "/archivos/pedro.jpg"}
+    assert client.post("/tecnico/ayudantes", json=datos, headers=tecnico).status_code == 422  # sin aceptar la cláusula de responsabilidad
+    r = client.post("/tecnico/ayudantes", json=datos | {"acepta_clausula": True}, headers=tecnico)
     assert r.status_code == 200 and r.json()["alta"] is False and r.json()["foto"] == "/archivos/pedro.jpg"
     nuevo_id = r.json()["id"]
     assert len(client.get("/tecnico/ayudantes", headers=tecnico).json()) == 2
@@ -304,12 +300,17 @@ def test_tecnico_anota_sus_ayudantes(client):
     assert r["verificado"] and r["jefe"] == "José Hernández" and r["grupo"] == "A"
     assert nuevo_id in [a["id"] for a in client.get("/tecnico/hoy", headers=tecnico).json()["mis_ayudantes"]]
 
-    # Luego el ayudante puede crear su propia cuenta en la app con su cédula
+    # El ayudante no entra a la app, pero puede registrarse aparte como profesional independiente (mismo teléfono y correo)
     tienda_id = client.get("/tiendas").json()[0]["id"]
     r = client.post("/tecnico/registro", json={"nombre": "Pedro Ayala", "cedula": "27111222", "telefono": "04125550000",
                                                 "email": "pedro@correo.com", "password": "clave123", "pin": "5555",
-                                                "rol": "ayudante", "tienda_id": tienda_id})
-    assert r.status_code == 200 and r.json()["usuario"]["tecnico"]["id"] == nuevo_id
+                                                "rol": "tecnico", "tienda_id": tienda_id, "conduce": True, "instala": False})
+    assert r.status_code == 200 and r.json()["usuario"]["tecnico"]["id"] != nuevo_id and r.json()["usuario"]["tecnico"]["codigo"].startswith("TRA-")
+    assert nuevo_id in [a["id"] for a in client.get("/tecnico/ayudantes", headers=tecnico).json()]  # sigue en el equipo de José
+    # el profesional lo quita de su equipo: ya no sale en sus órdenes
+    assert client.delete(f"/tecnico/ayudantes/{nuevo_id}", headers=tecnico).status_code == 200
+    assert nuevo_id not in [a["id"] for a in client.get("/tecnico/ayudantes", headers=tecnico).json()]
+    assert "Ayudante retirado" in titulos(client, oficina)
 
 
 def test_varios_articulos_instalacion_pagada_en_caja(client):
@@ -1371,7 +1372,8 @@ def test_libro_pendientes_y_cierre_de_caja(client):
     sa = login(client, "superadmin@ahahome.test")
     cat = client.get("/finanzas/catalogo", headers=sa).json()
     efe = next(m["id"] for m in cat["medios"] if m["nombre"] == "Efectivo en dólares (cash)")
-    hoy = str(dt.date.today())
+    from app.models import dia_caracas
+    hoy = dia_caracas()  # el sistema cuenta por día de Caracas
     g = client.post("/finanzas/movimientos", json={"tipo": "gasto", "categoria": "servicios", "fecha": hoy, "monto": 120, "moneda": "USD",
                                                    "beneficiario": "Arrendador", "por_pagar": True}, headers=sa)
     assert g.status_code == 200 and g.json()["estado"] == "por_pagar"
@@ -1450,3 +1452,207 @@ def test_ceo_edita_datos_y_rol_de_una_cuenta(client):
     assert any(c["direccion"] == "pedro.perez@aha-go.com" and c["persona"] == "Pedro Pérez" for c in correos["correos"])
     assert client.put(f"/ceo/usuarios/{n['id']}", json={"email": "ceo@ahahome.test"}, headers=ceo).status_code == 409
     assert client.put(f"/ceo/usuarios/{n['id']}", json={"email": "no-es-correo"}, headers=ceo).status_code == 422
+
+
+def test_departamento_de_sistemas(client):
+    """Solo el rol Sistemas y el CEO; errores agrupados; accesos; cierre de sesión a distancia; avisos por correo."""
+    from app import correo
+    ceo = login(client, "ceo@ahahome.test")
+    sa = login(client, "superadmin@ahahome.test")
+    assert client.get("/sistemas/estado", headers=sa).status_code == 403  # un superadmin que no es CEO no lo ve
+    n = client.post("/ceo/usuarios", json={"nombre": "Diego Sistemas", "email": "diego.sis@ahahome.test", "rol": "sistemas"}, headers=ceo).json()
+    sis = {"Authorization": "Bearer " + client.post("/auth/login", json={"usuario": "diego.sis@ahahome.test", "password": n["clave"]}).json()["token"]}
+    e = client.get("/sistemas/estado", headers=sis).json()
+    claves = {c["clave"] for c in e["estado"]} | {c["clave"] for c in e["funciones"]}
+    assert {"api", "base", "procesos", "tasa", "disco", "f_entrar", "f_finanzas", "f_fotos"} <= claves and e["nivel"] in ("ok", "pend", "mal")
+    assert all(c["nivel"] == "ok" for c in e["funciones"] if c["clave"] in ("f_entrar", "f_panel", "f_finanzas", "f_qr", "f_fotos"))
+    assert client.get("/finanzas/resumen", headers=sis).status_code == 403  # Sistemas no ve dinero
+    # errores del panel: los iguales se agrupan
+    for i in (1, 2):
+        client.post("/sistemas/errores/panel", json={"mensaje": f"TypeError en la fila {i}", "donde": "Panel · Órdenes"}, headers=sa)
+    errs = client.get("/sistemas/errores", headers=sis).json()
+    err = next(x for x in errs if x["donde"] == "Panel · Órdenes")
+    assert err["veces"] == 2 and err["estado"] == "nuevo"
+    assert client.put(f"/sistemas/errores/{err['id']}", json={"estado": "resuelto", "nota": "Corregido"}, headers=sis).json()["estado"] == "resuelto"
+    # accesos: 5 intentos fallidos seguidos generan alerta
+    for _ in range(5):
+        client.post("/auth/login", json={"usuario": "supervisor@ahahome.test", "password": "mala"})
+    acc = client.get("/sistemas/accesos", headers=sis).json()
+    assert acc["fallidos_24h"] >= 5 and any(a["tipo"] == "intentos_fallidos" for a in acc["alertas"])
+    # cierre de sesión a distancia: el token de esa persona deja de servir
+    r = client.post("/auth/login", json={"usuario": "supervisor@ahahome.test", "password": "aha12345"}).json()
+    hs = {"Authorization": "Bearer " + r["token"]}
+    assert client.get("/yo", headers=hs).status_code == 200
+    assert client.post(f"/sistemas/sesiones/{r['sesion']}/cerrar", headers=sis).status_code == 200
+    assert client.get("/yo", headers=hs).status_code == 401
+    assert client.post("/auth/login", json={"usuario": "supervisor@ahahome.test", "password": "aha12345"}).status_code == 200  # puede volver a entrar
+    # ajustes y resumen por correo a diego@ y soporte@
+    aj = client.get("/sistemas/ajustes", headers=sis).json()
+    assert aj["correos"] == ["diego@aha-go.com", "soporte@aha-go.com"] and aj["retencion"]["errores"] == 90
+    assert client.put("/sistemas/ajustes", json={**aj, "correos": ["no-es-correo"]}, headers=sis).status_code == 422
+    antes = len(correo.outbox)
+    client.post("/sistemas/resumen", headers=sis)
+    enviados = [m["to"] for m in correo.outbox[antes:]]
+    assert "diego@aha-go.com" in enviados and "soporte@aha-go.com" in enviados
+    assert client.get("/sistemas/publicaciones", headers=sis).status_code == 200
+    assert client.get("/sistemas/actividad", headers=sis).status_code == 200
+    assert client.get("/sistemas/procesos", headers=sis).json()["disponible"] is False  # fuera de Windows no hay tareas programadas
+
+
+def test_error_del_servidor_queda_registrado(client):
+    from app.db import SessionLocal
+    from app.sistemas import registrar_error
+    with SessionLocal() as db:
+        e = registrar_error(db, "servidor", "ZeroDivisionError: division by zero", "GET /prueba/#", "")
+        assert e.veces >= 1 and e.origen == "servidor"
+
+
+def test_perfil_de_profesionales_y_modulos(client):
+    from app.models import Documento
+    from app.routers.profesionales import avisar_vencimientos
+    control = login(client, "supervisor@ahahome.test")
+    tecsup = login(client, "tecsup@ahahome.test")
+    with SessionLocal() as db:
+        jose = db.scalar(select(Tecnico).where(Tecnico.es_ayudante.is_(False)).order_by(Tecnico.id))
+        jid, ayudante_id = jose.id, jose.ayudantes[0].id
+    p = client.get(f"/profesionales/{jid}", headers=control).json()
+    assert p["codigo"] == f"PRO-{jid:06d}" and p["actividad"] == "Mixto" and p["puede_editar"] is True
+    assert p["ayudantes"][0]["codigo"] == f"AYU-{ayudante_id:06d}" and p["verificacion_codigo"] == f"VER-{jid:06d}"
+    # aparece en ambos módulos, con la marca de la otra actividad
+    tec = client.get("/panel-api/tabla/tecnicos?q=" + p["codigo"], headers=control).json()["filas"]
+    tra = client.get("/panel-api/tabla/transportistas?q=" + p["codigo"], headers=control).json()["filas"]
+    assert tec[0]["rol"] == "Mixto" and tra[0]["rol"] == "Mixto"
+    # el técnico supervisor ve el perfil pero no lo edita (no tiene el permiso)
+    assert client.get(f"/profesionales/{jid}", headers=tecsup).json()["puede_editar"] is False
+    assert client.put(f"/profesionales/{jid}", json={"direccion": "x"}, headers=tecsup).status_code == 403
+    # deja de conducir: su código pasa a TEC, sale de Transportistas y el cambio queda en el historial
+    assert client.put(f"/profesionales/{jid}", json={"conduce": False, "instala": False}, headers=control).status_code == 422
+    r = client.put(f"/profesionales/{jid}", json={"conduce": False, "direccion": "Av. Sucre, casa 4", "especialidades": ["Campanas", "Inventada"],
+                                                  "vehiculo": {"placa": "ab-12 cd"}}, headers=control).json()
+    assert r["codigo"] == f"TEC-{jid:06d}" and r["especialidades"] == ["Campanas"] and r["vehiculo"]["placa"] == "AB12CD"
+    assert {c["texto"] for c in r["cambios"]} >= {"cambió el tipo de perfil", "cambió la dirección", "cambió las especialidades"}
+    assert not client.get("/panel-api/tabla/transportistas?q=" + p["codigo"][4:], headers=control).json()["filas"]
+    # PIN nuevo y pedido de reescaneo
+    assert len(client.post(f"/profesionales/{jid}/pin", json={}, headers=control).json()["pin"]) == 4
+    assert client.post(f"/profesionales/{jid}/reescaneo", json={}, headers=control).json()["identidad"]["resultado"] == ""
+    # clientes con su código CLI
+    cli = client.get("/panel-api/tabla/clientes", headers=control).json()["filas"]
+    assert cli and all(f["codigo"].startswith("CLI-") for f in cli)
+    # documento por vencer: avisa una sola vez al profesional y al soporte
+    pronto = (dt.date.today() + dt.timedelta(days=10)).isoformat()
+    client.put(f"/profesionales/{jid}", json={"conduce": True}, headers=control)
+    assert client.post(f"/supervisor/tecnicos/{jid}/documentos", json={"tipo": "licencia", "url": "/archivos/lic.jpg", "vence": pronto}, headers=control).status_code == 200
+    with SessionLocal() as db:
+        assert avisar_vencimientos(db) == 1 and avisar_vencimientos(db) == 0
+        assert db.scalar(select(Documento).where(Documento.tipo == "licencia", Documento.tecnico_id == jid)).aviso_vence == "30d"
+    assert "Documento por vencer" in titulos(client, control)
+    assert client.get(f"/profesionales/{jid}", headers=control).json()["licencia"]["nivel"] == "pend"
+
+
+def test_titulos_y_cursos_del_profesional(client):
+    tecnico = login_pin(client, "04242000000")
+    control = login(client, "supervisor@ahahome.test")
+    assert client.post("/tecnico/formacion", json={"tipo": "titulo", "nombre": "TSU en Refrigeración", "anio": "15"}, headers=tecnico).status_code == 422
+    f = client.post("/tecnico/formacion", json={"tipo": "titulo", "nombre": "TSU en Refrigeración", "institucion": "IUT", "anio": "2015",
+                                                "area": "instalador", "url": "/archivos/tsu.jpg"}, headers=tecnico).json()
+    assert f["codigo"].startswith("FOR-") and len(f["codigo"]) == 10
+    with SessionLocal() as db:
+        jid = db.scalar(select(Tecnico).where(Tecnico.es_ayudante.is_(False)).order_by(Tecnico.id)).id
+    p = client.post(f"/profesionales/{jid}/formacion", json={"tipo": "curso", "nombre": "Manejo defensivo", "area": "conductor"}, headers=control).json()
+    assert [x["nombre"] for x in p["formacion"]] == ["TSU en Refrigeración", "Manejo defensivo"] or len(p["formacion"]) == 2
+    assert any("Manejo defensivo" in c["texto"] for c in p["cambios"])
+    assert len(client.get("/tecnico/formacion", headers=tecnico).json()) == 2
+    assert client.delete(f"/tecnico/formacion/{f['id']}", headers=tecnico).status_code == 200
+    assert len(client.get(f"/profesionales/{jid}", headers=control).json()["formacion"]) == 1
+
+
+def test_documentos_obligatorios_del_conductor(client):
+    control = login(client, "supervisor@ahahome.test")
+    with SessionLocal() as db:
+        t = db.scalar(select(Tecnico).where(Tecnico.es_ayudante.is_(False)).order_by(Tecnico.id))
+        t.verificado, tid = False, t.id
+        db.commit()
+    p = client.get(f"/profesionales/{tid}", headers=control).json()
+    falta = {o["tipo"] for o in p["obligatorios"] if o["estado"] != "ok"}
+    assert falta >= {"certificado_medico", "vehiculo_titulo", "licencia", "vehiculo_rcv", "vehiculo_rotc"}
+    r = client.post(f"/supervisor/tecnicos/{tid}/alta", json={"grupo": "A"}, headers=control)
+    assert r.status_code == 422 and "ROTC del INTT" in r.json()["detail"]["faltan"]
+    ayer = (dt.date.today() - dt.timedelta(days=2)).isoformat()
+    for tipo in falta:
+        client.post(f"/supervisor/tecnicos/{tid}/documentos", json={"tipo": tipo, "url": f"/archivos/{tipo}.jpg", "vence": ayer if tipo == "licencia" else ""}, headers=control)
+    r = client.post(f"/supervisor/tecnicos/{tid}/alta", json={"grupo": "A"}, headers=control)
+    assert r.status_code == 422 and r.json()["detail"]["faltan"] == ["Licencia de conducir (vencido)"]
+    client.post(f"/supervisor/tecnicos/{tid}/documentos", json={"tipo": "licencia", "url": "/archivos/lic2.jpg", "vence": "2030-01-01"}, headers=control)
+    assert client.post(f"/supervisor/tecnicos/{tid}/alta", json={"grupo": "A"}, headers=control).status_code == 200
+    # el técnico instalador (sin conducir) no necesita esos documentos
+    client.put(f"/profesionales/{tid}", json={"conduce": False}, headers=control)
+    assert all(o["para"] == "comun" for o in client.get(f"/profesionales/{tid}", headers=control).json()["obligatorios"])
+
+
+def test_el_ayudante_no_se_registra_solo(client):
+    tienda_id = client.get("/tiendas").json()[0]["id"]
+    r = client.post("/tecnico/registro", json={"nombre": "Ayudante Suelto", "cedula": "28999111", "telefono": "04129998877", "email": "suelto@correo.com",
+                                               "password": "clave123", "pin": "5555", "rol": "ayudante", "tienda_id": tienda_id})
+    assert r.status_code == 403 and "profesional" in r.json()["detail"]
+
+
+def test_la_oficina_agrega_y_quita_ayudantes(client):
+    control = login(client, "supervisor@ahahome.test")
+    tecsup = login(client, "tecsup@ahahome.test")
+    tecnico = login_pin(client, "04242000000")
+    with SessionLocal() as db:
+        jid = db.scalar(select(Tecnico).where(Tecnico.es_ayudante.is_(False)).order_by(Tecnico.id)).id
+    datos = {"nombre": "Marcos Díaz", "telefono": "04126660000", "email": "marcos@correo.com"}
+    assert client.post(f"/profesionales/{jid}/ayudantes", json=datos, headers=tecsup).status_code == 403  # sin «Editar perfiles»
+    p = client.post(f"/profesionales/{jid}/ayudantes", json=datos, headers=control).json()
+    nuevo = next(a for a in p["ayudantes"] if a["nombre"] == "Marcos Díaz")
+    assert nuevo["codigo"].startswith("AYU-") and "Nuevo ayudante en tu equipo" in titulos(client, tecnico)
+    assert client.post(f"/profesionales/{jid}/ayudantes", json=datos, headers=control).status_code == 409
+    p = client.delete(f"/profesionales/{jid}/ayudantes/{nuevo['id']}", headers=control).json()
+    assert all(a["id"] != nuevo["id"] for a in p["ayudantes"]) and "Ayudante retirado de tu equipo" in titulos(client, tecnico)
+    assert any("retiró a Marcos Díaz" in c["texto"] for c in p["cambios"])
+
+
+def test_perfil_del_cliente(client):
+    control = login(client, "supervisor@ahahome.test")
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente)  # la caja la registra con el teléfono de María
+    cli = client.get("/panel-api/tabla/clientes?q=María", headers=control).json()["filas"][0]
+    assert cli["codigo"].startswith("CLI-") and cli["_acciones"][0] == "perfil_cliente" and cli["ordenes"] >= 1
+    p = client.get(f"/clientes/{cli['id']}", headers=control).json()
+    assert p["codigo"] == cli["codigo"] and p["puede_editar"] is True
+    assert o["codigo"] in [x["codigo"] for x in p["ordenes"]] and p["direcciones"][0]["direccion"].startswith("Av. San Martín")
+    assert {e["tipo"] for e in p["equipos"]} >= {"Nevera"}
+    # editar deja historial y avisa al cliente; el técnico supervisor no puede verlo
+    r = client.put(f"/clientes/{cli['id']}", json={"cedula": "15678901", "nombre": "María González Pérez"}, headers=control).json()
+    assert r["nombre"] == "María González Pérez" and {c["texto"] for c in r["cambios"]} == {"cambió el nombre", "cambió la cédula"}
+    assert client.get(f"/clientes/{cli['id']}", headers=login(client, "tecsup@ahahome.test")).status_code == 403
+    assert client.post(f"/clientes/{cli['id']}/cerrar-sesiones", headers=control).json()["cambios"][0]["texto"].startswith("cerró su sesión")
+
+
+def test_soporte_monitorea_e_interviene_en_el_chat(client):
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente)
+    cliente = login(client, "maria@ahahome.test")
+    tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
+    sup = login(client, "supervisor@ahahome.test")
+    client.post(f"/ordenes/{o['id']}/chat", json={"texto": "¿Ya vienen?"}, headers=cliente)
+    lista = client.get("/soporte/chats", headers=sup).json()
+    assert lista[0]["orden_id"] == o["id"] and lista[0]["ultimo"]["de"] == "cliente" and lista[0]["monitoreado_por"] == []
+    # abrirla en el panel la monitorea: aviso en el chat (una sola vez) y a los dos en su app
+    v = client.get(f"/soporte/chats/{o['id']}", headers=sup).json()
+    assert v["monitoreo"][0]["yo"] and v["mensajes"][-1]["de"] == "sistema" and "monitoreando" in v["mensajes"][-1]["texto"]
+    ultimo = v["mensajes"][-1]["id"]
+    assert client.get(f"/soporte/chats/{o['id']}?desde={ultimo}", headers=sup).json()["mensajes"] == []  # el latido no repite el aviso
+    assert "Soporte está acompañando tu chat" in titulos(client, cliente) and "Soporte está acompañando tu chat" in titulos(client, tecnico)
+    chat = client.get(f"/ordenes/{o['id']}/chat", headers=cliente).json()
+    assert chat["monitoreo"]["activo"] and any("monitoreando" in m["texto"] for m in chat["mensajes"] if m["sistema"])
+    # interviene: sale como soporte
+    client.post(f"/soporte/chats/{o['id']}/mensaje", json={"texto": "Hola María, el técnico llega a las 10:40"}, headers=sup)
+    ms = client.get(f"/soporte/chats/{o['id']}?desde={ultimo}", headers=sup).json()["mensajes"]
+    assert [m["de"] for m in ms] == ["sistema", "soporte"] and "intervino" in ms[0]["texto"]
+    # termina el monitoreo: queda el aviso y ya no se ve como monitoreado
+    client.post(f"/soporte/chats/{o['id']}/terminar?avisar=1", headers=sup)
+    chat = client.get(f"/ordenes/{o['id']}/chat", headers=cliente).json()
+    assert not chat["monitoreo"]["activo"] and "terminó el monitoreo" in chat["mensajes"][-1]["texto"]
+    assert client.get("/soporte/chats", headers=login(client, "tecsup@ahahome.test")).status_code == 403

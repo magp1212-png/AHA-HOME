@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 
 from .models import Auditoria, User, ahora
 
-EQUIPO = ("agente", "tecnico_supervisor", "supervisor", "superadmin", "ventas")
-ROL_TEXTO = {"agente": "Caja", "tecnico_supervisor": "Técnico supervisor", "supervisor": "Centro de control", "superadmin": "Superadmin", "ventas": "Ventas"}
+EQUIPO = ("agente", "tecnico_supervisor", "supervisor", "superadmin", "ventas", "sistemas")
+ROL_TEXTO = {"agente": "Caja", "tecnico_supervisor": "Técnico supervisor", "supervisor": "Centro de control", "superadmin": "Superadmin", "ventas": "Ventas", "sistemas": "Sistemas"}
 
 # (método, patrón de ruta) → descripción en español
 ACCIONES = [
@@ -75,8 +75,13 @@ ACCIONES = [
     ("POST", r"^/supervisor/incidencias/(\d+)/resolver$", "Resolvió el reporte #{0}"),
     ("PUT", r"^/admin/precios$", "Cambió la tabulación de precios"),
     ("POST", r"^/admin/precios$", "Agregó un artículo a la tabulación de precios"),
+    ("PUT", r"^/sistemas/errores/(\d+)$", "Atendió el error #{0} del sistema"),
+    ("POST", r"^/sistemas/sesiones/(\w+)/cerrar$", "Cerró a distancia una sesión del equipo"),
+    ("PUT", r"^/sistemas/ajustes$", "Cambió los avisos del Departamento de sistemas"),
+    ("POST", r"^/sistemas/probar$", "Pidió revisar el estado del sistema"),
+    ("POST", r"^/sistemas/resumen$", "Envió el resumen de sistemas por correo"),
 ]
-SIN_AUDITAR = (r"^/panel-api/actividad$", r"^/notificaciones", r"^/auth/", r"^/archivos")
+SIN_AUDITAR = (r"^/panel-api/actividad$", r"^/notificaciones", r"^/auth/", r"^/archivos", r"^/sistemas/errores/panel$")
 SECCIONES = {"finanzas": "finanzas", "admin": "la administración", "supervisor": "la operación", "ceo": "el centro de mando", "ordenes": "las órdenes",
              "caja": "la caja", "tecnico": "los técnicos"}
 

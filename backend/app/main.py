@@ -10,9 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from . import config
+from . import config, sistemas  # sistemas primero: mide cuánto tarda en arrancar
 from .db import Base, engine
-from .routers import admin, archivos, auth, banners, chat, legal, ordenes, ceo, conformidad, panel, penalidad, precios, finanzas, finanzas_libro, qr_tiendas, historial, interfaz, ventas, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
+from .routers import sistemas as sistemas_rutas
+from .routers import admin, archivos, auth, banners, chat, legal, ordenes, ceo, profesionales, clientes, conformidad, panel, penalidad, precios, finanzas, finanzas_libro, qr_tiendas, historial, interfaz, ventas, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
 
 log = logging.getLogger("ahahome")
 app = FastAPI(title="AHA HOME API", version=config.APP_VERSION)
@@ -51,6 +52,31 @@ def _auditar(request: Request, estado: int) -> None:
         db.commit()
 
 
+@app.exception_handler(Exception)
+async def error_del_servidor(request: Request, exc: Exception):
+    """Cualquier error inesperado queda en el Departamento de sistemas; la persona ve un mensaje claro."""
+    from fastapi.responses import JSONResponse
+    log.exception("error en %s %s", request.method, request.url.path)
+    try:
+        from starlette.concurrency import run_in_threadpool
+        await run_in_threadpool(_anotar_error, request, exc)
+    except Exception:  # noqa: BLE001
+        pass
+    return JSONResponse({"detail": "Ocurrió un error en el servidor. El Departamento de sistemas ya fue avisado."}, status_code=500)
+
+
+def _anotar_error(request: Request, exc: Exception) -> None:
+    import re as _re
+    from .db import SessionLocal
+    from .models import User
+    from .security import read_token
+    uid = read_token(request.headers.get("authorization", "").removeprefix("Bearer ").strip() or "x")
+    with SessionLocal() as db:
+        u = db.get(User, uid) if uid else None
+        ruta = _re.sub(r"/\d+", "/#", request.url.path)
+        sistemas.registrar_error(db, "servidor", f"{type(exc).__name__}: {exc}", f"{request.method} {ruta}", u.nombre if u else "")
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     # superad.aha-go.com abre directo el superadministrador
@@ -73,7 +99,7 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router, ceo.router, panel.router, precios.router, finanzas.router, finanzas_libro.router, qr_tiendas.router, historial.router, interfaz.router, ventas.router):
+for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router, ceo.router, panel.router, precios.router, finanzas.router, finanzas_libro.router, qr_tiendas.router, historial.router, sistemas_rutas.router, interfaz.router, ventas.router, profesionales.router, clientes.router):
     app.include_router(r)
 
 
@@ -107,6 +133,12 @@ def crear_tablas() -> None:
     nuevas = agregar_columnas_nuevas(engine)
     if nuevas:
         log.info("columnas nuevas agregadas: %s", ", ".join(nuevas))
+    if "tecnicos.conduce" in nuevas:
+        # Los profesionales que ya existían hacen traslado e instalación en el piloto: quedan con ambas actividades
+        # (la oficina lo ajusta en su perfil si alguno solo conduce o solo instala).
+        from sqlalchemy import text
+        with engine.begin() as c:
+            c.execute(text("UPDATE tecnicos SET conduce = :si WHERE es_ayudante = :no"), {"si": True, "no": False})
     # cuentas CEO por configuración (AHAHOME_CEO_EMAILS)
     from . import config
     if config.CEO_EMAILS:
@@ -121,6 +153,7 @@ def crear_tablas() -> None:
             sembrar_correos(db)
     if os.environ.get("AHAHOME_PURGA", "1") == "1":
         threading.Thread(target=_purga_periodica, daemon=True).start()
+    sistemas.arrancar()  # revisa el estado cada 5 minutos y anota cuánto tardó en arrancar
 
 
 def _purga_periodica() -> None:

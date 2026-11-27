@@ -10,7 +10,7 @@ from .. import asignacion
 from .. import ordenes as svc
 from ..db import get_db
 from ..deps import require, exigir_permiso
-from ..models import (DOCUMENTOS_OBLIGATORIOS, GRUPOS, ROLES, TIPOS_DOCUMENTO, Documento, Incidencia, Orden, Tecnico, Tienda,
+from ..models import (DOCUMENTOS_OBLIGATORIOS, GRUPOS, ROLES, TIPOS_DOCUMENTO, Documento, Incidencia, Orden, PerfilCambio, Tecnico, Tienda, documentos_pendientes,
                       User, ahora)
 from ..notificar import notificar
 from ..security import hash_password
@@ -45,7 +45,7 @@ def tecnico_dict(db: Session, t: Tecnico, fecha: str) -> dict:
                                     "similitud_cedula": round(t.rostro_similitud_cedula, 3) if t.rostro_similitud_cedula else None},
             "huella_registrada": t.huella_registrada, "email": t.user.email,
             "registro_app_completo": bool(t.foto_rostro and t.selfie_cedula and t.huella_registrada),
-            "documentos_faltantes": [d for d in DOCUMENTOS_OBLIGATORIOS if d not in {x.tipo for x in t.documentos}],
+            "documentos_faltantes": [d for d, _ in documentos_pendientes(t)],
             "alta_en": t.alta_en.isoformat() + "Z" if t.alta_en else None,
             "jefe": t.jefe.user.nombre if t.jefe else None,
             "ayudantes": [{"id": a.id, "nombre": a.user.nombre, "verificado": a.verificado} for a in t.ayudantes],
@@ -196,16 +196,23 @@ class NuevoDocumento(BaseModel):
     vence: str = Field(default="", max_length=10)
 
 
+def _permiso_documentos(user: User) -> None:
+    from ..deps import permisos_de
+    if not ({"altas_tecnicos", "editar_profesionales"} & set(permisos_de(user))):
+        exigir_permiso(user, "editar_profesionales")
+
+
 @router.post("/tecnicos/{tec_id}/documentos")
-def agregar_documento(tec_id: int, body: NuevoDocumento, user: User = Depends(control), db: Session = Depends(get_db)):
+def agregar_documento(tec_id: int, body: NuevoDocumento, user: User = Depends(require("tecnico_supervisor", "supervisor", "sistemas")), db: Session = Depends(get_db)):
     """En la oficina: foto de perfil, cédula, licencia, documentos del vehículo y otros."""
-    exigir_permiso(user, "altas_tecnicos")
+    _permiso_documentos(user)
     t = tecnico_controlado(db, user, tec_id)
     if body.tipo not in TIPOS_DOCUMENTO:
         raise HTTPException(422, "Tipo de documento inválido")
     d = Documento(tecnico_id=t.id, tipo=body.tipo, url=body.url, descripcion=body.descripcion.strip(), vence=body.vence,
                   subido_por=user.id)
     db.add(d)
+    db.add(PerfilCambio(tecnico_id=t.id, user_id=user.id, texto=f"agregó el documento «{TIPOS_DOCUMENTO[body.tipo]}»", despues=body.vence and f"vence {body.vence}" or ""))
     if body.tipo == "foto_perfil":
         t.foto_perfil = body.url
     db.commit()
@@ -213,13 +220,15 @@ def agregar_documento(tec_id: int, body: NuevoDocumento, user: User = Depends(co
 
 
 @router.delete("/tecnicos/{tec_id}/documentos/{doc_id}")
-def borrar_documento(tec_id: int, doc_id: int, user: User = Depends(control), db: Session = Depends(get_db)):
+def borrar_documento(tec_id: int, doc_id: int, user: User = Depends(require("tecnico_supervisor", "supervisor", "sistemas")), db: Session = Depends(get_db)):
+    _permiso_documentos(user)
     t = tecnico_controlado(db, user, tec_id)
     d = db.get(Documento, doc_id)
     if not d or d.tecnico_id != t.id:
         raise HTTPException(404)
     if d.tipo == "foto_perfil" and t.foto_perfil == d.url:
         t.foto_perfil = None
+    db.add(PerfilCambio(tecnico_id=t.id, user_id=user.id, texto=f"quitó el documento «{TIPOS_DOCUMENTO.get(d.tipo, d.tipo)}»"))
     db.delete(d)
     db.commit()
     return {"ok": True}
@@ -239,6 +248,8 @@ def dar_de_alta(tec_id: int, body: Alta, user: User = Depends(control), db: Sess
     if not t.es_ayudante:  # el técnico se registra en la app; el ayudante puede registrarse completo en la oficina
         if not (t.foto_rostro and t.selfie_cedula):
             falta.append("escaneo facial y foto con la cédula (desde la app)")
+        elif t.rostro_resultado == "no_coincide":
+            falta.append("verificación facial aprobada (la cara no coincide con la de la cédula: pide un nuevo escaneo)")
         if not t.huella_registrada:
             falta.append("huella (desde la app)")
     if not t.es_ayudante:
@@ -246,7 +257,7 @@ def dar_de_alta(tec_id: int, body: Alta, user: User = Depends(control), db: Sess
         if not cuenta_tecnico(t)["registrada"]:
             falta.append("datos bancarios o de pago móvil (para pagarle sus servicios)")
     tipos = {d.tipo for d in t.documentos}
-    falta += [TIPOS_DOCUMENTO[d] for d in DOCUMENTOS_OBLIGATORIOS if d not in tipos]
+    falta += [TIPOS_DOCUMENTO[d] + (" (vencido)" if motivo == "vencido" else "") for d, motivo in documentos_pendientes(t)]
     if falta:
         raise HTTPException(422, {"mensaje": "Falta completar el registro", "faltan": falta})
     if t.es_ayudante:

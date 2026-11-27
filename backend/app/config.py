@@ -4,7 +4,9 @@ import pathlib
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
 
-APP_VERSION = "0.1.0"
+# Versión de AHA HOME: el archivo VERSION en la raíz del proyecto. Se sube en cada actualización (1.0.1, 1.0.2, …).
+_vfile = next((f for f in (BASE_DIR.parent / "VERSION", BASE_DIR / "VERSION") if f.exists()), BASE_DIR / "VERSION")
+APP_VERSION = _vfile.read_text().strip() if _vfile.exists() else "1.0.1"
 
 DATABASE_URL = os.environ.get("AHAHOME_DATABASE_URL", f"sqlite:///{BASE_DIR / 'ahahome.db'}")
 
@@ -54,6 +56,6 @@ CIERRE_MINUTOS = int(os.environ.get("AHAHOME_CIERRE_MINUTOS", "30"))
 # Modo equipo: en producción, mientras se prueba, solo entran la caja, el centro de control, el superadmin y el CEO.
 # Se activa con AHAHOME_SOLO_EQUIPO=1 o con el archivo backend/.solo-equipo en el servidor.
 SOLO_EQUIPO = os.environ.get("AHAHOME_SOLO_EQUIPO", "") == "1" or (BASE_DIR / ".solo-equipo").exists()
-ROLES_EQUIPO = ("agente", "supervisor", "tecnico_supervisor", "superadmin", "ventas")
+ROLES_EQUIPO = ("agente", "supervisor", "tecnico_supervisor", "superadmin", "ventas", "sistemas")
 MENSAJE_SOLO_EQUIPO = "AHA HOME está en pruebas solo con el equipo de tienda y control. Muy pronto podrás usarla."
 INSPECCION_USD = float(os.environ.get("AHAHOME_INSPECCION_USD", "10"))

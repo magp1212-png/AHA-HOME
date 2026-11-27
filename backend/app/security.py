@@ -29,7 +29,17 @@ def verify_password(password: str, stored: str | None) -> bool:
 
 def make_token(user_id: int) -> str:
     exp = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=config.JWT_DAYS)
-    return jwt.encode({"sub": str(user_id), "exp": exp}, config.JWT_SECRET, algorithm="HS256")
+    return jwt.encode({"sub": str(user_id), "exp": exp, "iat": dt.datetime.now(dt.timezone.utc), "t": dt.datetime.now(dt.timezone.utc).timestamp()}, config.JWT_SECRET, algorithm="HS256")
+
+
+def emitido_en(token: str) -> dt.datetime | None:
+    """Cuándo se emitió el token (UTC, sin zona), para cerrar sesiones a distancia."""
+    try:
+        datos = jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"])
+        iat = datos.get("t") or datos.get("iat")  # «t» lleva fracciones de segundo
+        return dt.datetime.fromtimestamp(iat, dt.timezone.utc).replace(tzinfo=None) if iat else None
+    except (jwt.PyJWTError, ValueError, TypeError, OSError):
+        return None
 
 
 def read_token(token: str) -> int | None:

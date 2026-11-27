@@ -1,3 +1,5 @@
+> **Decisión actual (noviembre 2026):** AHA HOME corre en un solo servidor, **AHASERVER** (túnel, API y base de datos SQLite). Las dos estaciones **no** se unen. Esta guía queda solo como referencia por si en el futuro se decide usar dos servidores.
+
 # AHA HOME · Dos estaciones trabajando juntas
 
 Esta es la configuración de AHA HOME con **dos computadoras Windows en la misma red local**. Las dos usan **una sola base de datos** y atienden la web al mismo tiempo.

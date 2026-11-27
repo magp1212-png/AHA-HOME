@@ -69,6 +69,7 @@ export function HamburguesaTecnico() {
       { icono: "notifications-outline", texto: "Avisos", onPress: () => nav.push("notificaciones") },
       ...(!esAyudante ? [
         { icono: "people-outline" as const, texto: "Mis ayudantes", onPress: () => nav.push("ayudantes") },
+        { icono: "school-outline" as const, texto: "Mis títulos y cursos", onPress: () => nav.push("formacion") },
         { icono: "card-outline" as const, texto: "Mi cuenta de pago", onPress: () => nav.push("cuentaPago") },
       ] : []),
       { icono: "headset-outline", texto: "Hablar con AHA HOME", onPress: () => nav.push("soporte") },

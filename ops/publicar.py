@@ -152,7 +152,8 @@ def main(force: bool = False) -> None:
     restart_api()
     if healthy():
         STATE.write_text(json.dumps({"publicado": new}), encoding="utf-8")
-        log(f"PUBLICADO {new[:8]}")
+        ver = (ROOT / "VERSION").read_text().strip() if (ROOT / "VERSION").exists() else "?"
+        log(f"PUBLICADO {new[:8]} v{ver}")
         tell_owner("Publicado en AHA HOME", f"«{subject}» ya está en el servidor.")
         return
 

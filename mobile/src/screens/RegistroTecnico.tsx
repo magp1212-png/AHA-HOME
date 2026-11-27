@@ -19,7 +19,7 @@ export default function RegistroTecnico() {
   const { entrar } = useSession();
   const [paso, setPaso] = useState(1);
   const [tiendas, setTiendas] = useState<Tienda[]>([]);
-  const [f, setF] = useState({ nombre: "", cedula: "", telefono: "", email: "", password: "", pin: "", rol: "tecnico", tienda_id: 0 });
+  const [f, setF] = useState({ nombre: "", cedula: "", telefono: "", email: "", password: "", pin: "", rol: "tecnico", tienda_id: 0, conduce: false, instala: true });
   const [cuenta, setCuenta] = useState<{ token: string; usuario: Perfil } | null>(null);
   const [rostro, setRostro] = useState<{ uri: string; url: string } | null>(null);
   const [selfie, setSelfie] = useState<{ uri: string; url: string } | null>(null);
@@ -85,12 +85,21 @@ export default function RegistroTecnico() {
   }
 
   return (
-    <Pantalla titulo="Registro de técnico" subtitulo={`Paso ${paso} de 4 · ${["Tus datos", "Foto con tu cédula", "Verificación facial", "Huella"][paso - 1]}`}>
+    <Pantalla titulo="Registro de profesional" subtitulo={`Paso ${paso} de 4 · ${["Tus datos", "Foto con tu cédula", "Verificación facial", "Huella"][paso - 1]}`}>
       {paso === 1 ? (
         <Tarjeta>
           <Seccion>TUS DATOS</Seccion>
-          <Fila><Opcion texto="Técnico" activo={f.rol === "tecnico"} onPress={() => set("rol")("tecnico")} />
-            <Opcion texto="Ayudante" activo={f.rol === "ayudante"} onPress={() => set("rol")("ayudante")} /></Fila>
+          {f.rol === "tecnico" ? (
+            <>
+              <Seccion>TIPO DE PERFIL</Seccion>
+              <Fila wrap>
+                <Opcion texto="Conductor" activo={f.conduce && !f.instala} onPress={() => setF({ ...f, conduce: true, instala: false })} />
+                <Opcion texto="Técnico instalador" activo={f.instala && !f.conduce} onPress={() => setF({ ...f, conduce: false, instala: true })} />
+                <Opcion texto="Mixto" activo={f.conduce && f.instala} onPress={() => setF({ ...f, conduce: true, instala: true })} />
+              </Fila>
+              <Texto gris size={13}>{f.conduce && f.instala ? "Mixto: conduces y también instalas. Quedas en los dos módulos." : f.conduce ? "Conductor: retiras en la tienda y llevas los artículos al cliente." : "Técnico instalador: desembalas, instalas y pruebas los equipos."}</Texto>
+            </>
+          ) : null}
           <Campo etiqueta="Nombre y apellido" value={f.nombre} onChangeText={set("nombre")} />
           <Campo etiqueta="Número de cédula" value={f.cedula} onChangeText={set("cedula")} placeholder="V-12.345.678" autoCapitalize="characters" />
           <Campo etiqueta="Teléfono" value={f.telefono} onChangeText={set("telefono")} keyboardType="phone-pad" />
@@ -99,6 +108,7 @@ export default function RegistroTecnico() {
           <Campo etiqueta="PIN personal (4 a 8 números)" value={f.pin} onChangeText={set("pin")} keyboardType="number-pad" secureTextEntry maxLength={8} />
           <Seccion>TIENDA DONDE TRABAJARÁS</Seccion>
           <Fila wrap>{tiendas.map((t) => <Opcion key={t.id} texto={t.nombre} activo={f.tienda_id === t.id} onPress={() => set("tienda_id")(t.id)} />)}</Fila>
+          <Texto gris size={13}>¿Eres ayudante? No te registras aquí: tu profesional te registra desde su app como parte de su equipo.</Texto>
           <Aviso texto={error} />
           <Boton titulo="Continuar" onPress={crearCuenta} cargando={cargando}
             deshabilitado={!f.nombre || !f.cedula || !f.telefono || !f.email || f.password.length < 6 || f.pin.length < 4 || !f.tienda_id} />
@@ -168,7 +178,7 @@ export default function RegistroTecnico() {
           ) : <Aviso tono="info" texto="Este teléfono no tiene huella ni rostro configurado. Actívalo en los ajustes del teléfono y vuelve a este paso." />}
           <Aviso texto={error} />
           <Boton titulo="Enviar mi registro" tipo="exito" onPress={terminar} cargando={cargando} deshabilitado={!huella} />
-          <Texto gris size={13}>Después pasa por la oficina: te tomarán la foto de perfil, copia de tu cédula, licencia y documentos del vehículo, y te darán el alta con tu grupo.</Texto>
+          <Texto gris size={13}>{f.conduce ? "Después pasa por la oficina con tu cédula, certificado médico, carnet de circulación, licencia de conducir, RCV y ROTC. Te tomarán la foto de perfil y te darán el alta con tu grupo." : "Después pasa por la oficina: te tomarán la foto de perfil y copia de tu cédula, y te darán el alta con tu grupo."}</Texto>
         </Tarjeta>
       ) : null}
       <View style={{ height: 1, backgroundColor: C.linea }} />

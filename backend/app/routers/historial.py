@@ -19,6 +19,7 @@ router = APIRouter(tags=["historial"])
 class Nota(BaseModel):
     tipo: str = Field(pattern="^(consulta|descarga|cierre_sesion)$")
     texto: str = Field(min_length=2, max_length=200)
+    ms: int = Field(default=0, ge=0, le=600000)
 
 
 @router.post("/panel-api/actividad")
@@ -26,7 +27,7 @@ def anotar_actividad(body: Nota, request: Request, user: User = Depends(current_
     """El panel avisa qué pantalla se abrió, qué se descargó o que se cerró la sesión."""
     if user.rol in ROLES:
         ip = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "")
-        anotar(db, request.headers.get("x-sesion", "")[:12], user, body.tipo, body.texto, ip, request.headers.get("user-agent", ""))
+        anotar(db, request.headers.get("x-sesion", "")[:12], user, body.tipo, body.texto, ip, request.headers.get("user-agent", ""), body.ms)
         db.commit()
     return {"ok": True}
 

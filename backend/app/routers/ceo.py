@@ -15,7 +15,7 @@ router = APIRouter(prefix="/ceo", tags=["centro de mando"])
 
 def solo_ceo(user: User = Depends(current_user)) -> User:
     if not (user.rol == "superadmin" and user.es_ceo):
-        raise HTTPException(403, "Solo el CEO puede ver el centro de mando")
+        raise HTTPException(403, "Solo el CEO puede ver esta parte de Administración AHA HOME")
     return user
 
 
@@ -66,8 +66,8 @@ from pydantic import BaseModel, Field
 from ..deps import PERMISOS, PERMISOS_POR_ROL, permisos_de
 from ..security import hash_password
 
-ROLES_PERSONAL = {"ceo": "CEO (acceso total)", "superadmin": "Superadministrador", "supervisor": "Centro de control", "tecnico_supervisor": "Técnico supervisor", "agente": "Operador de caja", "ventas": "Departamento de ventas"}
-ROLES_CUENTA = ("superadmin", "supervisor", "tecnico_supervisor", "agente", "ventas")  # roles guardados en la cuenta; «ceo» es un superadmin con es_ceo
+ROLES_PERSONAL = {"ceo": "CEO (acceso total)", "superadmin": "Superadministrador", "supervisor": "Centro de control", "tecnico_supervisor": "Técnico supervisor", "agente": "Operador de caja", "ventas": "Departamento de ventas", "sistemas": "Departamento de sistemas"}
+ROLES_CUENTA = ("superadmin", "supervisor", "tecnico_supervisor", "agente", "ventas", "sistemas")  # roles guardados en la cuenta; «ceo» es un superadmin con es_ceo
 
 
 def _es_principal(u: User) -> bool:
