@@ -224,10 +224,11 @@
     $("#tb").querySelectorAll("[data-o]").forEach((th) => (th.onclick = () => { st.dir = st.orden === th.dataset.o && st.dir === "desc" ? "asc" : "desc"; st.orden = th.dataset.o; pintar(); }));
     const fe = $("#fe"); if (fe) fe.onchange = () => { st.estado = fe.value; st.pagina = 1; pintar(); };
     $("#ant").onclick = () => { st.pagina--; pintar(); }; $("#sig").onclick = () => { st.pagina++; pintar(); };
-    const aPerfil = (f) => { S.pfDesde = nombre; location.hash = "profesional-" + f.tecnico_id; };
-    $("#tb").querySelectorAll("[data-ver]").forEach((b) => (b.onclick = () => r.filas[b.dataset.ver]._acciones?.includes("perfil") ? aPerfil(r.filas[b.dataset.ver]) : cajon(nombre, r.columnas, r.filas[b.dataset.ver], false)));
+    const conPerfil = (f) => f._acciones?.includes("perfil") || f._acciones?.includes("perfil_cliente");
+    const aPerfil = (f) => { S.pfDesde = nombre; location.hash = f._acciones.includes("perfil_cliente") ? "cliente-" + f.id : "profesional-" + f.tecnico_id; };
+    $("#tb").querySelectorAll("[data-ver]").forEach((b) => (b.onclick = () => conPerfil(r.filas[b.dataset.ver]) ? aPerfil(r.filas[b.dataset.ver]) : cajon(nombre, r.columnas, r.filas[b.dataset.ver], false)));
     $("#tb").querySelectorAll("[data-ed]").forEach((b) => (b.onclick = async () => {
-      if (r.filas[b.dataset.ed]._acciones?.includes("perfil")) return aPerfil(r.filas[b.dataset.ed]);
+      if (conPerfil(r.filas[b.dataset.ed])) return aPerfil(r.filas[b.dataset.ed]);
       if (S.yo?.es_ceo && ["administradores", "control", "caja"].includes(nombre)) {
         const [cat, us, ts, cc] = await Promise.all([api("/ceo/permisos"), api("/ceo/usuarios"), api("/admin/tiendas"), api("/ceo/correos")]);
         S.dominio = cc.dominio;
@@ -383,7 +384,7 @@
       <div class="card quieta pf-cab">${p.foto_perfil ? `<img src="${esc(p.foto_perfil)}" alt="" style="width:72px;height:72px;border-radius:22px;object-fit:cover">` : `<span class="pf-av grande" style="background:linear-gradient(135deg,#7AA2FF,#3B5BDB)">${ini(p.nombre)}</span>`}
         <div class="pf-cabt"><h2>${esc(p.nombre)} <span class="pf-id grande">${esc(p.codigo)}</span><button class="pf-copiar" id="pf-cp" title="Copiar el código">⧉</button></h2>
           <div class="pf-chips">${chip("info", p.actividad)}${chip(tono, p.estado)}${p.conduce && !p.es_ayudante ? chip(p.licencia.nivel, "Licencia: " + p.licencia.texto) : ""}${pendientes ? chip("mal", `Faltan ${pendientes} documento(s)`) : chip("ok", "Expediente completo")}${p.grupo ? chip("neutro", p.grupo === "RETEN" ? "Retén" : "Grupo " + p.grupo) : ""}${sv.calificacion ? `<span class="pf-star">★ ${sv.calificacion}</span>` : ""}<span class="total">· ${esc(p.tienda)}</span></div></div>
-        <div class="pf-cabacc">${ed ? `<button class="btn ${p.activo ? "rojo" : "sec"}" id="pf-act">${p.activo ? "Desactivar cuenta" : "Activar cuenta"}</button><button class="btn pri" id="pf-gu">Guardar cambios</button>` : `<span class="total">Solo lectura: pídele al CEO el permiso «Editar perfiles».</span>`}</div></div>
+        <div class="pf-cabacc">${ed ? `${puedeActivar() ? `<button class="btn ${p.activo ? "rojo" : "sec"}" id="pf-act">${p.activo ? "Desactivar cuenta" : "Activar cuenta"}</button>` : ""}<button class="btn pri" id="pf-gu">Guardar cambios</button>` : `<span class="total">Solo lectura: pídele al CEO el permiso «Editar perfiles».</span>`}</div></div>
       <p class="error" id="pf-err"></p><p class="total" id="pf-ok" style="color:var(--verde)"></p>
       <div class="pf-cols"><div>${actividades}${datos}${trabajo}${vehiculo}${espec}${cuenta}</div><div>${identidad}${formacionB}${expediente}${ayudantes}${servicios}${historial}</div></div>`;
 
@@ -409,7 +410,7 @@
       if (!Object.keys(body).length) return ok("No hay cambios por guardar.");
       try { await api(`/profesionales/${id}`, { method: "PUT", body }); S.cache = {}; await pintar(true); $("#pf-ok").textContent = "Cambios guardados. Quedaron en el historial."; } catch (e) { err(e); }
     };
-    $("#pf-act").onclick = () => api(`/admin/usuarios/${p.user_id}/activo`, { body: { activo: !p.activo } }).then(() => pintar(true)).catch(err);
+    const pfAct = $("#pf-act"); if (pfAct) pfAct.onclick = () => api(`/admin/usuarios/${p.user_id}/activo`, { body: { activo: !p.activo } }).then(() => pintar(true)).catch(err);
     const scan = $("#pf-scan"), pin = $("#pf-pin");
     if (scan) scan.onclick = () => confirm("¿Pedirle que repita el escaneo facial y la foto con su cédula desde la app?") && api(`/profesionales/${id}/reescaneo`, { body: {} }).then(() => pintar(true)).catch(err);
     if (pin) pin.onclick = async () => {
@@ -438,6 +439,65 @@
       const f = $("#pf-df").files[0]; if (!f) return err(new Error("Elige el archivo (foto o PDF)."));
       try { const url = await subirArchivo(f); await api(`/supervisor/tecnicos/${id}/documentos`, { body: { tipo: $("#pf-dt").value, url, vence: $("#pf-dv").value } }); pintar(true); } catch (e) { err(e); }
     };
+  }
+
+
+  // ---------- Perfil del cliente ----------
+  const puedeActivar = () => S.yo?.es_ceo || (S.yo?.rol === "superadmin" && puedeHacer("activar_cuentas"));
+  async function perfilCliente(main, id) {
+    const p = await api(`/clientes/${id}`);
+    const ed = p.puede_editar, dis = ed ? "" : "disabled", r = p.resumen, c = p.cuenta;
+    const fecha = (x) => fmt("", x);
+    const chip = (n, t) => `<span class="est ${n}">${esc(t)}</span>`;
+    const ini = String(p.nombre || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
+    const campo = (t, k, v, o = {}) => `<label class="pf-c ${o.ancho ? "ancho" : ""}"><span>${t}</span><input class="finp" data-k="${k}" value="${esc(v ?? "")}" ${o.fijo ? "readonly" : dis} ${o.ph ? `placeholder="${esc(o.ph)}"` : ""}></label>`;
+    const bloque = (t, cuerpo, nota = "") => `<div class="card quieta pf-b"><div class="pf-bt"><b>${t}</b>${nota ? `<span class="total">${nota}</span>` : ""}</div>${cuerpo}</div>`;
+    const fila = (a, b) => `<div class="fila"><span>${a}</span><span>${b}</span></div>`;
+    const vacio = (t) => `<div class="pf-nota total">${t}</div>`;
+    const tono = (e) => ESTADO_TONO(String(e));
+
+    const datos = bloque("Datos personales", campo("Código", "", p.codigo, { fijo: true }) + campo("Registrado el", "", fecha(p.registrado), { fijo: true })
+      + campo("Nombre y apellido", "nombre", p.nombre, { ancho: true }) + campo("Cédula", "cedula", p.cedula, { ph: "V-12.345.678" })
+      + campo("Teléfono", "telefono", p.telefono) + campo("Correo", "email", p.email, { ancho: true }));
+    const cuenta = bloque("Cuenta en la app", fila("Correo verificado", c.correo_verificado ? "✓ Sí" : chip("pend", "Sin verificar"))
+      + fila("Último acceso", c.ultimo_acceso ? fecha(c.ultimo_acceso) : "Nunca ha entrado") + fila("Avisos en el teléfono", c.notificaciones ? "✓ Activados" : "No activados")
+      + fila("Acceso", c.con_clave ? "Con clave propia" : "Sin clave (registrado en caja)")
+      + (ed ? `<div class="pf-cabacc" style="grid-column:1/-1;margin-top:8px"><button class="btn sec chico" id="cl-ses">Cerrar su sesión en todos sus teléfonos</button></div>` : ""));
+    const dirs = bloque("Dónde se le presta el servicio", p.direcciones.map((d) => `<div class="pf-doc"><span class="pf-dic">📍</span><div><b>${esc(d.direccion)}</b><small>${esc(d.zona || "")} · ${d.veces} servicio(s) · último ${fmt("", d.ultima)}</small></div>
+        ${d.lat && d.lng ? `<a class="btn sec chico" href="https://www.google.com/maps?q=${d.lat},${d.lng}" target="_blank" rel="noopener">Mapa</a>` : ""}</div>`).join("") || vacio("Todavía no tiene servicios."), `${p.direcciones.length}`);
+    const equipos = bloque("Sus equipos", p.equipos.map((e) => `<div class="pf-doc"><span class="pf-dic">🔌</span><div><b>${esc(e.tipo)}${e.marca ? " · " + esc(e.marca) : ""}${e.modelo ? " " + esc(e.modelo) : ""}</b><small>${esc(e.orden)} · ${fmt("", e.fecha)}${e.serial ? " · serial " + esc(e.serial) : ""}${e.garantia ? " · garantía " + esc(e.garantia) : ""}</small></div>${e.instalado ? chip("ok", "Instalado") : chip("neutro", "Solo traslado")}</div>`).join("") || vacio("Sin equipos registrados."), `${p.equipos.length}`);
+
+    const kpis = bloque("Resumen", `<div class="fin-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${[["Órdenes", r.ordenes], ["Completadas", r.completadas], ["En curso", r.en_curso], ["Pagado", "$" + r.pagado]].map(([t, n]) => `<div><div class="total">${t}</div><b style="font-size:20px">${n}</b></div>`).join("")}</div>
+      ${fila("Canceladas · entregas fallidas", `${r.canceladas} · ${r.fallidas}`)}${fila("Calificación que da", r.calificacion_dada ? "★ " + r.calificacion_dada : "—")}${fila("Cliente desde", r.cliente_desde ? fmt("", r.cliente_desde) : "—")}${fila("Última orden", r.ultima_orden ? fmt("", r.ultima_orden) : "—")}`);
+    const ordenes = bloque("Órdenes", p.ordenes.map((o) => `<div class="fila"><span><b>${esc(o.codigo)}</b> · ${esc(o.servicio)}<br><small class="total">${fmt("", o.fecha)} ${esc(o.franja || "")} · ${esc(o.tienda)} · ${esc(o.profesional)}</small></span><span>${chip(tono(o.estado), o.estado)}</span></div>`).join("") || vacio("Sin órdenes."), `${p.ordenes.length}`);
+    const pagos = bloque("Pagos", p.pagos.map((x) => `<div class="fila"><span><b>$${esc(x.monto)}</b> · ${esc(x.concepto)}<br><small class="total">${esc(x.orden)} · ${esc(x.metodo)}</small></span><span class="total">${fecha(x.en)}</span></div>`).join("") || vacio("Sin pagos registrados."));
+    const resenas = bloque("Reseñas que dejó", p.resenas.map((x) => `<div class="fila"><span>${"★".repeat(x.estrellas)} <b>${esc(x.orden)}</b> · ${esc(x.profesional)}${x.comentario ? `<br><small class="total">«${esc(x.comentario)}»</small>` : ""}</span><span class="total">${fmt("", x.fecha)}</span></div>`).join("") || vacio("Todavía no ha calificado."));
+    const sp = p.soporte;
+    const soporte = bloque("Soporte y reclamos", (sp.reclamos.length ? `<div class="pf-sub">Reclamos de dinero</div>` + sp.reclamos.map((x) => fila(`${esc(x.motivo)}<br><small class="total">${esc(x.orden || "—")} · $${esc(x.monto)}</small>`, chip(x.estado === "abierto" ? "pend" : "ok", x.estado))).join("") : "")
+      + (sp.incidencias.length ? `<div class="pf-sub">Incidencias en sus órdenes</div>` + sp.incidencias.map((x) => fila(esc(x.texto), chip(x.abierta ? "pend" : "ok", x.abierta ? "Abierta" : "Resuelta"))).join("") : "")
+      + `<div class="pf-sub">Mensajes con AHA HOME</div>` + (sp.mensajes.map((m) => fila(`<b>${m.de_cliente ? esc(p.nombre.split(" ")[0]) : "AHA HOME"}</b>${m.tema ? ` · ${esc(m.tema)}` : ""}<br><small class="total">${esc(m.texto)}</small>`, `<span class="total">${fecha(m.en)}</span>`)).join("") || vacio("No ha escrito a soporte."))
+      + `<a class="total" href="#mensajeria">Abrir Mensajería ›</a>`);
+    const historial = bloque("Historial de cambios", p.cambios.map((x) => fila(`<b>${esc(x.quien)}</b> ${esc(x.texto)}${x.antes || x.despues ? `<br><small class="total">${esc(x.antes || "—")} → ${esc(x.despues || "—")}</small>` : ""}`, `<span class="total">${fecha(x.en)}</span>`)).join("") || vacio("Sin cambios registrados."));
+
+    main.innerHTML = `<div class="migas"><a href="#clientes" style="color:inherit">Clientes</a> › <b>Perfil</b></div>
+      <div class="card quieta pf-cab">${p.foto ? `<img src="${esc(p.foto)}" alt="" style="width:72px;height:72px;border-radius:22px;object-fit:cover">` : `<span class="pf-av grande" style="background:linear-gradient(135deg,#2BD4A4,#1F8F73)">${esc(ini)}</span>`}
+        <div class="pf-cabt"><h2>${esc(p.nombre)} <span class="pf-id grande">${esc(p.codigo)}</span><button class="pf-copiar" id="pf-cp" title="Copiar el código">⧉</button></h2>
+          <div class="pf-chips">${chip("info", "Cliente")}${chip(p.activo ? "ok" : "mal", p.activo ? "Activo" : "Inactivo")}${c.correo_verificado ? "" : chip("pend", "Correo sin verificar")}${chip("neutro", `${r.ordenes} orden(es)`)}${r.calificacion_dada ? `<span class="pf-star">★ ${r.calificacion_dada}</span>` : ""}<span class="total">· desde ${fecha(p.registrado)}</span></div></div>
+        <div class="pf-cabacc">${puedeActivar() ? `<button class="btn ${p.activo ? "rojo" : "sec"}" id="pf-act">${p.activo ? "Desactivar cuenta" : "Activar cuenta"}</button>` : ""}${ed ? `<button class="btn pri" id="pf-gu">Guardar cambios</button>` : `<span class="total">Solo lectura: pídele al CEO el permiso «Editar datos de clientes».</span>`}</div></div>
+      <p class="error" id="pf-err"></p><p class="total" id="pf-ok" style="color:var(--verde)"></p>
+      <div class="pf-cols"><div>${datos}${cuenta}${dirs}${equipos}${historial}</div><div>${kpis}${ordenes}${pagos}${resenas}${soporte}</div></div>`;
+
+    const err = (e) => { $("#pf-err").textContent = e.message; $("#pf-ok").textContent = ""; window.scrollTo(0, 0); };
+    $("#pf-cp").onclick = () => { navigator.clipboard?.writeText(p.codigo); $("#pf-ok").textContent = "Código copiado: " + p.codigo; };
+    const act = $("#pf-act"); if (act) act.onclick = () => api(`/admin/usuarios/${p.id}/activo`, { body: { activo: !p.activo } }).then(() => pintar(true)).catch(err);
+    if (!ed) return;
+    const orig = {}; main.querySelectorAll("[data-k]").forEach((x) => x.dataset.k && (orig[x.dataset.k] = x.value));
+    $("#pf-gu").onclick = async () => {
+      const body = {}; main.querySelectorAll("[data-k]").forEach((x) => { if (x.dataset.k && !x.readOnly && x.value !== orig[x.dataset.k]) body[x.dataset.k] = x.value; });
+      if (!Object.keys(body).length) { $("#pf-ok").textContent = "No hay cambios por guardar."; return; }
+      try { await api(`/clientes/${id}`, { method: "PUT", body }); await pintar(true); $("#pf-ok").textContent = "Cambios guardados. Quedaron en el historial y se le avisó al cliente."; } catch (e) { err(e); }
+    };
+    $("#cl-ses").onclick = () => confirm("¿Cerrar su sesión en todos sus teléfonos? Tendrá que volver a entrar.") && api(`/clientes/${id}/cerrar-sesiones`, { body: {} }).then(() => pintar(true)).catch(err);
   }
 
   async function anuncios(main) {
@@ -1389,7 +1449,7 @@
       bg.oninput = () => { clearTimeout(tm); tm = setTimeout(async () => {
         if (bg.value.trim().length < 2) { rg.style.display = "none"; return; }
         const rs = await api(`/panel-api/buscar?q=${encodeURIComponent(bg.value)}`);
-        rg.innerHTML = rs.length ? rs.map((x) => `<a href="#${x.tecnico_id ? "profesional-" + x.tecnico_id : x.tabla}" ${x.tecnico_id ? "" : `data-q="${esc(x.titulo)}"`}><span class="est neutro">${x.tipo}</span><span>${esc(x.titulo)}<br><small>${esc(x.sub)}</small></span></a>`).join("") : `<a>Sin resultados</a>`;
+        rg.innerHTML = rs.length ? rs.map((x) => `<a href="#${x.tecnico_id ? "profesional-" + x.tecnico_id : x.tabla === "clientes" ? "cliente-" + x.id : x.tabla}" ${x.tecnico_id || x.tabla === "clientes" ? "" : `data-q="${esc(x.titulo)}"`}><span class="est neutro">${x.tipo}</span><span>${esc(x.titulo)}<br><small>${esc(x.sub)}</small></span></a>`).join("") : `<a>Sin resultados</a>`;
         rg.style.display = "block";
         rg.querySelectorAll("a[data-q]").forEach((a) => (a.onclick = () => { S.tabla[a.getAttribute("href").slice(1)] = { q: a.dataset.q, pagina: 1, dir: "desc", estado: "" }; rg.style.display = "none"; bg.value = ""; }));
       }, 250); };
@@ -1415,6 +1475,7 @@
       else if (S.ruta === "historial") await historial(main);
       else if (S.ruta === "sistemas") await pagSistemas(main);
       else if (/^profesional-\d+$/.test(S.ruta)) await perfilProfesional(main, Number(S.ruta.split("-")[1]));
+      else if (/^cliente-\d+$/.test(S.ruta)) await perfilCliente(main, Number(S.ruta.split("-")[1]));
       else await tabla(main, S.ruta);
     } catch (e) { main.innerHTML += `<p class="error">${esc(e.message)}</p>`; }
     anotarConsulta(main);

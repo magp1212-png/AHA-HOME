@@ -13,7 +13,7 @@ from sqlalchemy import text
 from . import config, sistemas  # sistemas primero: mide cuánto tarda en arrancar
 from .db import Base, engine
 from .routers import sistemas as sistemas_rutas
-from .routers import admin, archivos, auth, banners, chat, legal, ordenes, ceo, profesionales, conformidad, panel, penalidad, precios, finanzas, finanzas_libro, qr_tiendas, historial, interfaz, ventas, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
+from .routers import admin, archivos, auth, banners, chat, legal, ordenes, ceo, profesionales, clientes, conformidad, panel, penalidad, precios, finanzas, finanzas_libro, qr_tiendas, historial, interfaz, ventas, presupuestos, retiro_tienda, soporte, supervisor, tasa, tecnico
 
 log = logging.getLogger("ahahome")
 app = FastAPI(title="AHA HOME API", version=config.APP_VERSION)
@@ -99,7 +99,7 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router, ceo.router, panel.router, precios.router, finanzas.router, finanzas_libro.router, qr_tiendas.router, historial.router, sistemas_rutas.router, interfaz.router, ventas.router, profesionales.router):
+for r in (auth.router, ordenes.router, tecnico.router, supervisor.router, admin.router, archivos.router, legal.router, presupuestos.router, penalidad.router, chat.router, banners.router, tasa.router, retiro_tienda.router, conformidad.router, soporte.router, ceo.router, panel.router, precios.router, finanzas.router, finanzas_libro.router, qr_tiendas.router, historial.router, sistemas_rutas.router, interfaz.router, ventas.router, profesionales.router, clientes.router):
     app.include_router(r)
 
 

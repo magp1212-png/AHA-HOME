@@ -861,3 +861,15 @@ class Formacion(Base):
     url: Mapped[str] = mapped_column(String(200), default="")  # foto o PDF del título o certificado
     subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())
+
+
+class ClienteCambio(Base):
+    """Historial de cambios en los datos de un cliente (quién cambió qué desde el panel)."""
+    __tablename__ = "cliente_cambios"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cliente_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    texto: Mapped[str] = mapped_column(String(200), default="")
+    antes: Mapped[str] = mapped_column(String(160), default="")
+    despues: Mapped[str] = mapped_column(String(160), default="")
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)

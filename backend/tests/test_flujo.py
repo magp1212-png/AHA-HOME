@@ -1611,3 +1611,20 @@ def test_la_oficina_agrega_y_quita_ayudantes(client):
     p = client.delete(f"/profesionales/{jid}/ayudantes/{nuevo['id']}", headers=control).json()
     assert all(a["id"] != nuevo["id"] for a in p["ayudantes"]) and "Ayudante retirado de tu equipo" in titulos(client, tecnico)
     assert any("retiró a Marcos Díaz" in c["texto"] for c in p["cambios"])
+
+
+def test_perfil_del_cliente(client):
+    control = login(client, "supervisor@ahahome.test")
+    agente = login(client, "agente@ahahome.test")
+    o = nueva(client, agente)  # la caja la registra con el teléfono de María
+    cli = client.get("/panel-api/tabla/clientes?q=María", headers=control).json()["filas"][0]
+    assert cli["codigo"].startswith("CLI-") and cli["_acciones"][0] == "perfil_cliente" and cli["ordenes"] >= 1
+    p = client.get(f"/clientes/{cli['id']}", headers=control).json()
+    assert p["codigo"] == cli["codigo"] and p["puede_editar"] is True
+    assert o["codigo"] in [x["codigo"] for x in p["ordenes"]] and p["direcciones"][0]["direccion"].startswith("Av. San Martín")
+    assert {e["tipo"] for e in p["equipos"]} >= {"Nevera"}
+    # editar deja historial y avisa al cliente; el técnico supervisor no puede verlo
+    r = client.put(f"/clientes/{cli['id']}", json={"cedula": "15678901", "nombre": "María González Pérez"}, headers=control).json()
+    assert r["nombre"] == "María González Pérez" and {c["texto"] for c in r["cambios"]} == {"cambió el nombre", "cambió la cédula"}
+    assert client.get(f"/clientes/{cli['id']}", headers=login(client, "tecsup@ahahome.test")).status_code == 403
+    assert client.post(f"/clientes/{cli['id']}/cerrar-sesiones", headers=control).json()["cambios"][0]["texto"].startswith("cerró su sesión")

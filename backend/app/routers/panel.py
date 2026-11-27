@@ -127,9 +127,11 @@ def _tasa(db):
 
 def _tabla_clientes(db):
     cols = [("codigo", "Código"), ("creado", "Registrado el"), ("nombre", "Cliente"), ("telefono", "Teléfono"), ("email", "Correo"), ("ordenes", "Órdenes"), ("estado", "Estado")]
-    n = Counter(o.cliente_id for o in db.scalars(select(Orden)))
-    filas = [{"id": u.id, "codigo": codigos.cliente(u), "creado": _fecha(u.creado), "nombre": u.nombre, "telefono": u.telefono, "email": u.email, "ordenes": n.get(u.id, 0),
-              "estado": "Activo" if u.activo else "Inactivo", "_acciones": ["activo"]}
+    ords = db.scalars(select(Orden)).all()
+    n = Counter(o.cliente_id for o in ords)
+    por_tel = Counter(o.cliente_telefono for o in ords if not o.cliente_id)
+    filas = [{"id": u.id, "codigo": codigos.cliente(u), "creado": _fecha(u.creado), "nombre": u.nombre, "telefono": u.telefono, "email": u.email, "ordenes": n.get(u.id, 0) + (por_tel.get(u.telefono, 0) if u.telefono else 0),
+              "estado": "Activo" if u.activo else "Inactivo", "_acciones": ["perfil_cliente", "activo"]}
              for u in db.scalars(select(User).where(User.rol == "cliente"))]
     return cols, filas
 
