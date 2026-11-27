@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from .. import codigos
+from .. import codigos, formacion
 from ..db import get_db
 from ..deps import exigir_permiso, permisos_de, require
 from ..models import (DOCS_CONDUCIR, ESPECIALIDADES, GRUPOS, TIPOS_DOCUMENTO, TIPOS_VEHICULO, Orden, PerfilCambio, Tecnico, Tienda, User, ahora,
@@ -105,10 +105,11 @@ def vista(db: Session, t: Tecnico, user: User) -> dict:
                       "fallidas": sum(1 for o in ords if o.estado == "entrega_fallida"),
                       "ultimos": [{"codigo": o.codigo, "fecha": o.fecha, "cliente": o.cliente_nombre, "servicio": o.tipo_servicio, "estrellas": o.calificacion}
                                   for o in sorted(ords, key=lambda o: o.id, reverse=True)[:6]]},
+        "formacion": formacion.lista(db, t),
         "cambios": [{"en": _iso(c.creado), "quien": quien.get(c.user_id, "La app"), "texto": c.texto, "antes": c.antes, "despues": c.despues} for c in cambios],
         "catalogo": {"especialidades": list(ESPECIALIDADES), "vehiculos": list(TIPOS_VEHICULO), "grupos": list(GRUPOS),
                      "tiendas": [{"id": x.id, "nombre": x.nombre} for x in db.scalars(select(Tienda).order_by(Tienda.id))],
-                     "tipos_documento": TIPOS_DOCUMENTO,
+                     "tipos_documento": TIPOS_DOCUMENTO, "formacion_tipos": formacion.TIPOS, "formacion_areas": formacion.AREAS,
                      "jefes": [{"id": x.id, "nombre": x.user.nombre, "codigo": codigos.profesional(x)} for x in db.scalars(select(Tecnico).where(Tecnico.es_ayudante.is_(False), Tecnico.tienda_id == t.tienda_id))]},
         "puede_editar": "editar_profesionales" in permisos_de(user),
     }
@@ -193,11 +194,11 @@ def editar(tid: int, body: Edicion, user: User = Depends(_EQUIPO), db: Session =
         con = t.conduce if body.conduce is None else body.conduce
         ins = t.instala if body.instala is None else body.instala
         if not (con or ins):
-            raise HTTPException(422, "Debe quedar al menos una actividad: conducir o instalar")
+            raise HTTPException(422, "Elige el tipo de perfil: conductor, técnico instalador o mixto")
         antes = codigos.actividad_texto(t)
         t.conduce, t.instala = con, ins
         if antes != codigos.actividad_texto(t):
-            cambios.append(("cambió las actividades", antes, codigos.actividad_texto(t)))
+            cambios.append(("cambió el tipo de perfil", antes, codigos.actividad_texto(t)))
     if body.tienda_id is not None and body.tienda_id != t.tienda_id:
         tienda = db.get(Tienda, body.tienda_id)
         if not tienda:
@@ -244,6 +245,24 @@ def editar(tid: int, body: Edicion, user: User = Depends(_EQUIPO), db: Session =
         db.add(PerfilCambio(tecnico_id=t.id, user_id=user.id, texto=texto, antes=antes, despues=despues))
     if cambios:
         notificar(db, u.id, "Tu perfil fue actualizado", f"La oficina {', '.join(x[0] for x in cambios[:3])}{'…' if len(cambios) > 3 else ''}.")
+    db.commit()
+    return vista(db, t, user)
+
+
+@router.post("/{tid}/formacion")
+def agregar_formacion(tid: int, body: formacion.NuevaFormacion, user: User = Depends(_EQUIPO), db: Session = Depends(get_db)):
+    exigir_permiso(user, "editar_profesionales")
+    t = _tec(db, user, tid)
+    formacion.agregar(db, t, body, user)
+    db.commit()
+    return vista(db, t, user)
+
+
+@router.delete("/{tid}/formacion/{fid}")
+def quitar_formacion(tid: int, fid: int, user: User = Depends(_EQUIPO), db: Session = Depends(get_db)):
+    exigir_permiso(user, "editar_profesionales")
+    t = _tec(db, user, tid)
+    formacion.quitar(db, t, fid, user)
     db.commit()
     return vista(db, t, user)
 

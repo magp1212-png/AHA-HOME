@@ -18,6 +18,8 @@ from ..security import hash_password, make_token
 from .auth import limpiar_tel, perfil
 from .ordenes import obtener
 
+from ..formacion import NuevaFormacion as NuevaFormacionApp  # noqa: E402
+
 router = APIRouter(prefix="/tecnico", tags=["tecnico"])
 solo_tecnico = require("tecnico")
 campo = require("tecnico", "ayudante")
@@ -67,7 +69,7 @@ def registro_campo(body: RegistroCampo, db: Session = Depends(get_db)):
     if body.rol not in ("tecnico", "ayudante"):
         raise HTTPException(422, "Rol inválido")
     if body.rol == "tecnico" and not (body.conduce or body.instala):
-        raise HTTPException(422, "Elige qué haces: conducir, instalar o ambas")
+        raise HTTPException(422, "Elige tu perfil: conductor, técnico instalador o mixto")
     if not db.get(Tienda, body.tienda_id):
         raise HTTPException(422, "Tienda no válida")
     tel = limpiar_tel(body.telefono)
@@ -116,6 +118,29 @@ class NuevoAyudante(BaseModel):
     foto: str = Field(min_length=5, max_length=200)            # foto de perfil, subida antes con POST /archivos
     cedula: str | None = Field(default=None, max_length=20)    # opcional: se completa en la oficina
     acepta_clausula: bool = False                             # «queda bajo mi responsabilidad»
+
+
+@router.get("/formacion")
+def mi_formacion(user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    """Mis títulos y cursos."""
+    from .. import formacion
+    return formacion.lista(db, mi_tecnico(user))
+
+
+@router.post("/formacion")
+def subir_formacion(body: NuevaFormacionApp, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    from .. import formacion
+    f = formacion.agregar(db, mi_tecnico(user), body, user)
+    db.commit()
+    return formacion.ficha(f)
+
+
+@router.delete("/formacion/{fid}")
+def quitar_formacion(fid: int, user: User = Depends(solo_tecnico), db: Session = Depends(get_db)):
+    from .. import formacion
+    formacion.quitar(db, mi_tecnico(user), fid, user)
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/ayudantes")

@@ -162,9 +162,7 @@ def _profesionales(modulo: str):
             if t.es_ayudante:
                 tipo = f"Ayudante de {t.jefe.user.nombre.split()[0]}" if t.jefe else "Ayudante"
             else:
-                tipo = "Transportista" if conduce else "Técnico"
-                if t.conduce and t.instala:
-                    tipo += " + Instala" if conduce else " + Conduce"
+                tipo = codigos.actividad_texto(t)
             fila = {"id": t.user.id, "tecnico_id": t.id, "codigo": codigos.profesional(t), "creado": _fecha(t.user.creado), "nombre": t.user.nombre, "rol": tipo,
                     "cedula": t.user.cedula, "tienda": t.tienda.nombre, "grupo": t.grupo or "—", "calificacion": round(sum(c) / len(c), 1) if c else None,
                     "estado": _estado_prof(t), "_acciones": ["perfil", "activo"]}
@@ -345,7 +343,7 @@ def buscar(q: str, user: User = Depends(panel), db: Session = Depends(get_db)):
     out = []
     puede = set(permisos_de(user))
     vistos = set()
-    for nombre, etiqueta in (("ordenes", "Orden"), ("clientes", "Cliente"), ("tecnicos", "Técnico"), ("transportistas", "Transportista"), ("empresas", "Empresa"),
+    for nombre, etiqueta in (("ordenes", "Orden"), ("clientes", "Cliente"), ("tecnicos", "Técnico instalador"), ("transportistas", "Conductor"), ("empresas", "Empresa"),
                              ("equipo", "Personal AHA HOME")):
         if PERMISO_TABLA.get(nombre) not in puede:
             continue

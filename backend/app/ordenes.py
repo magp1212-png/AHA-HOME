@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from . import asignacion, config
+from . import asignacion, codigos, config
 from .models import (ESTADO_CANCELADO, ESTADO_TEXTO, TIPO_INMUEBLE_TEXTO, ESTADOS, TIPO_EQUIPO_TEXTO, TIPO_SERVICIO_TEXTO, Articulo, Evento, Orden,
                      Tecnico, User, ahora, checklist_de, con_retiro, fotos_de)
 from .notificar import notificar
@@ -179,7 +179,8 @@ def ficha(tec: Tecnico | None) -> dict | None:
         return None
     return {"id": tec.id, "nombre": tec.user.nombre, "cedula": tec.user.cedula, "telefono": tec.user.telefono,
             "foto": tec.foto_perfil or tec.foto_rostro, "grupo": tec.grupo, "tienda": tec.tienda.nombre, "verificado": tec.verificado,
-            "rol": "ayudante" if tec.es_ayudante else "tecnico"}
+            "rol": "ayudante" if tec.es_ayudante else "tecnico", "conduce": tec.conduce, "instala": tec.instala,
+            "codigo": codigos.profesional(tec), "tipo_perfil": codigos.actividad_texto(tec)}
 
 
 def ficha_cliente(tec: Tecnico | None) -> dict | None:

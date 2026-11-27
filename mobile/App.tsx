@@ -32,6 +32,7 @@ import RegistroCliente from "./src/screens/RegistroCliente";
 import RegistroTecnico from "./src/screens/RegistroTecnico";
 import Servidor from "./src/screens/Servidor";
 import Ayudantes from "./src/screens/tecnico/Ayudantes";
+import Formacion from "./src/screens/tecnico/Formacion";
 import CuentaPagoTecnico from "./src/screens/tecnico/CuentaPago";
 import PresupuestoTecnico from "./src/screens/tecnico/Presupuesto";
 import Checklist from "./src/screens/tecnico/Checklist";
@@ -86,6 +87,7 @@ function Router() {
           case "escaner": return <Escaner />;
           case "checklist": return <Checklist id={p.id} />;
           case "ayudantes": return <Ayudantes />;
+          case "formacion": return <Formacion />;
           case "presupuesto": return <PresupuestoTecnico id={p.id} />;
           case "cuentaPago": return <CuentaPagoTecnico />;
           case "incidencia": return <Incidencia id={p.id} />;

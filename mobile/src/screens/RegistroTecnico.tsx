@@ -85,21 +85,21 @@ export default function RegistroTecnico() {
   }
 
   return (
-    <Pantalla titulo="Registro de técnico" subtitulo={`Paso ${paso} de 4 · ${["Tus datos", "Foto con tu cédula", "Verificación facial", "Huella"][paso - 1]}`}>
+    <Pantalla titulo="Registro de profesional" subtitulo={`Paso ${paso} de 4 · ${["Tus datos", "Foto con tu cédula", "Verificación facial", "Huella"][paso - 1]}`}>
       {paso === 1 ? (
         <Tarjeta>
           <Seccion>TUS DATOS</Seccion>
-          <Fila><Opcion texto="Técnico" activo={f.rol === "tecnico"} onPress={() => set("rol")("tecnico")} />
+          <Fila><Opcion texto="Profesional" activo={f.rol === "tecnico"} onPress={() => set("rol")("tecnico")} />
             <Opcion texto="Ayudante" activo={f.rol === "ayudante"} onPress={() => set("rol")("ayudante")} /></Fila>
           {f.rol === "tecnico" ? (
             <>
-              <Seccion>¿QUÉ HACES?</Seccion>
-              <Texto gris size={13}>Elige una o las dos. Tendrás un solo perfil.</Texto>
+              <Seccion>TIPO DE PERFIL</Seccion>
               <Fila wrap>
-                <Opcion texto="🚚 Conductor" activo={f.conduce && !f.instala} onPress={() => setF({ ...f, conduce: true, instala: false })} />
-                <Opcion texto="🔧 Instalador" activo={f.instala && !f.conduce} onPress={() => setF({ ...f, conduce: false, instala: true })} />
-                <Opcion texto="Ambas" activo={f.conduce && f.instala} onPress={() => setF({ ...f, conduce: true, instala: true })} />
+                <Opcion texto="Conductor" activo={f.conduce && !f.instala} onPress={() => setF({ ...f, conduce: true, instala: false })} />
+                <Opcion texto="Técnico instalador" activo={f.instala && !f.conduce} onPress={() => setF({ ...f, conduce: false, instala: true })} />
+                <Opcion texto="Mixto" activo={f.conduce && f.instala} onPress={() => setF({ ...f, conduce: true, instala: true })} />
               </Fila>
+              <Texto gris size={13}>{f.conduce && f.instala ? "Mixto: conduces y también instalas. Quedas en los dos módulos." : f.conduce ? "Conductor: retiras en la tienda y llevas los artículos al cliente." : "Técnico instalador: desembalas, instalas y pruebas los equipos."}</Texto>
             </>
           ) : <Texto gris size={13}>Si tu profesional ya te registró como su ayudante, usa el mismo teléfono o correo que le diste.</Texto>}
           <Campo etiqueta="Nombre y apellido" value={f.nombre} onChangeText={set("nombre")} />

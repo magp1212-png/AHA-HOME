@@ -820,3 +820,18 @@ class PerfilCambio(Base):
     antes: Mapped[str] = mapped_column(String(160), default="")
     despues: Mapped[str] = mapped_column(String(160), default="")
     creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora(), index=True)
+
+
+class Formacion(Base):
+    """Títulos y cursos del profesional (los sube desde su app o la oficina), para la base interna."""
+    __tablename__ = "formacion"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tecnico_id: Mapped[int] = mapped_column(ForeignKey("tecnicos.id"), index=True)
+    tipo: Mapped[str] = mapped_column(String(10), default="curso")  # titulo | curso
+    nombre: Mapped[str] = mapped_column(String(150))
+    institucion: Mapped[str] = mapped_column(String(150), default="")
+    anio: Mapped[str] = mapped_column(String(4), default="")
+    area: Mapped[str] = mapped_column(String(20), default="general")  # conductor | instalador | general
+    url: Mapped[str] = mapped_column(String(200), default="")  # foto o PDF del título o certificado
+    subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    creado: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: ahora())

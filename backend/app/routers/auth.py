@@ -12,6 +12,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from .. import config, correo
+from .. import codigos
 from ..db import get_db
 from ..deps import current_user
 from ..models import Notificacion, Orden, User, ahora
@@ -51,7 +52,8 @@ def perfil(u: User) -> dict:
         d["tecnico"] = {"id": t.id, "grupo": t.grupo, "tienda": t.tienda.nombre, "zona": t.tienda.zona,
                         "es_ayudante": t.es_ayudante, "jefe": t.jefe.user.nombre if t.jefe else None,
                         "verificado": t.verificado, "tiene_pin": bool(t.pin_hash),
-                        "onboarding_completo": bool(t.foto_rostro and t.selfie_cedula)}
+                        "onboarding_completo": bool(t.foto_rostro and t.selfie_cedula),
+                        "conduce": t.conduce, "instala": t.instala, "codigo": codigos.profesional(t), "tipo_perfil": codigos.actividad_texto(t)}
     return d
 
 

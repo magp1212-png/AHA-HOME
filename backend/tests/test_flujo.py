@@ -1516,12 +1516,12 @@ def test_perfil_de_profesionales_y_modulos(client):
         jose = db.scalar(select(Tecnico).where(Tecnico.es_ayudante.is_(False)).order_by(Tecnico.id))
         jid, ayudante_id = jose.id, jose.ayudantes[0].id
     p = client.get(f"/profesionales/{jid}", headers=control).json()
-    assert p["codigo"] == f"PRO-{jid:04d}" and p["actividad"] == "Conduce e instala" and p["puede_editar"] is True
-    assert p["ayudantes"][0]["codigo"] == f"AYU-{ayudante_id:04d}" and p["verificacion_codigo"] == f"VER-{jid:04d}"
+    assert p["codigo"] == f"PRO-{jid:06d}" and p["actividad"] == "Mixto" and p["puede_editar"] is True
+    assert p["ayudantes"][0]["codigo"] == f"AYU-{ayudante_id:06d}" and p["verificacion_codigo"] == f"VER-{jid:06d}"
     # aparece en ambos módulos, con la marca de la otra actividad
     tec = client.get("/panel-api/tabla/tecnicos?q=" + p["codigo"], headers=control).json()["filas"]
     tra = client.get("/panel-api/tabla/transportistas?q=" + p["codigo"], headers=control).json()["filas"]
-    assert tec[0]["rol"] == "Técnico + Conduce" and tra[0]["rol"] == "Transportista + Instala"
+    assert tec[0]["rol"] == "Mixto" and tra[0]["rol"] == "Mixto"
     # el técnico supervisor ve el perfil pero no lo edita (no tiene el permiso)
     assert client.get(f"/profesionales/{jid}", headers=tecsup).json()["puede_editar"] is False
     assert client.put(f"/profesionales/{jid}", json={"direccion": "x"}, headers=tecsup).status_code == 403
@@ -1529,8 +1529,8 @@ def test_perfil_de_profesionales_y_modulos(client):
     assert client.put(f"/profesionales/{jid}", json={"conduce": False, "instala": False}, headers=control).status_code == 422
     r = client.put(f"/profesionales/{jid}", json={"conduce": False, "direccion": "Av. Sucre, casa 4", "especialidades": ["Campanas", "Inventada"],
                                                   "vehiculo": {"placa": "ab-12 cd"}}, headers=control).json()
-    assert r["codigo"] == f"TEC-{jid:04d}" and r["especialidades"] == ["Campanas"] and r["vehiculo"]["placa"] == "AB12CD"
-    assert {c["texto"] for c in r["cambios"]} >= {"cambió las actividades", "cambió la dirección", "cambió las especialidades"}
+    assert r["codigo"] == f"TEC-{jid:06d}" and r["especialidades"] == ["Campanas"] and r["vehiculo"]["placa"] == "AB12CD"
+    assert {c["texto"] for c in r["cambios"]} >= {"cambió el tipo de perfil", "cambió la dirección", "cambió las especialidades"}
     assert not client.get("/panel-api/tabla/transportistas?q=" + p["codigo"][4:], headers=control).json()["filas"]
     # PIN nuevo y pedido de reescaneo
     assert len(client.post(f"/profesionales/{jid}/pin", json={}, headers=control).json()["pin"]) == 4
@@ -1547,3 +1547,20 @@ def test_perfil_de_profesionales_y_modulos(client):
         assert db.scalar(select(Documento).where(Documento.tipo == "licencia", Documento.tecnico_id == jid)).aviso_vence == "30d"
     assert "Documento por vencer" in titulos(client, control)
     assert client.get(f"/profesionales/{jid}", headers=control).json()["licencia"]["nivel"] == "pend"
+
+
+def test_titulos_y_cursos_del_profesional(client):
+    tecnico = login_pin(client, "04242000000")
+    control = login(client, "supervisor@ahahome.test")
+    assert client.post("/tecnico/formacion", json={"tipo": "titulo", "nombre": "TSU en Refrigeración", "anio": "15"}, headers=tecnico).status_code == 422
+    f = client.post("/tecnico/formacion", json={"tipo": "titulo", "nombre": "TSU en Refrigeración", "institucion": "IUT", "anio": "2015",
+                                                "area": "instalador", "url": "/archivos/tsu.jpg"}, headers=tecnico).json()
+    assert f["codigo"].startswith("FOR-") and len(f["codigo"]) == 10
+    with SessionLocal() as db:
+        jid = db.scalar(select(Tecnico).where(Tecnico.es_ayudante.is_(False)).order_by(Tecnico.id)).id
+    p = client.post(f"/profesionales/{jid}/formacion", json={"tipo": "curso", "nombre": "Manejo defensivo", "area": "conductor"}, headers=control).json()
+    assert [x["nombre"] for x in p["formacion"]] == ["TSU en Refrigeración", "Manejo defensivo"] or len(p["formacion"]) == 2
+    assert any("Manejo defensivo" in c["texto"] for c in p["cambios"])
+    assert len(client.get("/tecnico/formacion", headers=tecnico).json()) == 2
+    assert client.delete(f"/tecnico/formacion/{f['id']}", headers=tecnico).status_code == 200
+    assert len(client.get(f"/profesionales/{jid}", headers=control).json()["formacion"]) == 1

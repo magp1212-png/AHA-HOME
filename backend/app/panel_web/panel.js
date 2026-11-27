@@ -38,8 +38,8 @@
     { sec: "REGISTROS" },
     { k: "clientes", t: "Clientes", i: "🙋" },
     { k: "empresas", t: "Empresas aliadas", i: "🏬" },
-    { g: "Técnicos", i: "👷", hijos: [["tecnicos", "Técnicos y ayudantes"], ["verificaciones_tecnicos", "Verificaciones", "verifTec"]] },
-    { g: "Transportistas", i: "🚚", hijos: [["transportistas", "Transportistas y ayudantes"], ["verificaciones_transportistas", "Verificaciones", "verifTra"]] },
+    { g: "Conductores", i: "🚚", hijos: [["transportistas", "Conductores y ayudantes"], ["verificaciones_transportistas", "Verificaciones", "verifTra"]] },
+    { g: "Técnicos instaladores", i: "🔧", hijos: [["tecnicos", "Técnicos y ayudantes"], ["verificaciones_tecnicos", "Verificaciones", "verifTec"]] },
     { sec: "OPERACIÓN" },
     { k: "ordenes", t: "Órdenes", i: "🛒" },
     { g: "Centro de soporte", i: "◎", hijos: [["mensajeria", "Mensajería"], ["reportes", "Reportes", "rep"], ["resenas", "Reseñas"]] },
@@ -60,10 +60,10 @@
     { k: "auditoria", t: "Auditoría del equipo", i: "🔍", ceo: true },
     { k: "historial", t: "Historial de actividad", i: "📒", ceo: true },
   ];
-  const TITULOS = { inicio: ["Tableros", "Panel principal"], tecnicos: ["Técnicos", "Técnicos y ayudantes"], empresas: ["Registros", "Empresas aliadas"], clientes: ["Registros", "Clientes"],
+  const TITULOS = { inicio: ["Tableros", "Panel principal"], tecnicos: ["Técnicos instaladores", "Técnicos y ayudantes"], empresas: ["Registros", "Empresas aliadas"], clientes: ["Registros", "Clientes"],
     equipo: ["Administración", "Personal AHA HOME"], administradores: ["Administración", "Superadministradores"], control: ["Administración", "Centro de control"], caja: ["Administración", "Operadores de caja"], anuncios: ["Recursos", "Banners y aliados"], ordenes: ["Operación", "Órdenes"], transacciones: ["Finanzas", "Transacciones"],
-    mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Finanzas", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], verificaciones_tecnicos: ["Técnicos", "Verificaciones"], transportistas: ["Transportistas", "Transportistas y ayudantes"],
-    verificaciones_transportistas: ["Transportistas", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
+    mensajeria: ["Centro de soporte", "Mensajería"], liquidaciones: ["Finanzas", "Liquidaciones"], verificaciones: ["Técnicos", "Verificaciones"], verificaciones_tecnicos: ["Técnicos instaladores", "Verificaciones"], transportistas: ["Conductores", "Conductores y ayudantes"],
+    verificaciones_transportistas: ["Conductores", "Verificaciones"], reportes: ["Centro de soporte", "Reportes"],
     resenas: ["Centro de soporte", "Reseñas"], auditoria: ["Administración", "Auditoría del equipo"], usuarios: ["Administración", "Usuarios y permisos"], correos: ["Administración", "Correos corporativos"], historial: ["Administración", "Historial de actividad"], sistemas: ["Administración", "Departamento de sistemas"],
     finanzas: ["Finanzas", "Finanzas y contabilidad"], diseno: ["Diseño", "Diseño de la app"], ventas: ["Ventas", "Departamento de ventas"], tasa: ["Negocio", "Tasa oficial BCV"], tarifas: ["Negocio", "Tarifas de instalación"], precios: ["Negocio", "Tabulación de precios"], qrs: ["Negocio", "QR de las tiendas"] };
 
@@ -202,7 +202,7 @@
     if (/^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v).toLocaleString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
     if (/^\d{4}-\d{2}-\d{2}$/.test(v)) { const [a, m, d] = v.split("-"); return `${d}/${m}/${a}`; }
     if (k === "estrellas" || k === "calificacion") return "★".repeat(Math.round(v)) + ` ${v}`;
-    if ((k === "codigo" || k === "solicitud") && /^[A-Z]{3}-\d{4,}$/.test(v)) return `<span class="pf-id">${esc(v)}</span>`;
+    if ((k === "codigo" || k === "solicitud") && /^[A-Z]{3}-\d{6,}$/.test(v)) return `<span class="pf-id">${esc(v)}</span>`;
     return esc(v);
   };
   async function tabla(main, nombre) {
@@ -281,22 +281,25 @@
     const p = await api(`/profesionales/${id}`);
     const ed = p.puede_editar, dis = ed ? "" : "disabled";
     const desde = S.pfDesde || (p.conduce && !p.instala ? "transportistas" : "tecnicos");
-    const modulo = desde.includes("transport") ? "Transportistas" : "Técnicos";
+    const modulo = desde.includes("transport") ? "Conductores" : "Técnicos instaladores";
     const ini = (n) => esc(String(n || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase());
     const campo = (t, k, v, o = {}) => `<label class="pf-c ${o.ancho ? "ancho" : ""}"><span>${t}</span><input class="finp" data-k="${k}" value="${esc(v ?? "")}" ${o.tipo ? `type="${o.tipo}"` : ""} ${o.fijo ? "readonly" : dis} ${o.ph ? `placeholder="${esc(o.ph)}"` : ""}></label>`;
     const lista = (t, k, v, ops, o = {}) => `<label class="pf-c ${o.ancho ? "ancho" : ""}"><span>${t}</span><select class="sel" data-k="${k}" ${dis}>${o.vacio ? `<option value="">${o.vacio}</option>` : ""}${ops.map(([val, txt]) => `<option value="${esc(val)}" ${String(val) === String(v ?? "") ? "selected" : ""}>${esc(txt)}</option>`).join("")}</select></label>`;
     const bloque = (t, cuerpo, nota = "") => `<div class="card quieta pf-b"><div class="pf-bt"><b>${t}</b>${nota ? `<span class="total">${nota}</span>` : ""}</div>${cuerpo}</div>`;
     const chip = (n, t) => `<span class="est ${n}">${esc(t)}</span>`;
     const v = p.vehiculo, c = p.cuenta, idn = p.identidad, sv = p.servicios;
+    const tipoPerfil = p.conduce && p.instala ? "mixto" : p.conduce ? "conductor" : "instalador";
     const fecha = (x) => fmt("", x);
 
     const actividades = p.es_ayudante
       ? bloque("Equipo", `<div class="pf-nota total">Ayudante registrado por su profesional, bajo su responsabilidad${p.clausula_aceptada_en ? ` (aceptó la cláusula el ${fecha(p.clausula_aceptada_en)})` : ""}.</div>
           ${lista("Acompaña a", "jefe_id", p.jefe?.id, p.catalogo.jefes.map((j) => [j.id, `${j.nombre} · ${j.codigo}`]), { ancho: true })}
           ${p.jefe ? `<a class="total" href="#profesional-${p.jefe.id}">Ver el perfil de ${esc(p.jefe.nombre)} ›</a>` : ""}`)
-      : bloque("Actividades", `<label class="pf-actsel"><input type="checkbox" data-act="conduce" ${p.conduce ? "checked" : ""} ${dis}><span><b>🚚 Conduce y traslada</b><small>Retira en la tienda y lleva los artículos a la casa del cliente. Aparece en Transportistas.</small></span></label>
-          <label class="pf-actsel"><input type="checkbox" data-act="instala" ${p.instala ? "checked" : ""} ${dis}><span><b>🔧 Instala</b><small>Desembala, instala y prueba los equipos. Aparece en Técnicos.</small></span></label>
-          <div class="pf-nota total">Un solo perfil: si hace las dos cosas aparece en ambos módulos. El código cambia de letras (PRO/TRA/TEC), el número no.</div>`, "lo eligió al registrarse");
+      : bloque("Tipo de perfil", [["conductor", "🚚 Conductor", "Retira en la tienda y lleva los artículos a la casa del cliente. Aparece en Conductores."],
+          ["instalador", "🔧 Técnico instalador", "Desembala, instala y prueba los equipos. Aparece en Técnicos instaladores."],
+          ["mixto", "🚚🔧 Mixto", "Hace las dos cosas: tiene marcados los dos módulos y aparece en ambos."]].map(([k, t, d]) =>
+          `<label class="pf-actsel"><input type="radio" name="pf-tipo" value="${k}" ${tipoPerfil === k ? "checked" : ""} ${dis}><span><b>${t}</b><small>${d}</small></span></label>`).join("")
+          + `<div class="pf-nota total">Un solo perfil. Si cambia de tipo, su código cambia de letras (TRA conductor · TEC técnico instalador · PRO mixto); el número no cambia.</div>`, "lo eligió al registrarse");
 
     const datos = bloque("Datos personales", campo("Código", "", p.codigo, { fijo: true }) + campo("Registrado el", "", fecha(p.registrado), { fijo: true })
       + campo("Nombre y apellido", "nombre", p.nombre, { ancho: true }) + campo("Cédula", "cedula", p.cedula) + campo("Fecha de nacimiento", "fecha_nacimiento", p.fecha_nacimiento, { tipo: "date" })
@@ -306,13 +309,17 @@
       + (p.es_ayudante ? campo("Grupo", "", p.grupo || "—", { fijo: true }) : lista("Grupo", "grupo", p.grupo, p.catalogo.grupos.map((g) => [g, g === "RETEN" ? "Retén" : "Grupo " + g]), { vacio: "Sin grupo" }))
       + lista("Disponible", "disponible", String(p.disponible), [["true", "Sí, recibe servicios"], ["false", "No (ausente)"]], { ancho: true }));
 
-    const vehiculo = p.conduce && !p.es_ayudante ? bloque("Vehículo", lista("Tipo", "v.tipo", v.tipo, p.catalogo.vehiculos.map((x) => [x, x]), { vacio: "Elegir…", ancho: true })
+    const fdoc = (d) => `<div class="pf-doc"><span class="pf-dic">${d.tipo === "foto_perfil" || d.tipo === "vehiculo_foto" ? "🖼" : "📄"}</span><div><b>${esc(d.tipo_texto)}</b><small><span class="pf-id chico">${esc(d.codigo)}</span> · subido ${fecha(d.subido)}${d.vence ? ` · vence ${fmt("", d.vence)}` : ""}${d.descripcion ? " · " + esc(d.descripcion) : ""}</small></div>
+      ${d.vence ? chip(d.nivel, d.estado) : ""}<a class="btn sec chico" href="${esc(d.url)}" target="_blank">Ver</a>${ed ? `<button class="btn rojo chico" data-qd="${d.id}">Quitar</button>` : ""}</div>`;
+    const comunes = p.documentos.filter((d) => d.para === "comun"), conducir = p.documentos.filter((d) => d.para === "conducir");
+    const vehiculo = p.conduce && !p.es_ayudante ? bloque("🚚 Módulo conductor", `<div class="pf-sub">Vehículo</div>` + lista("Tipo", "v.tipo", v.tipo, p.catalogo.vehiculos.map((x) => [x, x]), { vacio: "Elegir…", ancho: true })
       + campo("Placa", "v.placa", v.placa) + campo("Marca", "v.marca", v.marca) + campo("Modelo", "v.modelo", v.modelo) + campo("Año", "v.anio", v.anio)
       + campo("Color", "v.color", v.color) + campo("Capacidad de carga", "v.capacidad", v.capacidad, { ph: "Ej.: 3.500 kg" }) + campo("Grado de licencia", "v.licencia_grado", v.licencia_grado, { ph: "Ej.: 4.º" })
-      + `<div class="pf-mapa">Licencia de conducir: ${chip(p.licencia.nivel, p.licencia.texto)}</div>`, "si conduce") : "";
+      + `<div class="pf-mapa">Licencia de conducir: ${chip(p.licencia.nivel, p.licencia.texto)}</div>`
+      + `<div class="pf-sub">Documentos para conducir</div>${conducir.map(fdoc).join("") || `<div class="pf-nota total">Sin licencia ni documentos del vehículo. Se agregan en Expediente.</div>`}`, tipoPerfil === "mixto" ? "perfil mixto" : "") : "";
 
-    const espec = p.instala && !p.es_ayudante ? bloque("Especialidades y herramientas", `<div class="pf-tags">${p.catalogo.especialidades.map((e) => `<label class="pf-tag"><input type="checkbox" data-esp="${esc(e)}" ${p.especialidades.includes(e) ? "checked" : ""} ${dis}>${esc(e)}</label>`).join("")}</div>`
-      + campo("Herramientas propias", "herramientas", p.herramientas, { ancho: true, ph: "Ej.: bomba de vacío, manómetros, taladro" }) + campo("Certificaciones", "certificaciones", p.certificaciones, { ancho: true }), "si instala") : "";
+    const espec = p.instala && !p.es_ayudante ? bloque("🔧 Módulo técnico instalador", `<div class="pf-sub">Especialidades</div>` + `<div class="pf-tags">${p.catalogo.especialidades.map((e) => `<label class="pf-tag"><input type="checkbox" data-esp="${esc(e)}" ${p.especialidades.includes(e) ? "checked" : ""} ${dis}>${esc(e)}</label>`).join("")}</div>`
+      + campo("Herramientas propias", "herramientas", p.herramientas, { ancho: true, ph: "Ej.: bomba de vacío, manómetros, taladro" }) + campo("Certificaciones", "certificaciones", p.certificaciones, { ancho: true }), tipoPerfil === "mixto" ? "perfil mixto" : "") : "";
 
     const cuenta = p.es_ayudante ? "" : bloque("Cuenta de pago", campo("Banco", "c.banco", c.banco) + lista("Tipo", "c.tipo", c.tipo, [["corriente", "Corriente"], ["ahorro", "Ahorro"]], { vacio: "—" })
       + campo("Número (20 dígitos)", "c.numero", c.numero, { ancho: true }) + campo("Titular", "c.titular", c.titular) + campo("Cédula del titular", "c.cedula", c.cedula)
@@ -328,18 +335,25 @@
       ${ed ? `<div class="pf-cabacc" style="grid-column:1/-1;margin-top:8px"><button class="btn sec chico" id="pf-scan">Pedir nuevo escaneo</button><button class="btn sec chico" id="pf-pin">Restablecer PIN</button>
         ${!p.verificado && puedeHacer("altas_tecnicos") ? `${p.es_ayudante ? "" : `<select class="sel" id="pf-gr" style="height:32px">${p.catalogo.grupos.map((g) => `<option>${g}</option>`).join("")}</select>`}<button class="btn pri chico" id="pf-alta">Aprobar y dar de alta</button>` : ""}</div>` : ""}`);
 
-    const fdoc = (d) => `<div class="pf-doc"><span class="pf-dic">${d.tipo === "foto_perfil" || d.tipo === "vehiculo_foto" ? "🖼" : "📄"}</span><div><b>${esc(d.tipo_texto)}</b><small><span class="pf-id chico">${esc(d.codigo)}</span> · subido ${fecha(d.subido)}${d.vence ? ` · vence ${fmt("", d.vence)}` : ""}${d.descripcion ? " · " + esc(d.descripcion) : ""}</small></div>
-      ${d.vence ? chip(d.nivel, d.estado) : ""}<a class="btn sec chico" href="${esc(d.url)}" target="_blank">Ver</a>${ed ? `<button class="btn rojo chico" data-qd="${d.id}">Quitar</button>` : ""}</div>`;
-    const comunes = p.documentos.filter((d) => d.para === "comun"), conducir = p.documentos.filter((d) => d.para === "conducir");
     const tiposDoc = Object.entries(p.catalogo.tipos_documento).filter(([k]) => p.conduce || !DOCS_CONDUCIR.includes(k));
-    const expediente = bloque("Expediente", `<div class="pf-sub">Comunes</div>${comunes.map(fdoc).join("") || `<div class="pf-nota total">Sin documentos.</div>`}
-      ${p.conduce && !p.es_ayudante ? `<div class="pf-sub">Para conducir</div>${conducir.map(fdoc).join("") || `<div class="pf-nota total">Sin documentos del vehículo ni licencia.</div>`}` : ""}
+    const expediente = bloque("Expediente", `<div class="pf-sub">Documentos comunes</div>${comunes.map(fdoc).join("") || `<div class="pf-nota total">Sin documentos.</div>`}
+      ${p.conduce && !p.es_ayudante ? `<div class="pf-nota total">Los documentos para conducir se ven en el Módulo conductor.</div>` : ""}
       ${ed ? `<div class="pf-sub">Agregar o reemplazar</div><div class="pf-grupo" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select class="sel" id="pf-dt" style="height:38px;flex:1;min-width:180px">${tiposDoc.map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select>
         <label class="total" style="display:flex;gap:6px;align-items:center">Vence <input class="finp" type="date" id="pf-dv" style="width:150px;min-height:38px"></label>
         <input type="file" id="pf-df" accept="image/*,application/pdf"><button class="btn pri chico" id="pf-ds">Subir</button></div>` : ""}
       <div class="pf-nota total">Te avisamos (a ti y al profesional en su app) 30 días antes de que venza un documento y el día que vence.</div>`, `${p.documentos.length} documento(s)`);
 
+    const ffor = (f) => `<div class="pf-doc"><span class="pf-dic">${f.tipo === "titulo" ? "🎓" : "📜"}</span><div><b>${esc(f.nombre)}</b><small><span class="pf-id chico">${esc(f.codigo)}</span> · ${esc(f.tipo_texto)}${f.institucion ? " · " + esc(f.institucion) : ""}${f.anio ? " · " + esc(f.anio) : ""}</small></div>
+      ${chip("neutro", f.area_texto)}${f.url ? `<a class="btn sec chico" href="${esc(f.url)}" target="_blank">Ver</a>` : ""}${ed ? `<button class="btn rojo chico" data-qf="${f.id}">Quitar</button>` : ""}</div>`;
+    const formacionB = p.es_ayudante ? "" : bloque("🎓 Títulos y cursos", (p.formacion.map(ffor).join("") || `<div class="pf-nota total">Todavía no ha subido títulos ni cursos. Los sube él mismo desde su app (Mi perfil › Títulos y cursos).</div>`)
+      + (ed ? `<div class="pf-sub">Agregar</div><div class="pf-grupo" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select class="sel" id="pf-ft" style="height:38px">${Object.entries(p.catalogo.formacion_tipos).map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select>
+          <select class="sel" id="pf-fa" style="height:38px">${Object.entries(p.catalogo.formacion_areas).filter(([k]) => k === "general" || (k === "conductor" ? p.conduce : p.instala)).map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select>
+          <input class="finp" id="pf-fn" placeholder="Nombre del título o curso" style="grid-column:1/-1;min-height:38px">
+          <input class="finp" id="pf-fi" placeholder="Institución" style="min-height:38px"><input class="finp" id="pf-fy" placeholder="Año (ej.: 2019)" maxlength="4" style="min-height:38px">
+          <input type="file" id="pf-ff" accept="image/*,application/pdf" style="grid-column:1/-1"><button class="btn pri chico" id="pf-fs" style="justify-self:start">Agregar</button></div>` : ""),
+      `${p.formacion.length}`);
     const ayudantes = p.es_ayudante ? "" : bloque("Ayudantes", p.ayudantes.map((a) => `<div class="pf-ay"><span class="pf-av" style="background:linear-gradient(135deg,#7AA2FF,#3B5BDB)">${ini(a.nombre)}</span><div><b>${esc(a.nombre)}</b><small><span class="pf-id chico">${esc(a.codigo)}</span>${a.cedula ? " · " + esc(a.cedula) : ""} · ${a.verificado ? "Validado" : "Por verificar"}</small></div><a class="btn sec chico" href="#profesional-${a.id}">Ver perfil</a></div>`).join("")
       || `<div class="pf-nota total">No ha registrado ayudantes. Los registra él mismo desde su app, bajo su responsabilidad.</div>`, `${p.ayudantes.length}`);
 
@@ -356,7 +370,7 @@
           <div class="pf-chips">${chip("info", p.actividad)}${chip(tono, p.estado)}${p.conduce && !p.es_ayudante ? chip(p.licencia.nivel, "Licencia: " + p.licencia.texto) : ""}${p.grupo ? chip("neutro", p.grupo === "RETEN" ? "Retén" : "Grupo " + p.grupo) : ""}${sv.calificacion ? `<span class="pf-star">★ ${sv.calificacion}</span>` : ""}<span class="total">· ${esc(p.tienda)}</span></div></div>
         <div class="pf-cabacc">${ed ? `<button class="btn ${p.activo ? "rojo" : "sec"}" id="pf-act">${p.activo ? "Desactivar cuenta" : "Activar cuenta"}</button><button class="btn pri" id="pf-gu">Guardar cambios</button>` : `<span class="total">Solo lectura: pídele al CEO el permiso «Editar perfiles».</span>`}</div></div>
       <p class="error" id="pf-err"></p><p class="total" id="pf-ok" style="color:var(--verde)"></p>
-      <div class="pf-cols"><div>${actividades}${datos}${trabajo}${vehiculo}${espec}${cuenta}</div><div>${identidad}${expediente}${ayudantes}${servicios}${historial}</div></div>`;
+      <div class="pf-cols"><div>${actividades}${datos}${trabajo}${vehiculo}${espec}${cuenta}</div><div>${identidad}${formacionB}${expediente}${ayudantes}${servicios}${historial}</div></div>`;
 
     const err = (e) => { $("#pf-err").textContent = e.message; $("#pf-ok").textContent = ""; window.scrollTo(0, 0); };
     const ok = (t) => { $("#pf-ok").textContent = t; $("#pf-err").textContent = ""; };
@@ -373,7 +387,8 @@
       });
       if (Object.keys(veh).length) body.vehiculo = veh;
       if (Object.keys(cta).length) body.cuenta = cta;
-      main.querySelectorAll("[data-act]").forEach((x) => { if (x.checked !== p[x.dataset.act]) body[x.dataset.act] = x.checked; });
+      const tipo = main.querySelector('input[name="pf-tipo"]:checked')?.value;
+      if (tipo && tipo !== tipoPerfil) { body.conduce = tipo !== "instalador"; body.instala = tipo !== "conductor"; }
       const esp = [...main.querySelectorAll("[data-esp]")].filter((x) => x.checked).map((x) => x.dataset.esp);
       if (main.querySelector("[data-esp]") && esp.join("|") !== p.especialidades.join("|")) body.especialidades = esp;
       if (!Object.keys(body).length) return ok("No hay cambios por guardar.");
@@ -387,6 +402,14 @@
     };
     const alta = $("#pf-alta"); if (alta) alta.onclick = () => api(`/supervisor/tecnicos/${id}/alta`, { body: p.es_ayudante ? { jefe_id: p.jefe?.id } : { grupo: $("#pf-gr").value } }).then(() => { S.cache = {}; pintar(true); }).catch(err);
     main.querySelectorAll("[data-qd]").forEach((b) => (b.onclick = () => confirm("¿Quitar este documento del expediente?") && api(`/supervisor/tecnicos/${id}/documentos/${b.dataset.qd}`, { method: "DELETE" }).then(() => pintar(true)).catch(err)));
+    main.querySelectorAll("[data-qf]").forEach((b) => (b.onclick = () => confirm("¿Quitar este título o curso?") && api(`/profesionales/${id}/formacion/${b.dataset.qf}`, { method: "DELETE" }).then(() => pintar(true)).catch(err)));
+    const fs = $("#pf-fs"); if (fs) fs.onclick = async () => {
+      try {
+        const archivo = $("#pf-ff").files[0], url = archivo ? await subirArchivo(archivo) : "";
+        await api(`/profesionales/${id}/formacion`, { body: { tipo: $("#pf-ft").value, area: $("#pf-fa").value, nombre: $("#pf-fn").value, institucion: $("#pf-fi").value, anio: $("#pf-fy").value, url } });
+        pintar(true);
+      } catch (e) { err(e); }
+    };
     $("#pf-ds").onclick = async () => {
       const f = $("#pf-df").files[0]; if (!f) return err(new Error("Elige el archivo (foto o PDF)."));
       try { const url = await subirArchivo(f); await api(`/supervisor/tecnicos/${id}/documentos`, { body: { tipo: $("#pf-dt").value, url, vence: $("#pf-dv").value } }); pintar(true); } catch (e) { err(e); }
