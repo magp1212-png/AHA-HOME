@@ -84,12 +84,11 @@ def test_traslado_e_instalacion_completo(client):
         n = client.get("/notificaciones", headers=login(client, quien)).json()[0]
         assert n["titulo"].startswith(f"Nueva orden {o['codigo']}")
         assert o["tecnico"]["nombre"] in n["texto"] and o["ayudantes"][0]["nombre"] in n["texto"]
-    # El técnico y su ayudante también reciben el aviso
+    # El técnico recibe el aviso; el ayudante no usa la app (va con su profesional)
     tecnico = login_pin(client, tel_de(o["tecnico"]["id"]))
-    ayudante = login_pin(client, tel_de(o["ayudantes"][0]["id"]))
     assert f"Nueva orden {o['codigo']}" in titulos(client, tecnico)
-    assert f"Nueva orden {o['codigo']}" in titulos(client, ayudante)
-    assert [x["id"] for x in client.get("/ordenes", headers=ayudante).json()] == [o["id"]]
+    r = client.post("/auth/login-pin", json={"telefono": tel_de(o["ayudantes"][0]["id"]), "pin": "1234"})
+    assert r.status_code == 403 and "no usan la app" in r.json()["detail"]
 
     # La clienta no ve la cuadrilla hasta que sale en ruta
     cliente = login(client, "maria@ahahome.test")
@@ -97,8 +96,6 @@ def test_traslado_e_instalacion_completo(client):
     assert v["tecnico"] is None and v["ayudantes"] == [] and "qr" not in v
 
     client.post(f"/tecnico/ordenes/{o['id']}/confirmar", headers=tecnico)
-    # el ayudante no puede retirar ni cerrar
-    assert client.post("/tecnico/retiro", json={"qr": o["qr"]}, headers=ayudante).status_code == 403
     r = client.post("/tecnico/retiro", json={"qr": o["qr"], "seriales": {str(o["articulos"][0]["id"]): "0B5R4AAN300125"}}, headers=tecnico)
     assert r.json()["estado"] == "en_ruta"
     v = client.get(f"/ordenes/{o['id']}", headers=cliente).json()
@@ -221,18 +218,11 @@ def test_registro_en_app_y_alta_en_oficina(client, monkeypatch):
     assert "¡Bienvenido a AHA HOME!" in titulos(client, h)
     assert client.post("/auth/login-pin", json={"telefono": "04129990000", "pin": "4321"}).status_code == 200
 
-    # Ayudante: no se registra solo; lo registra su profesional desde su app y luego activa su acceso con el mismo teléfono
+    # Ayudante: no se registra solo ni usa la app; lo registra su profesional desde su app como parte de su equipo
     assert client.post("/tecnico/registro", json=datos | {"nombre": "Luis Ayudante", "cedula": "V-26000000", "telefono": "04129990009",
                                                           "email": "otro@correo.com", "rol": "ayudante"}).status_code == 403
-    nuevo = client.post("/tecnico/ayudantes", json={"nombre": "Luis Ayudante", "telefono": "04129990001", "email": "luis@correo.com",
-                                                    "foto": "/archivos/luis.jpg", "acepta_clausula": True}, headers=h).json()
-    r = client.post("/tecnico/registro", json=datos | {"nombre": "Luis Ayudante", "cedula": "V-26000000", "telefono": "04129990001",
-                                                        "email": "luis@correo.com", "rol": "ayudante"})
-    ha = {"Authorization": "Bearer " + r.json()["token"]}
-    ay_id = r.json()["usuario"]["tecnico"]["id"]
-    assert ay_id == nuevo["id"]
-    client.post("/tecnico/verificar-rostro", json=fotos, headers=ha)
-    client.post("/tecnico/onboarding", json=fotos | {"huella_registrada": True}, headers=ha)
+    ay_id = client.post("/tecnico/ayudantes", json={"nombre": "Luis Ayudante", "telefono": "04129990001", "email": "luis@correo.com",
+                                                    "foto": "/archivos/luis.jpg", "acepta_clausula": True}, headers=h).json()["id"]
     for tipo in ("foto_perfil", "cedula"):
         client.post(f"/supervisor/tecnicos/{ay_id}/documentos", json={"tipo": tipo, "url": "/archivos/x.jpg"}, headers=oficina)
     r = client.post(f"/supervisor/tecnicos/{ay_id}/alta", json={"jefe_id": tec_id}, headers=oficina).json()
@@ -310,12 +300,17 @@ def test_tecnico_anota_sus_ayudantes(client):
     assert r["verificado"] and r["jefe"] == "José Hernández" and r["grupo"] == "A"
     assert nuevo_id in [a["id"] for a in client.get("/tecnico/hoy", headers=tecnico).json()["mis_ayudantes"]]
 
-    # Luego el ayudante puede crear su propia cuenta en la app con su cédula
+    # El ayudante no entra a la app, pero puede registrarse aparte como profesional independiente (mismo teléfono y correo)
     tienda_id = client.get("/tiendas").json()[0]["id"]
     r = client.post("/tecnico/registro", json={"nombre": "Pedro Ayala", "cedula": "27111222", "telefono": "04125550000",
                                                 "email": "pedro@correo.com", "password": "clave123", "pin": "5555",
-                                                "rol": "ayudante", "tienda_id": tienda_id})
-    assert r.status_code == 200 and r.json()["usuario"]["tecnico"]["id"] == nuevo_id
+                                                "rol": "tecnico", "tienda_id": tienda_id, "conduce": True, "instala": False})
+    assert r.status_code == 200 and r.json()["usuario"]["tecnico"]["id"] != nuevo_id and r.json()["usuario"]["tecnico"]["codigo"].startswith("TRA-")
+    assert nuevo_id in [a["id"] for a in client.get("/tecnico/ayudantes", headers=tecnico).json()]  # sigue en el equipo de José
+    # el profesional lo quita de su equipo: ya no sale en sus órdenes
+    assert client.delete(f"/tecnico/ayudantes/{nuevo_id}", headers=tecnico).status_code == 200
+    assert nuevo_id not in [a["id"] for a in client.get("/tecnico/ayudantes", headers=tecnico).json()]
+    assert "Ayudante retirado" in titulos(client, oficina)
 
 
 def test_varios_articulos_instalacion_pagada_en_caja(client):

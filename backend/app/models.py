@@ -222,7 +222,11 @@ class Tecnico(Base):
     especialidades: Mapped[list] = mapped_column(JSON, default=list)
     herramientas: Mapped[str] = mapped_column(String(250), default="")
     certificaciones: Mapped[str] = mapped_column(String(250), default="")
-    clausula_aceptada_en: Mapped[dt.datetime | None] = mapped_column(DateTime)  # ayudante: su profesional aceptó responder por él
+    clausula_aceptada_en: Mapped[dt.datetime | None] = mapped_column(DateTime)
+    # Ayudante: no tiene acceso a la app; su teléfono y correo son solo de contacto (así puede registrarse aparte como profesional)
+    contacto_telefono: Mapped[str] = mapped_column(String(30), default="")
+    contacto_email: Mapped[str] = mapped_column(String(160), default="")
+    retirado_en: Mapped[dt.datetime | None] = mapped_column(DateTime)  # su profesional lo quitó de su equipo  # ayudante: su profesional aceptó responder por él
     es_ayudante: Mapped[bool] = mapped_column(Boolean, default=False)
     jefe_id: Mapped[int | None] = mapped_column(ForeignKey("tecnicos.id"))  # técnico con el que sale el ayudante
 

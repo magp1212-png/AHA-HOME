@@ -248,6 +248,8 @@ def dar_de_alta(tec_id: int, body: Alta, user: User = Depends(control), db: Sess
     if not t.es_ayudante:  # el técnico se registra en la app; el ayudante puede registrarse completo en la oficina
         if not (t.foto_rostro and t.selfie_cedula):
             falta.append("escaneo facial y foto con la cédula (desde la app)")
+        elif t.rostro_resultado == "no_coincide":
+            falta.append("verificación facial aprobada (la cara no coincide con la de la cédula: pide un nuevo escaneo)")
         if not t.huella_registrada:
             falta.append("huella (desde la app)")
     if not t.es_ayudante:

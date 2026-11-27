@@ -88,7 +88,7 @@ def nombres_cuadrilla(orden: Orden) -> str:
 
 
 def ayudantes_disponibles(tec: Tecnico) -> list[Tecnico]:
-    return [a for a in tec.ayudantes if a.verificado and a.disponible and a.user.activo]
+    return [a for a in tec.ayudantes if a.verificado and a.disponible and a.user.activo and not a.retirado_en]
 
 
 def supervisores_de(db: Session, orden: Orden) -> list[User]:

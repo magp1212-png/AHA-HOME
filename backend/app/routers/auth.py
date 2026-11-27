@@ -177,6 +177,9 @@ def login(body: Login, request: Request, db: Session = Depends(get_db)):
     u = db.scalar(select(User).where(or_(User.email == ident, User.telefono == limpiar_tel(ident))))
     ip = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "")
     ua = request.headers.get("user-agent", "")
+    if u and u.rol == "ayudante":
+        from ..deps import SIN_APP_AYUDANTE
+        raise HTTPException(403, SIN_APP_AYUDANTE)
     if not u or not u.activo or not verify_password(body.password, u.password_hash):
         if u:
             from ..actividad import anotar
@@ -206,6 +209,9 @@ def login_pin(body: LoginPin, db: Session = Depends(get_db)):
     if config.SOLO_EQUIPO:
         raise HTTPException(403, config.MENSAJE_SOLO_EQUIPO)
     u = db.scalar(select(User).where(User.telefono == limpiar_tel(body.telefono), User.rol.in_(("tecnico", "ayudante"))))
+    if u and u.rol == "ayudante":
+        from ..deps import SIN_APP_AYUDANTE
+        raise HTTPException(403, SIN_APP_AYUDANTE)
     if not u or not u.activo or not u.tecnico or not verify_password(body.pin, u.tecnico.pin_hash):
         raise HTTPException(401, "Teléfono o PIN incorrectos")
     return {"token": make_token(u.id), "usuario": perfil(u)}

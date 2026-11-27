@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Image, View } from "react-native";
+import { Alert, Image, Pressable, View } from "react-native";
 
 import { api, subirFoto } from "../../api";
 import { tomarFoto } from "../../photo";
@@ -32,6 +32,13 @@ export default function Ayudantes() {
     setCargando(false);
   }
 
+  function quitar(a: Persona) {
+    Alert.alert("Quitar ayudante", `¿Sacar a ${a.nombre} de tu equipo? Ya no saldrá contigo en las órdenes.`, [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Quitar", style: "destructive", onPress: () => { api(`/tecnico/ayudantes/${a.id}`, { method: "DELETE" }).then(cargar).catch((e) => setError(e.message)); } },
+    ]);
+  }
+
   async function guardar() {
     if (!foto) return;
     setCargando(true); setError(null);
@@ -52,6 +59,7 @@ export default function Ayudantes() {
             {a.cedula ? <Texto gris size={13}>{a.cedula}</Texto> : null}
             <Etiqueta texto={a.alta ? "Alta lista: sale contigo" : "Pendiente de registro en la oficina"} tono={a.alta ? "ok" : "alerta"} />
           </View>
+          <Pressable onPress={() => quitar(a)} hitSlop={10}><Texto color="#E5484D" size={13}>Quitar</Texto></Pressable>
         </Tarjeta>
       ))}
       <Tarjeta>
@@ -73,7 +81,7 @@ export default function Ayudantes() {
         <Aviso texto={error} />
         <Boton titulo="Registrar ayudante" onPress={guardar} cargando={cargando}
           deshabilitado={!foto || f.nombre.trim().length < 3 || f.telefono.length < 7 || !f.email.includes("@") || !acepta} />
-        <Texto gris size={13}>Saldrá en tus órdenes cuando la oficina complete su verificación.</Texto>
+        <Texto gris size={13}>Tus ayudantes no usan la app: van contigo como parte de tu equipo. Saldrán en tus órdenes cuando la oficina complete su verificación. Puedes quitarlos cuando quieras.</Texto>
       </Tarjeta>
     </Pantalla>
   );

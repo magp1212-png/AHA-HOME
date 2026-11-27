@@ -141,6 +141,8 @@ def _del_modulo(t: Tecnico, modulo: str) -> bool:
 
 
 def _estado_prof(t: Tecnico) -> str:
+    if t.retirado_en:
+        return "Retirado del equipo"
     return "Validado" if t.verificado else "Pendiente" if t.user.activo else "Suspendido"
 
 

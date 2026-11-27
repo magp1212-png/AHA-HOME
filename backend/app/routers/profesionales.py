@@ -74,8 +74,13 @@ def _doc(d) -> dict:
 
 def _obligatorios(t: Tecnico) -> list[dict]:
     pend = dict(documentos_pendientes(t))
-    return [{"tipo": k, "texto": TIPOS_DOCUMENTO[k], "para": "conducir" if k in OBLIGATORIOS_CONDUCTOR else "comun",
-             "estado": pend.get(k, "ok")} for k in obligatorios_de(t)]
+    out = [{"tipo": k, "texto": TIPOS_DOCUMENTO[k], "para": "conducir" if k in OBLIGATORIOS_CONDUCTOR else "comun",
+            "estado": pend.get(k, "ok")} for k in obligatorios_de(t)]
+    if not t.es_ayudante:  # todo profesional: foto con la cédula y verificación facial (biometría) desde la app
+        out[2:2] = [{"tipo": "selfie_cedula", "texto": "Foto con la cédula", "para": "comun", "estado": "ok" if t.selfie_cedula else "falta"},
+                    {"tipo": "verificacion_facial", "texto": "Verificación facial", "para": "comun",
+                     "estado": "ok" if t.foto_rostro and t.rostro_resultado in ("coincide", "revision_manual") else "vencido" if t.rostro_resultado == "no_coincide" else "falta"}]
+    return out
 
 
 def vista(db: Session, t: Tecnico, user: User) -> dict:
@@ -90,7 +95,8 @@ def vista(db: Session, t: Tecnico, user: User) -> dict:
     return {
         "id": t.id, "user_id": u.id, "codigo": codigos.profesional(t), "verificacion_codigo": codigos.verificacion(t), "es_ayudante": t.es_ayudante,
         "actividad": codigos.actividad_texto(t), "conduce": t.conduce, "instala": t.instala,
-        "nombre": u.nombre, "cedula": u.cedula or "", "telefono": u.telefono or "", "email": u.email or "", "fecha_nacimiento": t.fecha_nacimiento,
+        "nombre": u.nombre, "cedula": u.cedula or "", "telefono": (t.contacto_telefono or u.telefono or "") if t.es_ayudante else u.telefono or "",
+        "email": (t.contacto_email or u.email or "") if t.es_ayudante else u.email or "", "retirado_en": _iso(t.retirado_en), "fecha_nacimiento": t.fecha_nacimiento,
         "direccion": t.direccion, "lat": t.lat, "lng": t.lng, "registrado": _iso(u.creado), "activo": u.activo, "verificado": t.verificado,
         "estado": "Validado" if t.verificado else ("Suspendido" if t.alta_en else "Pendiente") if u.activo else "Inactivo",
         "tienda_id": t.tienda_id, "tienda": t.tienda.nombre if t.tienda else "", "grupo": t.grupo or "", "disponible": t.disponible,
@@ -105,7 +111,7 @@ def vista(db: Session, t: Tecnico, user: User) -> dict:
         "jefe": {"id": jefe.id, "nombre": jefe.user.nombre, "codigo": codigos.profesional(jefe)} if jefe else None,
         "clausula_aceptada_en": _iso(t.clausula_aceptada_en),
         "ayudantes": [{"id": a.id, "nombre": a.user.nombre, "codigo": codigos.profesional(a), "cedula": a.user.cedula or "", "verificado": a.verificado}
-                      for a in (t.ayudantes if not t.es_ayudante else [])],
+                      for a in (t.ayudantes if not t.es_ayudante else []) if not a.retirado_en],
         "servicios": {"traslados": servicios.get("traslado", 0) + servicios.get("traslado_instalacion", 0),
                       "instalaciones": servicios.get("instalacion", 0) + servicios.get("traslado_instalacion", 0),
                       "calificacion": round(sum(califs) / len(califs), 2) if califs else None, "resenas": len(califs),
@@ -180,6 +186,15 @@ def editar(tid: int, body: Edicion, user: User = Depends(_EQUIPO), db: Session =
             raise HTTPException(409, "Esa cédula ya está registrada")
         anota("cedula", u.cedula, c)
         u.cedula = c
+    if t.es_ayudante and (body.telefono is not None or body.email is not None):  # ayudante: solo datos de contacto
+        if body.telefono is not None:
+            tel = limpiar_tel(body.telefono) if body.telefono.strip() else ""
+            anota("telefono", t.contacto_telefono, tel)
+            t.contacto_telefono = tel or ""
+        if body.email is not None:
+            anota("email", t.contacto_email, body.email.strip().lower())
+            t.contacto_email = body.email.strip().lower()
+        body.telefono = body.email = None
     if body.telefono is not None:
         tel = limpiar_tel(body.telefono) if body.telefono.strip() else None
         if tel and db.scalar(select(User).where(User.telefono == tel, User.id != u.id)):
@@ -312,7 +327,11 @@ def avisar_vencimientos(db: Session) -> int:
         t = d.tecnico
         tipo = TIPOS_DOCUMENTO.get(d.tipo, d.tipo)
         titulo = f"{tipo}: {texto.lower()}"
-        notificar(db, t.user_id, titulo, f"Renuévalo y entrégalo en la oficina ({codigos.documento(d)}). Vence el {d.vence}.")
+        if t.es_ayudante:  # el ayudante no usa la app: el aviso le llega a su profesional
+            if t.jefe and not t.retirado_en:
+                notificar(db, t.jefe.user_id, f"Tu ayudante {t.user.nombre}: {titulo[0].lower()}{titulo[1:]}", f"Que lo renueve y lo entregue en la oficina ({codigos.documento(d)}). Vence el {d.vence}.")
+        else:
+            notificar(db, t.user_id, titulo, f"Renuévalo y entrégalo en la oficina ({codigos.documento(d)}). Vence el {d.vence}.")
         for s in soporte:
             notificar(db, s.id, f"Documento {'vencido' if marca == 'vencido' else 'por vencer'}", f"{t.user.nombre} ({codigos.profesional(t)}): {tipo} · {texto.lower()} ({d.vence}).")
         d.aviso_vence = marca

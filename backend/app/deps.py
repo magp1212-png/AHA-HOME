@@ -6,12 +6,17 @@ from .models import User, ahora
 from .security import emitido_en, read_token
 
 
+SIN_APP_AYUDANTE = "Los ayudantes no usan la app: forman parte del equipo de su profesional. Si quieres trabajar por tu cuenta, regístrate como profesional."
+
+
 def current_user(authorization: str = Header(default=""), db: Session = Depends(get_db)) -> User:
     token = authorization.removeprefix("Bearer ").strip()
     uid = read_token(token) if token else None
     user = db.get(User, uid) if uid else None
     if not user or not user.activo:
         raise HTTPException(401, "Inicia sesión de nuevo")
+    if user.rol == "ayudante":
+        raise HTTPException(403, SIN_APP_AYUDANTE)
     if user.sesiones_desde:
         emitido = emitido_en(token)
         if not emitido or emitido < user.sesiones_desde:

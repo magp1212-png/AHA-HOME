@@ -292,7 +292,7 @@
     const fecha = (x) => fmt("", x);
 
     const actividades = p.es_ayudante
-      ? bloque("Equipo", `<div class="pf-nota total">Ayudante registrado por su profesional, bajo su responsabilidad${p.clausula_aceptada_en ? ` (aceptó la cláusula el ${fecha(p.clausula_aceptada_en)})` : ""}.</div>
+      ? bloque("Equipo", `<div class="pf-nota total">Ayudante sin acceso a la app, registrado por su profesional bajo su responsabilidad${p.clausula_aceptada_en ? ` (aceptó la cláusula el ${fecha(p.clausula_aceptada_en)})` : ""}.</div>
           ${lista("Acompaña a", "jefe_id", p.jefe?.id, p.catalogo.jefes.map((j) => [j.id, `${j.nombre} · ${j.codigo}`]), { ancho: true })}
           ${p.jefe ? `<a class="total" href="#profesional-${p.jefe.id}">Ver el perfil de ${esc(p.jefe.nombre)} ›</a>` : ""}`)
       : bloque("Tipo de perfil", [["conductor", "🚚 Conductor", "Retira en la tienda y lleva los artículos a la casa del cliente. Aparece en Conductores."],
@@ -332,7 +332,10 @@
 
     const img = (u, t) => `<div class="pf-foto">${u ? `<a href="${esc(u)}" target="_blank"><img src="${esc(u)}" alt="" style="width:96px;height:96px;border-radius:18px;object-fit:cover"></a>` : `<div class="pf-cedimg">—</div>`}<small>${t}</small></div>`;
     const res = { coincide: ["ok", "Coincide"], no_coincide: ["mal", "No coincide"], revision_manual: ["pend", "Revisar a mano"] }[idn.resultado] || ["neutro", "Pendiente"];
-    const identidad = bloque("Verificación de identidad", `<div class="pf-ver">${img(idn.foto_rostro, "Escaneo facial")}${img(idn.selfie_cedula, "Con su cédula")}
+    const identidad = p.es_ayudante ? bloque("Verificación en la oficina", `<div class="pf-nota total">El ayudante no usa la app: la oficina revisa su foto de perfil y su cédula y le da el alta.${p.retirado_en ? ` Su profesional lo retiró del equipo el ${fecha(p.retirado_en)}.` : ""}</div>
+        <div class="pf-verd" style="grid-column:1/-1"><div class="fila"><span>Alta</span><span>${idn.alta_en ? `${fecha(idn.alta_en)}${idn.alta_por ? " · " + esc(idn.alta_por) : ""}` : "Todavía no"}</span></div></div>
+        ${ed && !p.verificado && !p.retirado_en && puedeHacer("altas_tecnicos") ? `<div class="pf-cabacc" style="grid-column:1/-1"><button class="btn pri chico" id="pf-alta">Aprobar y dar de alta</button></div>` : ""}`)
+      : bloque("Verificación de identidad", `<div class="pf-ver">${img(idn.foto_rostro, "Escaneo facial")}${img(idn.selfie_cedula, "Con su cédula")}
         <div class="pf-verd"><div class="fila"><span>Solicitud</span><span class="pf-id">${esc(p.verificacion_codigo)}</span></div>
         <div class="fila"><span>Resultado</span><span>${chip(res[0], res[1])}${idn.similitud ? ` ${idn.similitud}%` : ""}</span></div>
         <div class="fila"><span>Intentos</span><span>${idn.intentos}</span></div><div class="fila"><span>Huella</span><span>${idn.huella ? "✓ Registrada" : "Sin registrar"}</span></div>
@@ -400,8 +403,9 @@
       try { await api(`/profesionales/${id}`, { method: "PUT", body }); S.cache = {}; await pintar(true); $("#pf-ok").textContent = "Cambios guardados. Quedaron en el historial."; } catch (e) { err(e); }
     };
     $("#pf-act").onclick = () => api(`/admin/usuarios/${p.user_id}/activo`, { body: { activo: !p.activo } }).then(() => pintar(true)).catch(err);
-    $("#pf-scan").onclick = () => confirm("¿Pedirle que repita el escaneo facial y la foto con su cédula desde la app?") && api(`/profesionales/${id}/reescaneo`, { body: {} }).then(() => pintar(true)).catch(err);
-    $("#pf-pin").onclick = async () => {
+    const scan = $("#pf-scan"), pin = $("#pf-pin");
+    if (scan) scan.onclick = () => confirm("¿Pedirle que repita el escaneo facial y la foto con su cédula desde la app?") && api(`/profesionales/${id}/reescaneo`, { body: {} }).then(() => pintar(true)).catch(err);
+    if (pin) pin.onclick = async () => {
       if (!confirm("¿Generar un PIN nuevo? El anterior deja de funcionar.")) return;
       try { const r = await api(`/profesionales/${id}/pin`, { body: {} }); alert(`PIN nuevo: ${r.pin}\n\nEntrégaselo en persona. No se volverá a mostrar.`); pintar(true); } catch (e) { err(e); }
     };
